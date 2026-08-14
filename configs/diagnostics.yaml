@@ -13,6 +13,7 @@ diagnostics:
   horizons: [1, 2, 5]
   candidates: 128
   gamma: 0.97
+  event_weights: [0.05, 0.10, 0.20, 1.00]
   rollout_samples: 200
   training_transitions: runs/workshop_guided/transitions.jsonl
   output_dir: runs/diagnostics
