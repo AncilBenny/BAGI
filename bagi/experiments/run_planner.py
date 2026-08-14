@@ -47,7 +47,7 @@ def run(config_path: str) -> None:
     checkpoint = Path(model_cfg["checkpoint"])
     if not checkpoint.exists():
         raise FileNotFoundError(
-            f"Missing {checkpoint}. Run `make collect` and `make world-model` first."
+            f"Missing {checkpoint}. Run `make guided-collect` and `make world-model` first."
         )
     model.load_state_dict(torch.load(checkpoint, map_location="cpu"))
 
@@ -58,6 +58,7 @@ def run(config_path: str) -> None:
         candidates=int(plan_cfg["candidates"]),
         gamma=float(plan_cfg["gamma"]),
         seed=seed,
+        event_weights=[float(value) for value in plan_cfg.get("event_weights", [])] or None,
     )
 
     training_steps = count_transitions(Path(eval_cfg["training_transitions"]))
