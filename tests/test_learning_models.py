@@ -27,13 +27,19 @@ def test_dqn_forward_and_learning_step():
 
 
 def test_world_model_shapes_and_prediction():
-    model = WorldModel(observation_shape=(5, 5), actions=4, cell_values=7)
+    model = WorldModel(observation_shape=(5, 5), actions=4, cell_values=9)
     observations = torch.zeros((3, 5, 5), dtype=torch.long)
     actions = torch.tensor([0, 1, 2])
     logits, rewards = model(observations, actions)
-    assert logits.shape == (3, 5, 5, 7)
+    assert logits.shape == (3, 5, 5, 9)
     assert rewards.shape == (3,)
 
     predicted_observations, predicted_rewards = model.predict(observations, actions)
     assert predicted_observations.shape == (3, 5, 5)
     assert predicted_rewards.shape == (3,)
+
+    event_logits = model.forward_with_events(observations, actions)[2]
+    assert event_logits.shape == (3, 4)
+    _, _, event_probabilities = model.predict_events(observations, actions)
+    assert event_probabilities.shape == (3, 4)
+    assert torch.all((event_probabilities >= 0.0) & (event_probabilities <= 1.0))
