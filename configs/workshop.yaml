@@ -1,0 +1,10 @@
+seed: 42
+environment:
+  size: 9
+  max_steps: 100
+  view_size: 5
+  randomize_layout: true
+experiment:
+  episodes: 10
+  log_transitions: true
+  output_dir: runs/workshop
