@@ -1,4 +1,4 @@
-.PHONY: install test lint demo collect baseline world-model check
+.PHONY: install test lint demo collect baseline world-model planner compare experiment check
 
 install:
 	python -m pip install --upgrade pip
@@ -21,5 +21,13 @@ baseline:
 
 world-model:
 	python -m bagi.experiments.train_world_model --config configs/world_model.yaml
+
+planner:
+	python -m bagi.experiments.run_planner --config configs/planner.yaml
+
+compare:
+	python -m bagi.experiments.compare_agents
+
+experiment: collect baseline world-model planner compare
 
 check: lint test
