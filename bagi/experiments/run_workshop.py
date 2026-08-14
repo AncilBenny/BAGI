@@ -26,12 +26,13 @@ def run(config_path: str) -> None:
         max_steps=int(env_cfg["max_steps"]),
         view_size=int(env_cfg["view_size"]),
     )
+    env.action_space.seed(seed)
 
     output_dir = Path(exp_cfg["output_dir"])
     logger = TransitionLogger(output_dir / "transitions.jsonl")
 
     for episode in range(int(exp_cfg["episodes"])):
-        obs, info = env.reset(seed=seed + episode)
+        obs, _ = env.reset(seed=seed + episode)
         done = False
         while not done:
             action = env.action_space.sample()
@@ -48,7 +49,6 @@ def run(config_path: str) -> None:
                     info=next_info,
                 )
             obs = next_obs
-            info = next_info
             done = terminated or truncated
 
     print(f"Completed {exp_cfg['episodes']} episodes")
