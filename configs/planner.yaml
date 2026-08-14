@@ -6,7 +6,7 @@ environment:
 model:
   checkpoint: runs/world_model/world_model.pt
   hidden: 192
-  cell_values: 7
+  cell_values: 9
   actions: 4
 planning:
   horizon: 5
