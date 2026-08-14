@@ -1,0 +1,18 @@
+seed: 42
+environment:
+  size: 9
+  max_steps: 100
+  view_size: 5
+model:
+  checkpoint: runs/world_model/world_model.pt
+  hidden: 192
+  cell_values: 7
+  actions: 4
+planning:
+  horizon: 5
+  candidates: 128
+  gamma: 0.97
+evaluation:
+  episodes: 25
+  training_transitions: runs/workshop/transitions.jsonl
+  output_dir: runs/planner
