@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -56,6 +57,55 @@ def one_step_accuracy(model: WorldModel, rows: list[dict], limit: int) -> float:
     return float((predicted == targets).float().mean().item())
 
 
+def reward_and_event_stats(rows: list[dict]) -> dict:
+    positive_rewards = sum(float(row["reward"]) > 0 for row in rows)
+    event_counts: Counter[str] = Counter()
+    for row in rows:
+        info = row.get("info", {})
+        for event in info.get("events", []):
+            event_counts[str(event)] += 1
+
+    causal_events = {
+        name: event_counts.get(name, 0)
+        for name in [
+            "switch_activated",
+            "key_picked_up",
+            "lock_opened",
+            "goal_reached",
+            "blocked",
+        ]
+    }
+    return {
+        "transitions": len(rows),
+        "positive_reward_transitions": positive_rewards,
+        "positive_reward_fraction": positive_rewards / max(1, len(rows)),
+        "causal_event_counts": causal_events,
+    }
+
+
+def predicted_reward_by_action(
+    model: WorldModel, rows: list[dict], actions: int, limit: int
+) -> dict[int, dict[str, float]]:
+    chosen = rows[: min(limit, len(rows))]
+    observations = torch.tensor(
+        np.asarray([row["observation"] for row in chosen]), dtype=torch.long
+    )
+    stats: dict[int, dict[str, float]] = {}
+    with torch.no_grad():
+        for action in range(actions):
+            action_batch = torch.full(
+                (observations.shape[0],), action, dtype=torch.long
+            )
+            _, rewards = model.predict(observations, action_batch)
+            stats[action] = {
+                "mean": float(rewards.mean().item()),
+                "std": float(rewards.std(unbiased=False).item()),
+                "min": float(rewards.min().item()),
+                "max": float(rewards.max().item()),
+            }
+    return stats
+
+
 def rollout_accuracy(
     model: WorldModel,
     env_cfg: dict,
@@ -104,12 +154,15 @@ def evaluate_random(env_cfg: dict, episodes: int, seed: int) -> dict:
     total_reward = 0.0
     real_steps = 0
     successes = 0
+    action_counts: Counter[int] = Counter()
 
     for episode in range(episodes):
-        _, _ = env.reset(seed=seed + episode)
+        env.reset(seed=seed + episode)
         done = False
         while not done:
-            _, reward, terminated, truncated, _ = env.step(rng.randrange(env.action_space.n))
+            action = rng.randrange(env.action_space.n)
+            action_counts[action] += 1
+            _, reward, terminated, truncated, _ = env.step(action)
             total_reward += float(reward)
             real_steps += 1
             if terminated:
@@ -122,6 +175,7 @@ def evaluate_random(env_cfg: dict, episodes: int, seed: int) -> dict:
         "success_rate": successes / max(1, episodes),
         "reward": total_reward,
         "evaluation_real_steps": real_steps,
+        "action_counts": dict(sorted(action_counts.items())),
     }
 
 
@@ -151,12 +205,14 @@ def evaluate_planner(
     total_reward = 0.0
     real_steps = 0
     successes = 0
+    action_counts: Counter[int] = Counter()
 
     for episode in range(episodes):
         observation, _ = env.reset(seed=seed + episode)
         done = False
         while not done:
             action = planner.select_action(observation)
+            action_counts[action] += 1
             observation, reward, terminated, truncated, _ = env.step(action)
             total_reward += float(reward)
             real_steps += 1
@@ -172,6 +228,7 @@ def evaluate_planner(
         "reward": total_reward,
         "evaluation_real_steps": real_steps,
         "imagined_steps": planner.imagined_steps,
+        "action_counts": dict(sorted(action_counts.items())),
     }
 
 
@@ -193,9 +250,18 @@ def run(config_path: str) -> None:
     model = build_model(env, model_cfg)
     rows = load_rows(Path(diag_cfg["training_transitions"]))
     horizons = [int(value) for value in diag_cfg["horizons"]]
+    reward_stats = reward_and_event_stats(rows)
+    predicted_rewards = predicted_reward_by_action(
+        model,
+        rows,
+        int(model_cfg["actions"]),
+        int(diag_cfg["rollout_samples"]),
+    )
 
     results = {
         "world_model_training_real_steps": len(rows),
+        "training_signal": reward_stats,
+        "predicted_reward_by_action": predicted_rewards,
         "one_step_cell_accuracy": one_step_accuracy(
             model, rows, int(diag_cfg["rollout_samples"])
         ),
@@ -233,6 +299,17 @@ def run(config_path: str) -> None:
 
     print("BAGI planning diagnostics")
     print(f"world-model training real steps: {len(rows)}")
+    print(
+        "positive reward transitions: "
+        f"{reward_stats['positive_reward_transitions']}/{reward_stats['transitions']} "
+        f"({reward_stats['positive_reward_fraction']:.4f})"
+    )
+    print("causal events:")
+    for event, count in reward_stats["causal_event_counts"].items():
+        print(f"  {event}: {count}")
+    print("predicted reward by action (mean ± std):")
+    for action, stats in predicted_rewards.items():
+        print(f"  action={action}: {stats['mean']:.5f} ± {stats['std']:.5f}")
     print(f"one-step cell accuracy: {results['one_step_cell_accuracy']:.3f}")
     for horizon in horizons:
         accuracy = results["closed_loop_cell_accuracy"][horizon]
@@ -240,14 +317,16 @@ def run(config_path: str) -> None:
     random_result = results["random_policy"]
     print(
         f"random: success_rate={random_result['success_rate']:.3f} "
-        f"real_steps={random_result['evaluation_real_steps']}"
+        f"real_steps={random_result['evaluation_real_steps']} "
+        f"actions={random_result['action_counts']}"
     )
     for planner_result in results["planner"]:
         print(
             f"planner h={planner_result['horizon']}: "
             f"success_rate={planner_result['success_rate']:.3f} "
             f"real_steps={planner_result['evaluation_real_steps']} "
-            f"imagined_steps={planner_result['imagined_steps']}"
+            f"imagined_steps={planner_result['imagined_steps']} "
+            f"actions={planner_result['action_counts']}"
         )
     print(f"Saved diagnostics to {output_path}")
 
