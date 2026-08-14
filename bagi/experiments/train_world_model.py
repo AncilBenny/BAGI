@@ -89,7 +89,7 @@ def run(config_path: str) -> None:
 
     model = WorldModel(
         observation_shape=tuple(observations.shape[1:]),
-        actions=int(actions.max().item()) + 1,
+        actions=int(model_cfg["actions"]),
         cell_values=int(model_cfg["cell_values"]),
         hidden=int(model_cfg["hidden"]),
     )
