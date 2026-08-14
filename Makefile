@@ -1,4 +1,4 @@
-.PHONY: install test lint demo collect guided-collect baseline world-model planner compare diagnose causal-experiment experiment check
+.PHONY: install test lint demo collect guided-collect baseline world-model planner compare diagnose causal-experiment sample-efficiency experiment check
 
 install:
 	python -m pip install --upgrade pip
@@ -35,6 +35,9 @@ diagnose:
 	python -m bagi.experiments.diagnose_planning --config configs/diagnostics.yaml
 
 causal-experiment: guided-collect world-model planner diagnose
+
+sample-efficiency:
+	python -m bagi.experiments.sample_efficiency --config configs/sample_efficiency.yaml
 
 experiment: collect baseline world-model planner compare
 
