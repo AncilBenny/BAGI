@@ -35,9 +35,9 @@ def test_key_allows_lock_passage():
 def test_lock_blocks_agent_without_key():
     env = WorkshopEnv()
     env.reset(seed=1)
-    # move around without collecting key and approach [5,4] from above
-    move(env, [1, 1, 1, 2, 2, 2, 2])
-    before = env._pos.copy()
+    # approach the lock from above without touching the key or door
+    _, _, _, _, info = move(env, [2, 2, 2, 1, 1, 1])
+    before = info["position"].copy()
     _, _, _, _, info = env.step(2)
     assert np.array_equal(info["position"], before)
     assert "blocked" in info["events"]
