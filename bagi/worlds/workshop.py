@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
@@ -22,7 +24,7 @@ class WorkshopEnv(gym.Env):
     always visible and later agents will need memory.
     """
 
-    metadata = {"render_modes": ["ansi"]}
+    metadata: ClassVar[dict[str, list[str]]] = {"render_modes": ["ansi"]}
 
     def __init__(self, size: int = 9, max_steps: int = 100, view_size: int = 5):
         super().__init__()
@@ -90,9 +92,7 @@ class WorkshopEnv(gym.Env):
             return False
         if np.array_equal(pos, self._door) and not self._door_open:
             return False
-        if np.array_equal(pos, self._lock) and not self._has_key:
-            return False
-        return True
+        return not (np.array_equal(pos, self._lock) and not self._has_key)
 
     def _tile_at(self, row: int, col: int) -> int:
         if row <= 0 or col <= 0 or row >= self.size - 1 or col >= self.size - 1:
