@@ -17,91 +17,71 @@ The goal is not to claim AGI. The goal is to build a small learning organism tha
 
 > How much useful capability can an agent acquire per unit of experience?
 
-We measure environment interactions, transfer, generalization, forgetting, and planning gain—not only final reward.
+We measure environment interactions, transfer, generalization, forgetting, planning gain, and prediction quality—not only final reward.
 
-## Phase 0 — The Workshop
+## The Workshop
 
-The first environment is a lightweight 2D laboratory with partial observability and reusable causal rules.
+The first laboratory is a lightweight 2D partially observable world with reusable causal rules. It currently includes a switch that opens a door and a key that opens a lock. More compositional mechanisms will be added as the learning system matures.
 
-Current mechanics include:
+## Run in GitHub Codespaces
 
-- switch → opens door
-- key → allows lock passage
-- local 5×5 observation → partial observability
-- goal completion
-- deterministic transition/event logging
-
-Later versions will add movable blocks, pressure plates, hazards, resources, layout randomization, and multiple agents.
-
-## Fastest way to run: GitHub Codespaces
-
-1. Open this repository on GitHub.
-2. Choose **Code → Codespaces → Create codespace**.
-3. Wait for the dev container setup to finish. Dependencies install automatically.
-4. In the terminal run:
+Open the repository in a Codespace. The dev container installs the project automatically.
 
 ```bash
 make check
 make demo
+```
+
+To generate interaction data:
+
+```bash
 make collect
 ```
 
-`make collect` writes transition data to `runs/workshop/transitions.jsonl`.
+This writes transition data under `runs/workshop/`.
 
-## Local setup
+## First learning experiments
 
-Python 3.11+ is recommended.
+### 1. Model-free baseline
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-make install
-make check
-make demo
-```
-
-On Windows PowerShell, activate with:
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-## Commands
+The DQN baseline is deliberately small and CPU-friendly. Its job is to establish a reference curve for reward versus **real environment interactions**.
 
 ```bash
-make install   # install BAGI + development dependencies
-make lint      # Ruff checks
-make test      # pytest suite
-make check     # lint + tests
-make demo      # print and step through Workshop
-make collect   # collect reproducible random-policy transitions
+make baseline
 ```
 
-## Repository structure
+Outputs are written to `runs/dqn/`, including `metrics.jsonl` and the learned Q-network checkpoint.
+
+### 2. Predictive world model
+
+First collect transitions, then train the model:
+
+```bash
+make collect
+make world-model
+```
+
+The world model learns:
 
 ```text
-.devcontainer/          reproducible Codespaces environment
-.github/workflows/      CI
-bagi/
-  experiments/          runners and transition logging
-  utils/                reproducibility helpers
-  worlds/                simulation environments
-configs/                 experiment configurations
-docs/                    research protocol and design notes
-tests/                   automated environment tests
-runs/                    generated experiments; ignored by Git
-checkpoints/             generated models; ignored by Git
+(observation, action) -> predicted next observation + predicted reward
 ```
 
-## Experiment discipline
+Validation metrics include next-cell prediction accuracy and reward mean absolute error. Outputs are written to `runs/world_model/`.
 
-Every serious experiment should preserve its seed, configuration, code revision, real environment interaction count, metrics, and failure analysis. See `docs/RESEARCH_PROTOCOL.md`.
+## Why both?
+
+The DQN baseline answers: **how many real interactions does a conventional model-free learner need?**
+
+The world model starts testing our central hypothesis: **can learning the structure of the world allow an agent to get more capability from each real interaction?**
+
+The next milestone is to use the learned dynamics model for short imagined rollouts and compare its environment-step efficiency against the model-free baseline.
 
 ## Roadmap
 
-- M0: 2D Workshop environment and experiment infrastructure
-- M1: model-free baseline
-- M2: predictive world model
+- M0: causal 2D Workshop environment — in progress
+- M1: model-free baseline — implemented
+- M2: predictive world model — implemented
 - M3: recurrent memory / partial observability
 - M4: planning through imagined trajectories
 - M5: curiosity / uncertainty-driven exploration
@@ -110,6 +90,12 @@ Every serious experiment should preserve its seed, configuration, code revision,
 - M8: continual learning and forgetting tests
 - M9: multi-agent learning
 
+## Research discipline
+
+Every major experiment should state a hypothesis, fixed experience budget, baseline, metric, result, and failure analysis. Faster compute is not the same as better sample efficiency.
+
+See `docs/research-protocol.md` for the experiment template and measurement rules.
+
 ## Status
 
-Early experimental research platform. Expect architecture and APIs to change rapidly.
+Early experimental research platform. APIs and architecture will change as experiments invalidate assumptions.
