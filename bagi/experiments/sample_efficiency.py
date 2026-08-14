@@ -59,6 +59,11 @@ def planner_summary(path: Path) -> dict:
     }
 
 
+def macro_event_f1(model_result: dict) -> float:
+    scores = model_result["validation_event_f1"]
+    return sum(float(value) for value in scores.values()) / max(1, len(scores))
+
+
 def run(config_path: str) -> None:
     with open(config_path, "r", encoding="utf-8") as handle:
         config = yaml.safe_load(handle)
@@ -140,6 +145,7 @@ def run(config_path: str) -> None:
 
         planner_result = planner_summary(planner_dir / "metrics.jsonl")
         model_result = final_jsonl_row(model_dir / "metrics.jsonl")
+        event_f1 = macro_event_f1(model_result)
         row = {
             "guided_episodes": budget,
             "random_episodes": random_episodes,
@@ -150,7 +156,7 @@ def run(config_path: str) -> None:
             "planner_imagined_steps": planner_result["imagined_steps"],
             "validation_cell_accuracy": model_result["validation_cell_accuracy"],
             "validation_reward_mae": model_result["validation_reward_mae"],
-            "validation_event_f1": model_result["validation_event_f1"],
+            "validation_event_f1": event_f1,
         }
         rows.append(row)
         print(
