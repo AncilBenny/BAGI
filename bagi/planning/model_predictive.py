@@ -8,11 +8,7 @@ from bagi.models import WorldModel
 
 
 class ModelPredictivePlanner:
-    """Choose actions by scoring short imagined action sequences.
-
-    The planner never calls the real environment while searching. Every candidate
-    trajectory is rolled forward entirely inside the learned world model.
-    """
+    """Choose actions by scoring short imagined action sequences."""
 
     def __init__(
         self,
@@ -22,6 +18,7 @@ class ModelPredictivePlanner:
         candidates: int = 128,
         gamma: float = 0.97,
         seed: int = 42,
+        event_weights: list[float] | None = None,
     ):
         if horizon < 1:
             raise ValueError("horizon must be >= 1")
@@ -34,6 +31,9 @@ class ModelPredictivePlanner:
         self.gamma = gamma
         self.generator = torch.Generator().manual_seed(seed)
         self.imagined_steps = 0
+        self.event_weights = (
+            torch.tensor(event_weights, dtype=torch.float32) if event_weights is not None else None
+        )
 
     @torch.no_grad()
     def select_action(self, observation) -> int:
@@ -46,15 +46,20 @@ class ModelPredictivePlanner:
             (self.candidates, self.horizon),
             generator=self.generator,
         )
-        # Guarantee that every real action is considered at least once at t=0.
         sequences[: self.actions, 0] = torch.arange(self.actions)
 
         scores = torch.zeros(self.candidates, dtype=torch.float32)
         discount = 1.0
         for step in range(self.horizon):
             actions = sequences[:, step]
-            states, predicted_rewards = self.model.predict(states, actions)
-            scores += discount * predicted_rewards.cpu()
+            if self.event_weights is not None and hasattr(self.model, "predict_events"):
+                states, predicted_rewards, event_probs = self.model.predict_events(states, actions)
+                event_score = event_probs.cpu() @ self.event_weights
+                step_score = predicted_rewards.cpu() + event_score
+            else:
+                states, predicted_rewards = self.model.predict(states, actions)
+                step_score = predicted_rewards.cpu()
+            scores += discount * step_score
             discount *= self.gamma
             self.imagined_steps += self.candidates
 
