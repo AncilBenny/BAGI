@@ -14,5 +14,5 @@ diagnostics:
   candidates: 128
   gamma: 0.97
   rollout_samples: 200
-  training_transitions: runs/workshop/transitions.jsonl
+  training_transitions: runs/workshop_guided/transitions.jsonl
   output_dir: runs/diagnostics
