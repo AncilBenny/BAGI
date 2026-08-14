@@ -3,7 +3,7 @@ name: BAGI Research Loop
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "17 * * * *"
 
 permissions:
   contents: read
@@ -15,7 +15,7 @@ concurrency:
 jobs:
   research:
     runs-on: ubuntu-latest
-    timeout-minutes: 330
+    timeout-minutes: 50
     steps:
       - name: Check out research branch
         uses: actions/checkout@v4
