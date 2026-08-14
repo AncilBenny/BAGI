@@ -93,9 +93,7 @@ def predicted_reward_by_action(
     stats: dict[int, dict[str, float]] = {}
     with torch.no_grad():
         for action in range(actions):
-            action_batch = torch.full(
-                (observations.shape[0],), action, dtype=torch.long
-            )
+            action_batch = torch.full((observations.shape[0],), action, dtype=torch.long)
             _, rewards = model.predict(observations, action_batch)
             stats[action] = {
                 "mean": float(rewards.mean().item()),
@@ -188,6 +186,7 @@ def evaluate_planner(
     gamma: float,
     episodes: int,
     seed: int,
+    event_weights: list[float] | None,
 ) -> dict:
     env = WorkshopEnv(
         size=int(env_cfg["size"]),
@@ -201,6 +200,7 @@ def evaluate_planner(
         candidates=candidates,
         gamma=gamma,
         seed=seed,
+        event_weights=event_weights,
     )
     total_reward = 0.0
     real_steps = 0
@@ -250,6 +250,7 @@ def run(config_path: str) -> None:
     model = build_model(env, model_cfg)
     rows = load_rows(Path(diag_cfg["training_transitions"]))
     horizons = [int(value) for value in diag_cfg["horizons"]]
+    event_weights = [float(value) for value in diag_cfg.get("event_weights", [])] or None
     reward_stats = reward_and_event_stats(rows)
     predicted_rewards = predicted_reward_by_action(
         model,
@@ -272,9 +273,7 @@ def run(config_path: str) -> None:
             horizons,
             int(diag_cfg["rollout_samples"]),
         ),
-        "random_policy": evaluate_random(
-            env_cfg, int(diag_cfg["episodes"]), seed
-        ),
+        "random_policy": evaluate_random(env_cfg, int(diag_cfg["episodes"]), seed),
         "planner": [],
     }
 
@@ -289,6 +288,7 @@ def run(config_path: str) -> None:
                 gamma=float(diag_cfg["gamma"]),
                 episodes=int(diag_cfg["episodes"]),
                 seed=seed,
+                event_weights=event_weights,
             )
         )
 
