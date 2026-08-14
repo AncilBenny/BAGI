@@ -12,7 +12,9 @@ planning:
   horizon: 5
   candidates: 128
   gamma: 0.97
+  # switch, key, lock, goal: increasingly valuable causal progress
+  event_weights: [0.05, 0.10, 0.20, 1.00]
 evaluation:
   episodes: 25
-  training_transitions: runs/workshop/transitions.jsonl
+  training_transitions: runs/workshop_guided/transitions.jsonl
   output_dir: runs/planner
