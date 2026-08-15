@@ -40,12 +40,17 @@ def run(config_path: str) -> None:
     env_cfg = config["environment"]
     collect_cfg = config["collection"]
 
+    # Keep guided curriculum and random background experience on independent
+    # seed ranges. This guarantees that changing guided_episodes does not also
+    # change the random trajectories used in sample-efficiency comparisons.
+    guided_seed_base = int(collect_cfg.get("guided_seed_base", seed))
+    random_seed_base = int(collect_cfg.get("random_seed_base", seed + 100_000))
+
     env = WorkshopEnv(
         size=int(env_cfg["size"]),
         max_steps=int(env_cfg["max_steps"]),
         view_size=int(env_cfg["view_size"]),
     )
-    env.action_space.seed(seed)
 
     output_dir = Path(collect_cfg["output_dir"])
     transitions_path = output_dir / "transitions.jsonl"
@@ -56,8 +61,10 @@ def run(config_path: str) -> None:
     event_counts: dict[str, int] = {}
     episode_index = 0
 
-    for _ in range(int(collect_cfg["guided_episodes"])):
-        obs, _ = env.reset(seed=seed + episode_index)
+    for guided_index in range(int(collect_cfg["guided_episodes"])):
+        episode_seed = guided_seed_base + guided_index
+        obs, _ = env.reset(seed=episode_seed)
+        env.action_space.seed(episode_seed)
         done = False
         for action in GUIDED_ACTIONS:
             if done:
@@ -67,8 +74,10 @@ def run(config_path: str) -> None:
                 event_counts[event] = event_counts.get(event, 0) + 1
         episode_index += 1
 
-    for _ in range(int(collect_cfg["random_episodes"])):
-        obs, _ = env.reset(seed=seed + episode_index)
+    for random_index in range(int(collect_cfg["random_episodes"])):
+        episode_seed = random_seed_base + random_index
+        obs, _ = env.reset(seed=episode_seed)
+        env.action_space.seed(episode_seed)
         done = False
         while not done:
             action = env.action_space.sample()
@@ -80,6 +89,10 @@ def run(config_path: str) -> None:
     print(
         f"Collected {collect_cfg['guided_episodes']} guided + "
         f"{collect_cfg['random_episodes']} random episodes"
+    )
+    print(
+        f"Seed ranges: guided_base={guided_seed_base} "
+        f"random_base={random_seed_base}"
     )
     print(f"Transitions: {transitions_path}")
     print("Causal event counts:")

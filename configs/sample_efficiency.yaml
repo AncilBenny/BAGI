@@ -6,6 +6,8 @@ environment:
 sweep:
   guided_budgets: [0, 5, 10, 20, 50]
   random_episodes: 50
+  guided_seed_base: 42
+  random_seed_base: 100042
   output_dir: runs/sample_efficiency
 model:
   actions: 4
