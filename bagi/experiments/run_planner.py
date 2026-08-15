@@ -32,6 +32,7 @@ def run(config_path: str) -> None:
     model_cfg = config["model"]
     plan_cfg = config["planning"]
     eval_cfg = config["evaluation"]
+    evaluation_seed_base = int(eval_cfg.get("seed_base", seed))
 
     env = WorkshopEnv(
         size=int(env_cfg["size"]),
@@ -69,7 +70,8 @@ def run(config_path: str) -> None:
 
     with metrics_path.open("w", encoding="utf-8") as metrics:
         for episode in range(int(eval_cfg["episodes"])):
-            observation, _ = env.reset(seed=seed + episode)
+            evaluation_seed = evaluation_seed_base + episode
+            observation, _ = env.reset(seed=evaluation_seed)
             done = False
             reward_sum = 0.0
             episode_steps = 0
@@ -85,6 +87,7 @@ def run(config_path: str) -> None:
 
             row = {
                 "episode": episode + 1,
+                "evaluation_seed": evaluation_seed,
                 "episode_reward": reward_sum,
                 "episode_real_steps": episode_steps,
                 "cumulative_eval_real_steps": real_eval_steps,
