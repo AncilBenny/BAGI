@@ -1,4 +1,4 @@
-.PHONY: install test lint demo collect guided-collect baseline world-model planner compare diagnose causal-experiment sample-efficiency sample-efficiency-causal-v2 sample-efficiency-multiseed planner-trajectory-diagnostics crossed-planner-seeds experiment check
+.PHONY: install test lint demo collect guided-collect baseline world-model planner compare diagnose causal-experiment sample-efficiency sample-efficiency-causal-v2 sample-efficiency-multiseed planner-trajectory-diagnostics crossed-planner-seeds causal-v2-horizon-sweep experiment check
 
 install:
 	python -m pip install --upgrade pip
@@ -50,6 +50,9 @@ planner-trajectory-diagnostics:
 
 crossed-planner-seeds:
 	python -m bagi.experiments.crossed_planner_seed_eval --config configs/crossed_planner_seed_eval.yaml
+
+causal-v2-horizon-sweep:
+	python -m bagi.experiments.causal_v2_horizon_sweep --config configs/causal_v2_horizon_sweep.yaml
 
 experiment: collect baseline world-model planner compare
 
