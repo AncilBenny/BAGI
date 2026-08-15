@@ -14,7 +14,6 @@ import yaml
 from bagi.experiments.sample_efficiency import run as run_sample_efficiency
 from bagi.experiments.sample_efficiency import write_yaml
 
-
 METRICS = (
     "planner_success_rate",
     "planner_evaluation_real_steps",
