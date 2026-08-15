@@ -80,12 +80,18 @@ def run(config_path: str) -> None:
     root.mkdir(parents=True, exist_ok=True)
     budgets = [int(value) for value in sweep_cfg["guided_budgets"]]
     random_episodes = int(sweep_cfg["random_episodes"])
+    guided_seed_base = int(sweep_cfg.get("guided_seed_base", seed))
+    random_seed_base = int(sweep_cfg.get("random_seed_base", seed + 100_000))
     evaluation_episodes = int(eval_cfg["episodes"])
 
     random_control = evaluate_random(env_cfg, evaluation_episodes, seed)
     rows: list[dict] = []
 
     print("BAGI causal sample-efficiency sweep")
+    print(
+        f"fixed collection seeds: guided_base={guided_seed_base} "
+        f"random_base={random_seed_base}"
+    )
     print(
         f"random control: success_rate={random_control['success_rate']:.3f} "
         f"real_steps={random_control['evaluation_real_steps']}"
@@ -105,6 +111,8 @@ def run(config_path: str) -> None:
             "collection": {
                 "guided_episodes": budget,
                 "random_episodes": random_episodes,
+                "guided_seed_base": guided_seed_base,
+                "random_seed_base": random_seed_base,
                 "output_dir": str(data_dir),
             },
         }
@@ -167,6 +175,11 @@ def run(config_path: str) -> None:
         )
 
     summary = {
+        "seed_policy": {
+            "experiment_seed": seed,
+            "guided_seed_base": guided_seed_base,
+            "random_seed_base": random_seed_base,
+        },
         "random_control": random_control,
         "conditions": rows,
     }
