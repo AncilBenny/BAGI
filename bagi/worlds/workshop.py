@@ -12,13 +12,16 @@ EMPTY, WALL, GOAL, AGENT, SWITCH, DOOR_CLOSED, DOOR_OPEN, KEY, LOCK = range(9)
 
 
 class WorkshopEnv(gym.Env):
-    """A compact world with reusable causal structure.
+    """A compact world with a mandatory reusable causal structure.
 
-    Rules in v0.1:
-    - stepping on the switch opens the door;
+    Rules in v0.2:
+    - stepping on the switch opens the only door through the first barrier;
     - stepping on the key picks it up;
-    - carrying the key lets the agent pass the lock;
+    - carrying the key lets the agent pass the only lock through the second barrier;
     - reaching the goal completes the episode.
+
+    The two internal barriers make switch -> door -> key -> lock -> goal a
+    necessary causal chain rather than an optional collection of events.
 
     The observation is a 5x5 local view, so the complete world state is not
     always visible and later agents will need memory.
@@ -45,9 +48,17 @@ class WorkshopEnv(gym.Env):
         self._pos = np.array([1, 1], dtype=np.int64)
         self._goal = np.array([size - 2, size - 2], dtype=np.int64)
         self._switch = np.array([1, 3], dtype=np.int64)
-        self._door = np.array([3, 4], dtype=np.int64)
+        self._door = np.array([3, 1], dtype=np.int64)
         self._key = np.array([5, 1], dtype=np.int64)
         self._lock = np.array([5, 4], dtype=np.int64)
+
+        # Barrier 1 separates the start/switch region from the key region.
+        # Its only opening is the door at (3, 1).
+        first_barrier = {(3, col) for col in range(1, size - 1) if col != 1}
+        # Barrier 2 separates the key region from the goal region. Its only
+        # opening is the lock at (5, 4).
+        second_barrier = {(row, 4) for row in range(3, size - 1) if row != 5}
+        self._internal_walls = first_barrier | second_barrier
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
@@ -90,12 +101,16 @@ class WorkshopEnv(gym.Env):
         row, col = int(pos[0]), int(pos[1])
         if row <= 0 or col <= 0 or row >= self.size - 1 or col >= self.size - 1:
             return False
+        if (row, col) in self._internal_walls:
+            return False
         if np.array_equal(pos, self._door) and not self._door_open:
             return False
         return not (np.array_equal(pos, self._lock) and not self._has_key)
 
     def _tile_at(self, row: int, col: int) -> int:
         if row <= 0 or col <= 0 or row >= self.size - 1 or col >= self.size - 1:
+            return WALL
+        if (row, col) in self._internal_walls:
             return WALL
         pos = np.array([row, col])
         if np.array_equal(pos, self._goal):
