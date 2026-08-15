@@ -69,6 +69,7 @@ def run(config_path: str) -> None:
         config = yaml.safe_load(handle)
 
     seed = int(config["seed"])
+    training_seed = int(config.get("training_seed", seed))
     env_cfg = config["environment"]
     sweep_cfg = config["sweep"]
     model_cfg = config["model"]
@@ -83,8 +84,9 @@ def run(config_path: str) -> None:
     guided_seed_base = int(sweep_cfg.get("guided_seed_base", seed))
     random_seed_base = int(sweep_cfg.get("random_seed_base", seed + 100_000))
     evaluation_episodes = int(eval_cfg["episodes"])
+    evaluation_seed_base = int(eval_cfg.get("seed_base", seed))
 
-    random_control = evaluate_random(env_cfg, evaluation_episodes, seed)
+    random_control = evaluate_random(env_cfg, evaluation_episodes, evaluation_seed_base)
     rows: list[dict] = []
 
     print("BAGI causal sample-efficiency sweep")
@@ -92,6 +94,7 @@ def run(config_path: str) -> None:
         f"fixed collection seeds: guided_base={guided_seed_base} "
         f"random_base={random_seed_base}"
     )
+    print(f"training_seed={training_seed} evaluation_seed_base={evaluation_seed_base}")
     print(
         f"random control: success_rate={random_control['success_rate']:.3f} "
         f"real_steps={random_control['evaluation_real_steps']}"
@@ -124,7 +127,7 @@ def run(config_path: str) -> None:
         training_real_steps = count_rows(transitions)
 
         world_model_config = {
-            "seed": seed,
+            "seed": training_seed,
             "data": {"transitions": str(transitions)},
             "model": model_cfg,
             "training": {**train_cfg, "output_dir": str(model_dir)},
@@ -134,7 +137,7 @@ def run(config_path: str) -> None:
         train_world_model(str(world_model_path))
 
         planner_config = {
-            "seed": seed,
+            "seed": training_seed,
             "environment": env_cfg,
             "model": {
                 **model_cfg,
@@ -143,6 +146,7 @@ def run(config_path: str) -> None:
             "planning": plan_cfg,
             "evaluation": {
                 "episodes": evaluation_episodes,
+                "seed_base": evaluation_seed_base,
                 "training_transitions": str(transitions),
                 "output_dir": str(planner_dir),
             },
@@ -155,6 +159,7 @@ def run(config_path: str) -> None:
         model_result = final_jsonl_row(model_dir / "metrics.jsonl")
         event_f1 = macro_event_f1(model_result)
         row = {
+            "training_seed": training_seed,
             "guided_episodes": budget,
             "random_episodes": random_episodes,
             "training_real_steps": training_real_steps,
@@ -177,8 +182,10 @@ def run(config_path: str) -> None:
     summary = {
         "seed_policy": {
             "experiment_seed": seed,
+            "training_seed": training_seed,
             "guided_seed_base": guided_seed_base,
             "random_seed_base": random_seed_base,
+            "evaluation_seed_base": evaluation_seed_base,
         },
         "random_control": random_control,
         "conditions": rows,
