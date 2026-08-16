@@ -1,4 +1,4 @@
-.PHONY: install test lint demo collect guided-collect baseline world-model planner compare diagnose causal-experiment sample-efficiency sample-efficiency-causal-v2 sample-efficiency-multiseed planner-trajectory-diagnostics crossed-planner-seeds causal-v2-horizon-sweep state-aliasing-causal-v2 causal-stage-progression causal-candidate-sweep experiment check
+.PHONY: install test lint demo collect guided-collect baseline world-model planner compare diagnose causal-experiment sample-efficiency sample-efficiency-causal-v2 sample-efficiency-multiseed planner-trajectory-diagnostics crossed-planner-seeds causal-v2-horizon-sweep state-aliasing-causal-v2 causal-stage-progression causal-candidate-sweep oracle-search-ceiling experiment check
 
 install:
 	python -m pip install --upgrade pip
@@ -62,6 +62,9 @@ causal-stage-progression:
 
 causal-candidate-sweep:
 	python -m bagi.experiments.causal_candidate_sweep --config configs/causal_candidate_sweep.yaml
+
+oracle-search-ceiling:
+	python -m bagi.experiments.oracle_search_ceiling --config configs/oracle_search_ceiling.yaml
 
 experiment: collect baseline world-model planner compare
 
