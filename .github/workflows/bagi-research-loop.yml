@@ -36,8 +36,22 @@ jobs:
       - name: Verify research platform
         run: make check
 
-      - name: Run sample-efficiency study
-        run: make sample-efficiency
+      - name: Restore causal-v2 checkpoint cache
+        id: causal-cache
+        uses: actions/cache@v4
+        with:
+          path: runs/sample_efficiency_causal_v2
+          key: bagi-causal-v2-${{ hashFiles('configs/sample_efficiency_causal_v2.yaml', 'bagi/**/*.py') }}
+
+      - name: Build causal-v2 checkpoint on cache miss
+        if: steps.causal-cache.outputs.cache-hit != 'true'
+        run: make sample-efficiency-causal-v2
+
+      - name: Run oracle search ceiling
+        run: make oracle-search-ceiling
+
+      - name: Run learned planner candidate sweep
+        run: make causal-candidate-sweep
 
       - name: Capture research metadata
         if: always()
@@ -45,12 +59,15 @@ jobs:
           mkdir -p artifacts/research-loop
           git rev-parse HEAD > artifacts/research-loop/research_branch_commit.txt
           date -u +"%Y-%m-%dT%H:%M:%SZ" > artifacts/research-loop/run_utc.txt
-          if [ -f runs/sample_efficiency/summary.json ]; then
-            cp runs/sample_efficiency/summary.json artifacts/research-loop/summary.json
-          fi
-          if [ -f runs/sample_efficiency/summary.csv ]; then
-            cp runs/sample_efficiency/summary.csv artifacts/research-loop/summary.csv
-          fi
+          for path in \
+            runs/sample_efficiency_causal_v2/summary.json \
+            runs/sample_efficiency_causal_v2/summary.csv \
+            runs/oracle_search_ceiling/summary.json \
+            runs/causal_candidate_sweep/summary.json; do
+            if [ -f "$path" ]; then
+              cp "$path" "artifacts/research-loop/$(basename "$(dirname "$path")")-$(basename "$path")"
+            fi
+          done
 
       - name: Upload research results
         if: always()
