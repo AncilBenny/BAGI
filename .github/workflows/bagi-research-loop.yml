@@ -15,7 +15,7 @@ concurrency:
 jobs:
   research:
     runs-on: ubuntu-latest
-    timeout-minutes: 330
+    timeout-minutes: 45
     steps:
       - name: Check out research branch
         uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: runs/sample_efficiency_causal_v2
-          key: bagi-causal-v2-${{ hashFiles('configs/sample_efficiency_causal_v2.yaml', 'bagi/**/*.py') }}
+          key: bagi-causal-v2-${{ hashFiles('configs/sample_efficiency_causal_v2.yaml', 'bagi/models/world_model.py', 'bagi/experiments/train_world_model.py', 'bagi/experiments/collect_guided.py', 'bagi/worlds/workshop.py') }}
 
       - name: Build causal-v2 checkpoint on cache miss
         if: steps.causal-cache.outputs.cache-hit != 'true'
@@ -53,6 +53,9 @@ jobs:
       - name: Run learned planner candidate sweep
         run: make causal-candidate-sweep
 
+      - name: Run grounded imagination-gap diagnostic
+        run: python -m bagi.experiments.imagination_gap --config configs/imagination_gap.yaml
+
       - name: Capture research metadata
         if: always()
         run: |
@@ -63,7 +66,8 @@ jobs:
             runs/sample_efficiency_causal_v2/summary.json \
             runs/sample_efficiency_causal_v2/summary.csv \
             runs/oracle_search_ceiling/summary.json \
-            runs/causal_candidate_sweep/summary.json; do
+            runs/causal_candidate_sweep/summary.json \
+            runs/imagination_gap/summary.json; do
             if [ -f "$path" ]; then
               cp "$path" "artifacts/research-loop/$(basename "$(dirname "$path")")-$(basename "$path")"
             fi
