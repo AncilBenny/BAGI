@@ -51,13 +51,17 @@ jobs:
         run: |
           mkdir -p evidence
           for workflow in "BAGI E6 Imagination Gap" "BAGI Research Loop"; do
-            run_id=$(gh run list -R "$GITHUB_REPOSITORY" --workflow "$workflow"               --limit 12 --json databaseId,conclusion,status               --jq '[.[] | select(.conclusion=="success" and .status=="completed")][0].databaseId // empty' || true)
-            if [ -n "$run_id" ]; then
-              folder=$(echo "$workflow" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
-              mkdir -p "evidence/$folder"
-              gh run download "$run_id" -R "$GITHUB_REPOSITORY"                 -D "evidence/$folder" || true
-              echo "$run_id" > "evidence/$folder/workflow_run_id.txt"
-            fi
+            folder=$(echo "$workflow" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
+            mkdir -p "evidence/$folder"
+            # Find the newest successful run that actually has an artifact.
+            # Repeated cached hourly runs intentionally have no new output.
+            candidates=$(gh run list -R "$GITHUB_REPOSITORY" --workflow "$workflow" --limit 40 --json databaseId,conclusion,status --jq '.[] | select(.conclusion=="success" and .status=="completed") | .databaseId' || true)
+            for run_id in $candidates; do
+              if gh run download "$run_id" -R "$GITHUB_REPOSITORY" -D "evidence/$folder" 2>/dev/null; then
+                echo "$run_id" > "evidence/$folder/workflow_run_id.txt"
+                break
+              fi
+            done
           done
           printf 'Research branch HEAD: %s\n' "$(git rev-parse HEAD)" > evidence/branch-head.txt
 
