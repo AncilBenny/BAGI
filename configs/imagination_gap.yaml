@@ -1,0 +1,20 @@
+environment:
+  size: 9
+  max_steps: 100
+  view_size: 5
+model:
+  actions: 4
+  cell_values: 9
+  hidden: 192
+  checkpoint: runs/sample_efficiency_causal_v2/guided_050/world_model/world_model.pt
+evaluation:
+  # Diagnostic only: do not spend extra real environment interactions on training.
+  evaluation_seed_base: 50042
+  episodes_per_policy: 3
+  horizons: [1, 3, 5, 8]
+  anchor_stride: 3
+  max_anchors_per_episode: 12
+  planner_horizon: 8
+  planner_candidates: 128
+  event_weights: [0.05, 0.10, 0.20, 1.00]
+  output_dir: runs/imagination_gap

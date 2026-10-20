@@ -1,0 +1,56 @@
+name: BAGI E6 Imagination Gap
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/imagination_gap.py"
+      - "tests/test_imagination_gap.py"
+      - "configs/imagination_gap.yaml"
+      - ".github/workflows/imagination-gap.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bagi-imagination-gap
+  cancel-in-progress: false
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install and verify
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+          make check
+      - name: Restore existing causal model
+        uses: actions/cache/restore@v4
+        with:
+          path: runs/sample_efficiency_causal_v2
+          key: bagi-causal-v2-e6-readonly
+          restore-keys: |
+            bagi-causal-v2-
+      - name: Prepare checkpoint only if unavailable
+        run: |
+          if [ ! -f runs/sample_efficiency_causal_v2/guided_050/world_model/world_model.pt ]; then
+            make sample-efficiency-causal-v2
+          fi
+      - name: Run E6 imagination gap
+        run: python -m bagi.experiments.imagination_gap --config configs/imagination_gap.yaml
+      - name: Upload E6 results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-imagination-gap
+          path: runs/imagination_gap/summary.json
+          if-no-files-found: warn
+          retention-days: 30
