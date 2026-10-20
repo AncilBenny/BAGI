@@ -50,7 +50,7 @@ jobs:
           fi
           evidence_id=""
           run_ids=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=60" \
-            --jq '.workflow_runs[] | select(.conclusion=="success" and (.name=="BAGI Research Loop" or .name=="BAGI E6 Imagination Gap")) | .id' | head -30)
+            --jq '[.workflow_runs[] | select(.conclusion=="success" and (.name=="BAGI Research Loop" or .name=="BAGI E6 Imagination Gap"))][:30][] | .id')
           for run_id in $run_ids; do
             artifact=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts" \
               --jq '[.artifacts[] | select(.expired==false)][0].id // empty' || true)
