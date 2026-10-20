@@ -61,6 +61,11 @@ jobs:
           done
           printf 'Research branch HEAD: %s\n' "$(git rev-parse HEAD)" > evidence/branch-head.txt
 
+      - uses: actions/setup-node@v4
+        if: steps.auth.outputs.ready == 'true'
+        with:
+          node-version: "22"
+
       - name: Install Copilot CLI
         if: steps.auth.outputs.ready == 'true'
         run: npm install -g @github/copilot
