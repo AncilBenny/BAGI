@@ -20,6 +20,27 @@ from bagi.planning import ModelPredictivePlanner
 from bagi.worlds import WorkshopEnv
 
 EVENT_NAMES = ("switch_activated", "key_picked_up", "lock_opened", "goal_reached")
+EVENT_ERROR_FIELDS = (
+    "positive_event_count", "negative_event_count",
+    "positive_event_squared_error_sum", "negative_event_squared_error_sum",
+    "positive_event_brier", "negative_event_brier",
+)
+
+
+def summarize_event_errors(rows: list[dict]) -> dict:
+    """Pool squared errors by actual event label, not by trajectory or anchor."""
+    positive_count = sum(row["positive_event_count"] for row in rows)
+    negative_count = sum(row["negative_event_count"] for row in rows)
+    positive_sum = sum(row["positive_event_squared_error_sum"] for row in rows)
+    negative_sum = sum(row["negative_event_squared_error_sum"] for row in rows)
+    return {
+        "positive_event_count": positive_count,
+        "negative_event_count": negative_count,
+        "positive_event_squared_error_sum": positive_sum,
+        "negative_event_squared_error_sum": negative_sum,
+        "positive_event_brier": positive_sum / positive_count if positive_count else None,
+        "negative_event_brier": negative_sum / negative_count if negative_count else None,
+    }
 
 
 def outcome_errors(predicted_obs, actual_obs, predicted_reward, actual_reward,
@@ -39,6 +60,12 @@ def outcome_errors(predicted_obs, actual_obs, predicted_reward, actual_reward,
         "event_brier": float(((probs - targets) ** 2).mean()),
         "false_event_probability": float(probs[negatives].mean()) if negatives.any() else 0.0,
         "true_event_count": float(targets.sum()),
+        "positive_event_count": int((targets == 1).sum()),
+        "negative_event_count": int(negatives.sum()),
+        "positive_event_squared_error_sum": float(
+            ((probs[targets == 1] - 1) ** 2).sum()
+        ),
+        "negative_event_squared_error_sum": float((probs[negatives] ** 2).sum()),
     }
 
 
@@ -73,11 +100,13 @@ def evaluate_trajectory(model, trajectory: list[dict], horizons: list[int],
     metrics: dict[int, dict] = {}
     for horizon in horizons:
         values = groups[horizon]
-        metrics[horizon] = {
-            "comparisons": len(values),
-            **({key: sum(row[key] for row in values) / len(values)
-                for key in values[0]} if values else {}),
-        }
+        metrics[horizon] = {"comparisons": len(values)}
+        if values:
+            metrics[horizon].update({
+                key: sum(row[key] for row in values) / len(values)
+                for key in values[0] if key not in EVENT_ERROR_FIELDS
+            })
+            metrics[horizon].update(summarize_event_errors(values))
     return metrics
 
 
@@ -164,10 +193,11 @@ def run(config_path: str) -> dict:
             by_horizon[str(h)] = {"comparisons": count}
             if count:
                 for metric in rows[0]:
-                    if metric != "comparisons":
+                    if metric != "comparisons" and metric not in EVENT_ERROR_FIELDS:
                         by_horizon[str(h)][metric] = (
                             sum(row[metric] * row["comparisons"] for row in rows) / count
                         )
+                by_horizon[str(h)].update(summarize_event_errors(rows))
         results[policy] = {"episodes": episodes, "causal_events": stage_counts,
                            "by_horizon": by_horizon}
         print(f"{policy}: events={stage_counts}")

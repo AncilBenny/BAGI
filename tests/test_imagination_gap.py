@@ -1,7 +1,9 @@
 """Pure score and rollout-accounting checks for the E6 imagination diagnostic."""
 import torch
 
-from bagi.experiments.imagination_gap import evaluate_trajectory, outcome_errors
+from bagi.experiments.imagination_gap import (
+    evaluate_trajectory, outcome_errors, summarize_event_errors,
+)
 
 
 class IdentityModel:
@@ -40,3 +42,27 @@ def test_rollout_metrics_count_horizons_and_observation_drift():
     assert result[2]["comparisons"] == 1
     assert result[2]["whole_observation_accuracy"] == 0.0
     assert result[2]["cell_accuracy"] == 0.75
+
+
+def test_event_positive_brier_is_not_hidden_by_rare_events():
+    obs = torch.zeros((2, 2), dtype=torch.long)
+    missed_event = outcome_errors(
+        obs, obs, 0, 0, [0, 0, 0, 0], {"switch_activated"}
+    )
+    no_event = outcome_errors(obs, obs, 0, 0, [0, 0, 0, 0], set())
+    summary = summarize_event_errors([missed_event, no_event])
+    assert missed_event["event_brier"] == 0.25
+    assert summary["positive_event_count"] == 1
+    assert summary["negative_event_count"] == 7
+    assert summary["positive_event_brier"] == 1.0
+    assert summary["negative_event_brier"] == 0.0
+
+
+def test_event_positive_brier_is_null_without_positive_labels():
+    obs = torch.zeros((2, 2), dtype=torch.long)
+    no_event = outcome_errors(obs, obs, 0, 0, [0, 0, 0, 0], set())
+    summary = summarize_event_errors([no_event])
+    assert summary["positive_event_count"] == 0
+    assert summary["positive_event_brier"] is None
+    assert summary["negative_event_count"] == 4
+    assert summary["negative_event_brier"] == 0.0
