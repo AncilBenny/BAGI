@@ -8,8 +8,12 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/bagi-autonomous-agent.yml"
+  workflow_run:
+    workflows: ["BAGI Research Loop", "BAGI E6 Imagination Gap"]
+    types: [completed]
   schedule:
-    - cron: "43 4 * * *"
+    # Check between ChatGPT's hourly turns; most runs will skip AI.
+    - cron: "7 */2 * * *"
 
 permissions:
   contents: read
@@ -19,7 +23,78 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      eligible: ${{ steps.decide.outputs.eligible }}
+      cache_key: ${{ steps.fingerprint.outputs.cache_key }}
+    steps:
+      - name: Examine current research state and newest real evidence
+        id: fingerprint
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branch_sha=$(gh api "repos/$GITHUB_REPOSITORY/branches/setup/initial-platform" --jq .commit.sha)
+          echo "research_sha=$branch_sha" >> "$GITHUB_OUTPUT"
+          active=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=40" \
+            --jq ".workflow_runs[] | select(.head_sha == \"$branch_sha\" and .status != \"completed\" and (.name == \"CI\" or .name == \"BAGI E6 Imagination Gap\")) | .id")
+          if [ -n "$active" ]; then
+            echo "Pending CI for $branch_sha; Copilot will wait." >> "$GITHUB_STEP_SUMMARY"
+            echo "has_evidence=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          evidence_id=""
+          run_ids=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=60" \
+            --jq '.workflow_runs[] | select(.conclusion=="success" and (.name=="BAGI Research Loop" or .name=="BAGI E6 Imagination Gap")) | .id' | head -30)
+          for run_id in $run_ids; do
+            artifact=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts" \
+              --jq '[.artifacts[] | select(.expired==false)][0].id // empty' || true)
+            if [ -n "$artifact" ]; then
+              evidence_id="$artifact"
+              break
+            fi
+          done
+          if [ -z "$evidence_id" ]; then
+            echo "No research artifact found. No Copilot credits spent." >> "$GITHUB_STEP_SUMMARY"
+            echo "has_evidence=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          utc_day=$(date -u +%Y%m%d)
+          key="bagi-agent-reviewed-${utc_day}-${branch_sha}-${evidence_id}"
+          echo "cache_key=$key" >> "$GITHUB_OUTPUT"
+          echo "has_evidence=true" >> "$GITHUB_OUTPUT"
+          echo "Evidence artifact: $evidence_id; research HEAD: $branch_sha" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: See whether this evidence has been reviewed today
+        if: steps.fingerprint.outputs.has_evidence == 'true'
+        id: dedup
+        uses: actions/cache/restore@v4
+        with:
+          path: .bagi-agent-reviewed
+          key: ${{ steps.fingerprint.outputs.cache_key }}
+
+      - name: Determine whether an AI session is needed
+        id: decide
+        env:
+          EVIDENCE: ${{ steps.fingerprint.outputs.has_evidence }}
+          CACHE_HIT: ${{ steps.dedup.outputs.cache-hit }}
+        run: |
+          if [ "$EVIDENCE" = "true" ] && [ "$CACHE_HIT" != "true" ]; then
+            echo "eligible=true" >> "$GITHUB_OUTPUT"
+            echo "New evidence: Copilot will investigate." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "eligible=false" >> "$GITHUB_OUTPUT"
+            echo "Skipped Copilot: unchanged evidence or pending validation." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   propose:
+    needs: gate
+    if: needs.gate.outputs.eligible == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -133,6 +208,18 @@ jobs:
             echo "No code change proposed. Read agent decision in the step summary." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Mark evidence reviewed after AI succeeds
+        if: steps.auth.outputs.ready == 'true' && success()
+        run: |
+          mkdir -p .bagi-agent-reviewed
+          date -u +%FT%TZ > .bagi-agent-reviewed/marker.txt
+
+      - uses: actions/cache/save@v4
+        if: steps.auth.outputs.ready == 'true' && success()
+        with:
+          path: .bagi-agent-reviewed
+          key: ${{ needs.gate.outputs.cache_key }}
+
       - uses: actions/upload-artifact@v4
         if: steps.auth.outputs.ready == 'true'
         with:
@@ -216,6 +303,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -241,6 +329,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "research: autonomous evidence-led experiment (validated)"
           git push origin HEAD:setup/initial-platform
+          # GITHUB_TOKEN pushes don't initiate push workflows automatically.
+          # workflow_dispatch is an allowed exception.
+          GH_TOKEN="${{ github.token }}" gh workflow run bagi-research-loop.yml --ref main
           {
             echo "BAGI's agent committed one tested research iteration."
             echo "Branch: setup/initial-platform"
