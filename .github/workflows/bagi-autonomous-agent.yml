@@ -4,6 +4,10 @@ name: BAGI Autonomous Research Agent
 # A personal Copilot token is required; without it, the workflow skips safely.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/bagi-autonomous-agent.yml"
   schedule:
     - cron: "43 4 * * *"
 
