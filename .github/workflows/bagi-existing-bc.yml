@@ -28,7 +28,10 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install pinned existing benchmark and imitation algorithms
-        run: pip install "xminigrid==0.9.3" "imitation==1.0.1" "pyyaml>=6" "pytest>=8" "ruff>=0.6"
+        run: |
+          # CPU-only torch prevents pip pulling multiple GB of CUDA 13 wheels.
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir "xminigrid==0.9.3" "imitation==1.0.1" "pyyaml>=6" "pytest>=8" "ruff>=0.6"
       - name: Validate information boundary and experiment configuration
         run: |
           ruff check bagi/experiments/xland_existing_bc.py tests/test_xland_existing_bc.py
