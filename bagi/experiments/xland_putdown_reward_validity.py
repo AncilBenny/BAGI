@@ -20,12 +20,39 @@ from bagi.experiments.xland_action_coverage import locate_exact
 from bagi.experiments.xland_existing_bc import get_rules
 
 
-def physically_nonvacuous(reward_success, initial_adjacent, effective_pickups,
-                         effective_putdowns):
-    """Strict research skill gate, separate from genuine upstream reward."""
+def blue_square_transition(action, pocket_before, pocket_after, grid_before,
+                           grid_after, blue, empty_type):
+    """Verify native BLUE-square movement, never merely action selection."""
+    before_count = int(np.count_nonzero(np.all(grid_before == blue, axis=-1)))
+    after_count = int(np.count_nonzero(np.all(grid_after == blue, axis=-1)))
+    pickup = (action == 3 and int(pocket_before[0]) == empty_type
+              and np.array_equal(pocket_after, blue)
+              and before_count == 1 and after_count == 0)
+    drop = (action == 4 and np.array_equal(pocket_before, blue)
+            and int(pocket_after[0]) == empty_type
+            and before_count == 0 and after_count == 1)
+    return bool(pickup), bool(drop)
+
+
+def tiles_adjacent(grid, blue, red):
+    """Require one BLUE square and one RED ball on the final physical grid."""
+    positions = [
+        np.argwhere(np.all(grid == tile, axis=-1)) for tile in (blue, red)
+    ]
+    if any(len(pos) != 1 for pos in positions):
+        return False
+    return sum(
+        abs(int(a) - int(b))
+        for a, b in zip(positions[0][0], positions[1][0])
+    ) == 1
+
+
+def physically_nonvacuous(reward_success, initial_adjacent, blue_pickups,
+                          blue_putdowns, final_adjacent, ordered_blue_drop):
+    """Research skill gate; upstream game reward is reported separately."""
     return bool(
-        reward_success and not initial_adjacent
-        and effective_pickups > 0 and effective_putdowns > 0
+        reward_success and not initial_adjacent and final_adjacent
+        and blue_pickups > 0 and blue_putdowns > 0 and ordered_blue_drop
     )
 
 
@@ -82,6 +109,8 @@ def run(config_path):
         raise AssertionError("Unexpected initially nonempty pocket")
     events = []
     effective_pickups = effective_putdowns = grid_modifications = 0
+    effective_blue_pickups = effective_blue_putdowns = 0
+    seen_blue_pickup = ordered_blue_drop = False
     rewarded = 0
     for i, action in enumerate(actions, start=1):
         if bool(ts.last()):
@@ -99,6 +128,14 @@ def run(config_path):
                 and int(pocket_after[0]) == empty_type)
         effective_pickups += int(pickup)
         effective_putdowns += int(drop)
+        blue_pickup, blue_drop = blue_square_transition(
+            action, pocket_before, pocket_after, grid_before, grid_after,
+            square, empty_type
+        )
+        effective_blue_pickups += int(blue_pickup)
+        effective_blue_putdowns += int(blue_drop)
+        ordered_blue_drop |= bool(blue_drop and seen_blue_pickup)
+        seen_blue_pickup |= blue_pickup
         grid_modifications += int(changed_grid)
         rewarded |= int(float(ts.reward) > 0)
         events.append({
@@ -108,10 +145,13 @@ def run(config_path):
             "actual_grid_changed": changed_grid,
             "effective_native_pickup": bool(pickup),
             "effective_native_putdown": bool(drop),
+            "effective_blue_square_pickup": blue_pickup,
+            "effective_blue_square_putdown": blue_drop,
             "upstream_goal_reward": float(ts.reward),
         })
     if not rewarded or float(ts.reward) <= 0 or not bool(ts.last()):
         raise AssertionError("Frozen source BC positive reward failed to reproduce")
+    final_adjacent = tiles_adjacent(np.asarray(ts.state.grid), square, red)
     result = {
         "question": "Was REUSE-23 first learner rewarded TileNearGoal episode nonvacuous physical manipulation?",
         "source_recovery_run_id": 39649325255,
@@ -119,7 +159,7 @@ def run(config_path):
         "source_layout_seed": 9604,
         "native_XLand_goal": "TileNearGoal",
         "original_reward_valid_under_upstream": bool(rewarded),
-        "physical_placement_skill_criterion": "nonadjacent initial tiles AND effective pickup AND effective putdown AND reward",
+        "physical_placement_skill_criterion": "initially nonadjacent BLUE square and RED ball, effective BLUE pickup then BLUE drop, final adjacency, native reward",
         "initial_square_position": list(initial_square_pos),
         "initial_red_position": list(initial_red_pos),
         "initial_manhattan_distance": initial_distance,
@@ -128,10 +168,15 @@ def run(config_path):
         "total_native_simulator_step_calls": len(actions),
         "actual_effective_pickups": effective_pickups,
         "actual_effective_putdowns": effective_putdowns,
+        "actual_effective_blue_square_pickups": effective_blue_pickups,
+        "actual_effective_blue_square_putdowns": effective_blue_putdowns,
+        "ordered_blue_square_pickup_then_drop": ordered_blue_drop,
+        "final_blue_square_next_to_red": final_adjacent,
         "actual_grid_modifications": grid_modifications,
         "final_pocket_empty": int(np.asarray(ts.state.agent.pocket)[0]) == empty_type,
         "physically_nonvacuous_placement_success": physically_nonvacuous(
-            rewarded, initial_adjacent, effective_pickups, effective_putdowns
+            rewarded, initial_adjacent, effective_blue_pickups,
+            effective_blue_putdowns, final_adjacent, ordered_blue_drop
         ),
         "per_step_native_events": events,
         "fingerprint_of_archived_actions_sha256": hashlib.sha256(
