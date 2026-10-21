@@ -118,8 +118,16 @@ def recover_from_actual_failure(policy, env, params):
         _proposal, _stage = correction_plan(ts, "putdown")
     except ValueError as e:
         original_teacher_errors.append(str(e))
-    if original_teacher_errors != ["Unsupported object held in putdown task"]:
-        raise AssertionError("Known teacher coverage gap was not reproduced")
+    # The planner locates the RED ball on GRID *before* checking pocket;
+    # once the learner carries RED, that grid lookup raises first. This is
+    # the concrete actual-state failure, not the later unsupported-pocket
+    # branch. Keep its precise expected error as a provenance assertion.
+    if original_teacher_errors != [
+        "Expected exactly one required initial object, got 0"
+    ]:
+        raise AssertionError(
+            f"Actual wrong-held-object teacher failure changed: {original_teacher_errors}"
+        )
 
     # Native operation only: put the wrong RED ball back in the vacant tile
     # directly in front of the agent after pickup. This is an INTERVENTION by
