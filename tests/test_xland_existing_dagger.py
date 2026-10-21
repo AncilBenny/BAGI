@@ -1,8 +1,8 @@
 """Guard held-out boundaries of existing DAgger XLand integration."""
 import pytest
 
-from bagi.experiments.xland_existing_dagger import training_task_for_episode
 from bagi.experiments.xland_existing_bc import TRAIN_TASKS
+from bagi.experiments.xland_existing_dagger import training_task_for_episode
 
 
 def test_all_training_task_ids_cycle_without_heldout():

@@ -41,14 +41,13 @@ def training_task_for_episode(index):
 
 class TrainingXLandGym(gym.Env):
     """Minimal Gymnasium bridge to upstream JAX dynamics for existing DAgger."""
-    metadata = {"render_modes": []}
-
     def __init__(self, seed_base, cap):
         import jax
         import xminigrid
         from xminigrid.wrappers import DirectionObservationWrapper
 
         super().__init__()
+        self.metadata = {"render_modes": []}
         self.env, self.defaults = xminigrid.make("XLand-MiniGrid-R1-9x9")
         self.views = DirectionObservationWrapper(self.env)
         self._reset = jax.jit(self.views.reset)
@@ -125,7 +124,7 @@ def make_privileged_expert(gym_env):
                 raise ValueError("Unapproved teacher query or uninitialized simulator")
             if bool(gym_env.timestep.last()):
                 raise ValueError("Oracle queried after terminal state")
-            planned, stage = correction_plan(gym_env.timestep, gym_env.task)
+            planned, _stage = correction_plan(gym_env.timestep, gym_env.task)
             if not planned:
                 raise ValueError("No corrective expert action available")
             action = int(planned[0])
@@ -170,7 +169,7 @@ def run(config_path):
         gym_env = TrainingXLandGym(seed_base=int(cfg["training_seed_base"]), cap=cap)
         if int(gym_env.observation_space.shape[0]) != 54:
             raise AssertionError("Unexpected learner-visible feature count")
-        venv = DummyVecEnv([lambda: gym_env])
+        venv = DummyVecEnv([lambda env=gym_env: env])
         expert = make_privileged_expert(gym_env)
         torch.manual_seed(seed)
         bc = BC(
