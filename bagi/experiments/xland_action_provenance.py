@@ -303,9 +303,59 @@ def run(config_path):
                 for r in room.records
             )
             if teacher_multiset != executed_multiset:
+                teacher_obs = Counter(
+                    np.ascontiguousarray(o).tobytes()
+                    for o in aggregate.obs
+                )
+                executed_obs = Counter(
+                    np.ascontiguousarray(r["obs"]).tobytes()
+                    for r in room.records
+                )
+                missing_teacher = teacher_multiset - executed_multiset
+                missing_record = executed_multiset - teacher_multiset
+                record = {
+                    "seed": seed,
+                    "dagger_flattened_labels": len(aggregate.acts),
+                    "actual_logged_actions": len(room.records),
+                    "expert_label_frequencies": dict(Counter(
+                        map(int, aggregate.acts)
+                    )),
+                    "actual_logged_label_frequencies": dict(Counter(
+                        r["expert_label"] for r in room.records
+                    )),
+                    "matched_observation_label_pairs": sum(
+                        (teacher_multiset & executed_multiset).values()
+                    ),
+                    "matched_visible_observations": sum(
+                        (teacher_obs & executed_obs).values()
+                    ),
+                    "teacher_only_pair_counts": sum(missing_teacher.values()),
+                    "logged_only_pair_counts": sum(missing_record.values()),
+                    "teacher_only_sample_labels": dict(Counter(
+                        label for (_obs, label), count in missing_teacher.items()
+                        for _ in range(count)
+                    )),
+                    "logged_only_sample_labels": dict(Counter(
+                        label for (_obs, label), count in missing_record.items()
+                        for _ in range(count)
+                    )),
+                    "teacher_only_sample_observation_hashes": [
+                        hashlib.sha256(obs).hexdigest()
+                        for (obs, _), _n in list(missing_teacher.items())[:5]
+                    ],
+                    "logged_only_sample_observation_hashes": [
+                        hashlib.sha256(obs).hexdigest()
+                        for (obs, _), _n in list(missing_record.items())[:5]
+                    ],
+                    "note": "Strict pair comparison FAILS: no provenance inference without resolving",
+                }
+                (folder / f"stream_mismatch_seed{seed}.json").write_text(
+                    json.dumps(record, indent=2), encoding="utf-8"
+                )
+                print("PROVENANCE MISMATCH "+json.dumps(record), flush=True)
                 raise AssertionError(
-                    "Upstream DAgger stored expert-label stream differs "
-                    "from the labeled simulator-visit records"
+                    "Upstream stored label/observation stream differs from "
+                    "actual logged visits; see numeric-safe mismatch artifact"
                 )
         rows, per_round = audit(room.records)
         numeric = numeric_audit_arrays(rows)
