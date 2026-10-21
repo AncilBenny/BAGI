@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections import Counter, defaultdict
+from collections import Counter
 from importlib.metadata import version
 from pathlib import Path
 
@@ -52,7 +52,7 @@ def initial_teacher_prefix(task, actions):
 def correction_plan(timestep, task):
     """Privileged BFS + existing XLand causal action recipes from CURRENT state."""
     require_training_task(task)
-    from xminigrid.core.constants import Colors, TILES_REGISTRY, Tiles
+    from xminigrid.core.constants import TILES_REGISTRY, Colors, Tiles
 
     state = timestep.state
     grid = np.asarray(state.grid)
