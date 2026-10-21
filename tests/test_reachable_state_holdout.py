@@ -2,7 +2,6 @@
 
 import torch
 
-from bagi.experiments.dataset_foundations import model_input
 from bagi.experiments.reachable_state_holdout import (
     enumerate_reachable,
     make_groups,
