@@ -14,6 +14,12 @@ class IdentityModel:
         return observations, torch.zeros(len(actions)), torch.zeros((len(actions), 4))
 
 
+class IncrementModel:
+    @torch.no_grad()
+    def predict_events(self, observations, actions):
+        return observations + 1, torch.zeros(len(actions)), torch.zeros((len(actions), 4))
+
+
 def test_outcome_errors_perfect_prediction():
     obs = torch.tensor([[0, 1], [2, 3]])
     errors = outcome_errors(obs, obs, 0.0, 0.0, [0, 0, 0, 0], set())
@@ -68,3 +74,22 @@ def test_event_positive_brier_is_null_without_positive_labels():
     assert summary["positive_event_brier"] is None
     assert summary["negative_event_count"] == 4
     assert summary["negative_event_brier"] == 0.0
+
+
+def test_teacher_forced_vs_recursive_use_identical_actions_and_targets():
+    zero = [[0, 0], [0, 0]]
+    one = [[1, 1], [1, 1]]
+    trajectory = [
+        {"observation": zero, "action": 0, "next_observation": zero,
+         "reward": 0.0, "events": set()},
+        {"observation": zero, "action": 0, "next_observation": one,
+         "reward": 0.0, "events": set()},
+    ]
+    scores = evaluate_trajectory(IncrementModel(), trajectory, [1, 2], 1, 1)
+    assert scores[1]["comparisons"] == scores[2]["comparisons"] == 1
+    assert scores[1]["whole_observation_accuracy"] == 0.0
+    assert scores[1]["teacher_forced_whole_observation_accuracy"] == 0.0
+    assert scores[2]["whole_observation_accuracy"] == 0.0
+    assert scores[2]["teacher_forced_whole_observation_accuracy"] == 1.0
+    assert scores[2]["teacher_forced_cell_accuracy"] == 1.0
+    assert scores[2]["cell_accuracy"] == 0.0

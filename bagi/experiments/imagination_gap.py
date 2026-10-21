@@ -89,14 +89,34 @@ def evaluate_trajectory(model, trajectory: list[dict], horizons: list[int],
                 imagined_obs, action
             )
             if depth in target_horizons:
-                groups[depth].append(outcome_errors(
+                recursive_errors = outcome_errors(
                     imagined_obs.squeeze(0),
                     real["next_observation"],
                     float(predicted_reward.item()),
                     real["reward"],
                     event_probs.squeeze(0),
                     real["events"],
-                ))
+                )
+                # Same observed transition and action, but reset the model
+                # input to the real state immediately before this step.
+                forced_obs, forced_reward, forced_events = model.predict_events(
+                    torch.as_tensor(real["observation"], dtype=torch.long).unsqueeze(0),
+                    action,
+                )
+                forced_errors = outcome_errors(
+                    forced_obs.squeeze(0),
+                    real["next_observation"],
+                    float(forced_reward.item()),
+                    real["reward"],
+                    forced_events.squeeze(0),
+                    real["events"],
+                )
+                for metric in (
+                    "cell_accuracy", "whole_observation_accuracy",
+                    "reward_mae", "event_brier",
+                ):
+                    recursive_errors[f"teacher_forced_{metric}"] = forced_errors[metric]
+                groups[depth].append(recursive_errors)
     metrics: dict[int, dict] = {}
     for horizon in horizons:
         values = groups[horizon]
@@ -212,6 +232,7 @@ def run(config_path: str) -> dict:
         "limits": [
             "Workshop layout is fixed; evaluation seeds do not create unseen layouts.",
             "Same actual action sequence is replayed; this is not a counterfactual outcome estimate.",
+            "Teacher-forced and recursive predictions use the same real actions and target transitions.",
             "No recurrent memory or uncertainty head is tested in this diagnostic.",
         ],
         "checkpoint": str(checkpoint),
