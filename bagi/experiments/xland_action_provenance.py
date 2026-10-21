@@ -245,7 +245,7 @@ def run(config_path):
         venv = DummyVecEnv([lambda env=room: env])
         original_expert = make_privileged_expert(room)
         round_box = [0]
-        expert = make_logged_expert(original_expert, room, lambda: round_box[0])
+        expert = make_logged_expert(original_expert, room, lambda box=round_box: box[0])
         torch.manual_seed(seed)
         bc = BC(
             observation_space=venv.observation_space,
@@ -264,9 +264,10 @@ def run(config_path):
             round_box[0] = 0
             original_predict = expert._predict
 
-            def with_round(observation, deterministic=False):
-                round_box[0] = int(trainer.round_num)
-                return original_predict(
+            def with_round(observation, deterministic=False, *, box=round_box,
+                           current_trainer=trainer, base_predict=original_predict):
+                box[0] = int(current_trainer.round_num)
+                return base_predict(
                     observation, deterministic=deterministic
                 )
 
