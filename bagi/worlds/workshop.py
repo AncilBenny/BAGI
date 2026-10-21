@@ -29,12 +29,18 @@ class WorkshopEnv(gym.Env):
 
     metadata: ClassVar[dict[str, list[str]]] = {"render_modes": ["ansi"]}
 
-    def __init__(self, size: int = 9, max_steps: int = 100, view_size: int = 5):
+    def __init__(
+        self, size: int = 9, max_steps: int = 100, view_size: int = 5,
+        start_mode: str = "fixed",
+    ):
         super().__init__()
         if size < 9:
             raise ValueError("Workshop size must be at least 9")
         if view_size % 2 == 0:
             raise ValueError("view_size must be odd")
+        if start_mode not in ("fixed", "seeded_start_chamber"):
+            raise ValueError("start_mode must be 'fixed' or 'seeded_start_chamber'")
+        self.start_mode = start_mode
         self.size = size
         self.max_steps = max_steps
         self.view_size = view_size
@@ -65,7 +71,19 @@ class WorkshopEnv(gym.Env):
         self._steps = 0
         self._has_key = False
         self._door_open = False
-        self._pos = np.array([1, 1], dtype=np.int64)
+        if self.start_mode == "seeded_start_chamber":
+            # Sample only legal, pre-barrier cells; exclude the switch tile.
+            # Seed affects the initial observation but never hidden inventory.
+            options_list = [
+                (row, col)
+                for row in (1, 2)
+                for col in range(1, self.size - 1)
+                if (row, col) != (1, 3)
+            ]
+            chosen = int(self.np_random.integers(len(options_list)))
+            self._pos = np.array(options_list[chosen], dtype=np.int64)
+        else:
+            self._pos = np.array([1, 1], dtype=np.int64)
         return self._observe(), self._info(events=["reset"])
 
     def step(self, action):
