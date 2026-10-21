@@ -132,7 +132,8 @@ def run(config_path):
     from imitation.algorithms.bc import BC
     from imitation.data.types import TransitionsMinimal
     from xminigrid.wrappers import (
-        DirectionObservationWrapper, RulesAndGoalsObservationWrapper,
+        DirectionObservationWrapper,
+        RulesAndGoalsObservationWrapper,
     )
 
     cfg = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))

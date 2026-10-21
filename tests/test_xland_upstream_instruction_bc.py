@@ -3,7 +3,10 @@ import numpy as np
 import pytest
 
 from bagi.experiments.xland_upstream_instruction_bc import (
-    INPUT_WIDTH, MAX_RULES, observation_with_instruction, task_instructions,
+    INPUT_WIDTH,
+    MAX_RULES,
+    observation_with_instruction,
+    task_instructions,
 )
 
 
