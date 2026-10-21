@@ -68,29 +68,31 @@ def replay_visible(env, params, seed, actions):
 
     reset, step = jax.jit(env.reset), jax.jit(env.step)
     timestep = reset(params, jax.random.key(seed))
-    observations = []
+    observations, next_observations, terminals = [], [], []
     total_reward = 0.0
     for action in actions:
         if bool(timestep.last()):
             raise AssertionError("Expert continued after terminal state")
         observations.append(visible_features(timestep.observation))
         timestep = step(params, timestep, int(action))
+        next_observations.append(visible_features(timestep.observation))
+        terminals.append(bool(timestep.last()))
         total_reward += float(timestep.reward)
     if total_reward <= 0 or not bool(timestep.last()):
         raise AssertionError("Teacher replay did not reproduce terminal reward")
-    return observations
+    return observations, next_observations, terminals
 
 
 def collect(env, defaults, skills, *, budget, seed_base, cap, max_attempts):
     """Same number of expert labels across curricula; record real interactions."""
-    from xminigrid.wrappers import DirectionObservationWrapper
-
     if not skills or not set(skills).issubset(TRAIN_TASKS):
         raise ValueError("Cannot demonstrate held-out or unknown tasks")
     if min(budget, cap, max_attempts) < 1:
         raise ValueError("Positive expert budget, episode cap and attempts required")
+    from xminigrid.wrappers import DirectionObservationWrapper
+
     wrapped = DirectionObservationWrapper(env)
-    observations, labels = [], []
+    observations, labels, next_observations, terminals = [], [], [], []
     attempts = rejected = generator_steps = replay_steps = 0
     per_skill_episodes = Counter()
     expert_action_support = {skill: set() for skill in skills}
@@ -101,7 +103,7 @@ def collect(env, defaults, skills, *, budget, seed_base, cap, max_attempts):
         params = defaults.replace(ruleset=get_rules(skill), max_steps=cap)
         try:
             actions = expert_actions(env, params, skill, seed, cap)
-            views = replay_visible(wrapped, params, seed, actions)
+            views, next_views, dones = replay_visible(wrapped, params, seed, actions)
         except ValueError:
             rejected += 1
             continue
@@ -111,12 +113,16 @@ def collect(env, defaults, skills, *, budget, seed_base, cap, max_attempts):
         expert_action_support[skill].update(actions)
         count = min(len(actions), budget - len(labels))
         observations.extend(views[:count])
+        next_observations.extend(next_views[:count])
+        terminals.extend(dones[:count])
         labels.extend(actions[:count])
     if len(labels) != budget:
         raise RuntimeError("Insufficient teacher demonstrations in fixed seed range")
     data = {
         "obs": np.asarray(observations, dtype=np.float32),
         "acts": np.asarray(labels, dtype=np.int64),
+        "next_obs": np.asarray(next_observations, dtype=np.float32),
+        "dones": np.asarray(terminals, dtype=bool),
     }
     audit = {
         "used_labeled_examples": budget,
@@ -197,7 +203,7 @@ def run(config_path):
     import torch
     import xminigrid
     from imitation.algorithms.bc import BC
-    from imitation.data.types import TransitionsMinimal
+    from imitation.data.types import Transitions
     from xminigrid.wrappers import DirectionObservationWrapper
 
     cfg = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
@@ -234,8 +240,9 @@ def run(config_path):
             infos.fill(None)
             trainer = BC(
                 observation_space=observation_space, action_space=action_space,
-                demonstrations=TransitionsMinimal(
+                demonstrations=Transitions(
                     obs=dataset["obs"], acts=dataset["acts"], infos=infos,
+                    next_obs=dataset["next_obs"], dones=dataset["dones"],
                 ),
                 rng=np.random.default_rng(seed),
                 batch_size=int(cfg["batch_size"]), device="cpu",
