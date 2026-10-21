@@ -99,6 +99,24 @@ def run(config_path: str) -> dict:
     upstream_dir = Path(config["upstream_training_dir"]).resolve()
     if not (upstream_dir / "train_meta_task.py").is_file():
         raise FileNotFoundError("Missing pinned upstream training/ checkout")
+    # Upstream utils.py predates Python 3.11/modern Flax dataclass checks.
+    # Change only equivalent scalar initializers, on the credential-free pinned
+    # temporary checkout; the PPO algorithm and optimizer remain unchanged.
+    utils_path = upstream_dir / "utils.py"
+    utils_source = utils_path.read_text(encoding="utf-8")
+    initializers = {
+        "reward: jax.Array = jnp.asarray(0.0)":
+            "reward: jax.Array = struct.field(default_factory=lambda: jnp.asarray(0.0))",
+        "length: jax.Array = jnp.asarray(0)":
+            "length: jax.Array = struct.field(default_factory=lambda: jnp.asarray(0))",
+        "episodes: jax.Array = jnp.asarray(0)":
+            "episodes: jax.Array = struct.field(default_factory=lambda: jnp.asarray(0))",
+    }
+    for original, replacement in initializers.items():
+        if utils_source.count(original) != 1:
+            raise RuntimeError("Pinned upstream default has changed; refuse unreviewed patch")
+        utils_source = utils_source.replace(original, replacement)
+    utils_path.write_text(utils_source, encoding="utf-8")
     sys.path.insert(0, str(upstream_dir))
     try:
         from train_meta_task import TrainConfig, make_states, make_train
