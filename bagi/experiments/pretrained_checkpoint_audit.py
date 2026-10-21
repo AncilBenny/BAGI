@@ -45,7 +45,7 @@ def verify_and_inspect_archive(data: bytes, expected_hash: str) -> dict:
         with archive.open("data") as handle:
             info = json.loads(handle.read(MAX_METADATA_BYTES + 1).decode("utf-8"))
         if not isinstance(info, dict):
-            raise ValueError("Expected a JSON metadata object")
+            raise TypeError("Expected a JSON metadata object")
         with archive.open("_stable_baselines3_version") as handle:
             sb3_version = handle.read(256).decode("utf-8").strip()
     return {
@@ -123,12 +123,12 @@ def run(config_path: str) -> dict:
         "input_shapes_match": same,
         "safe_to_directly_evaluate": False,
         "blocked_by": [
-            "Original gym_minigrid FlatObsWrapper input contract must be reconciled "
-            "with current Farama MiniGrid; matching only shape is insufficient.",
-            "Published checkpoint requires VecNormalize stats. Its external "
-            "vec_normalize.pkl is NOT downloaded or deserialized.",
-            "SB3 archive observation/action spaces contain serialized Python objects; "
-            "this audit leaves them inert.",
+            ("Original gym_minigrid FlatObsWrapper input contract must be reconciled "
+             "with current Farama MiniGrid; matching only shape is insufficient."),
+            ("Published checkpoint requires VecNormalize stats. Its external "
+             "vec_normalize.pkl is NOT downloaded or deserialized."),
+            ("SB3 archive observation/action spaces contain serialized Python objects; "
+             "this audit leaves them inert."),
             "Model weights were never loaded; no competence or reward replicated.",
         ],
         "next_gate": (
