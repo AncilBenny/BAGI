@@ -21,6 +21,10 @@ on:
       - "bagi/experiments/coverage_collection.py"
       - "tests/test_coverage_collection.py"
       - "configs/coverage_collection.yaml"
+      - "bagi/worlds/workshop.py"
+      - "bagi/experiments/layout_transfer.py"
+      - "tests/test_layout_transfer.py"
+      - "configs/layout_transfer.yaml"
       - ".github/workflows/imagination-gap.yml"
   workflow_dispatch:
 
@@ -96,17 +100,19 @@ jobs:
         run: python -m bagi.experiments.reachable_state_holdout --config configs/reachable_state_holdout.yaml
       - name: Run fixed-budget visible-novelty coverage ablation (Gate A3)
         run: python -m bagi.experiments.coverage_collection --config configs/coverage_collection.yaml
+      - name: Measure zero-shot mirrored layout transfer (Gate A6)
+        run: python -m bagi.experiments.layout_transfer --config configs/layout_transfer.yaml
       - name: Run E6 imagination gap
         run: python -m bagi.experiments.imagination_gap --config configs/imagination_gap.yaml
       - name: Run E9 paired uncertainty ablation
         run: python -m bagi.experiments.planner_uncertainty_ablation --config configs/planner_uncertainty_ablation.yaml
       - name: Run E10 held-out uncertainty replication
         run: python -m bagi.experiments.planner_uncertainty_ablation --config configs/planner_uncertainty_replication.yaml
-      - name: Upload E6, E9, E10 and Gate A/A2/A3 results
+      - name: Upload E6, E9, E10 and foundation/transfer results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bagi-e6-e9-e10-gate-a3
+          name: bagi-e6-e9-e10-layout-transfer
           path: |
             runs/imagination_gap/summary.json
             runs/planner_uncertainty_ablation/summary.json
@@ -114,5 +120,6 @@ jobs:
             runs/dataset_foundations/summary.json
             runs/reachable_state_holdout/summary.json
             runs/coverage_collection/summary.json
+            runs/layout_transfer/summary.json
           if-no-files-found: warn
           retention-days: 30

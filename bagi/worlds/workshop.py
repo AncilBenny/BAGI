@@ -32,6 +32,7 @@ class WorkshopEnv(gym.Env):
     def __init__(
         self, size: int = 9, max_steps: int = 100, view_size: int = 5,
         start_mode: str = "fixed",
+        layout_mode: str = "default",
     ):
         super().__init__()
         if size < 9:
@@ -40,6 +41,9 @@ class WorkshopEnv(gym.Env):
             raise ValueError("view_size must be odd")
         if start_mode not in ("fixed", "seeded_start_chamber"):
             raise ValueError("start_mode must be 'fixed' or 'seeded_start_chamber'")
+        if layout_mode not in ("default", "mirror_x"):
+            raise ValueError("layout_mode must be 'default' or 'mirror_x'")
+        self.layout_mode = layout_mode
         self.start_mode = start_mode
         self.size = size
         self.max_steps = max_steps
@@ -51,12 +55,12 @@ class WorkshopEnv(gym.Env):
         self._steps = 0
         self._has_key = False
         self._door_open = False
-        self._pos = np.array([1, 1], dtype=np.int64)
-        self._goal = np.array([size - 2, size - 2], dtype=np.int64)
-        self._switch = np.array([1, 3], dtype=np.int64)
-        self._door = np.array([3, 1], dtype=np.int64)
-        self._key = np.array([5, 1], dtype=np.int64)
-        self._lock = np.array([5, 4], dtype=np.int64)
+        self._pos = np.array(self._layout_coords(1, 1), dtype=np.int64)
+        self._goal = np.array(self._layout_coords(size - 2, size - 2), dtype=np.int64)
+        self._switch = np.array(self._layout_coords(1, 3), dtype=np.int64)
+        self._door = np.array(self._layout_coords(3, 1), dtype=np.int64)
+        self._key = np.array(self._layout_coords(5, 1), dtype=np.int64)
+        self._lock = np.array(self._layout_coords(5, 4), dtype=np.int64)
 
         # Barrier 1 separates the start/switch region from the key region.
         # Its only opening is the door at (3, 1).
@@ -64,7 +68,15 @@ class WorkshopEnv(gym.Env):
         # Barrier 2 separates the key region from the goal region. Its only
         # opening is the lock at (5, 4).
         second_barrier = {(row, 4) for row in range(3, size - 1) if row != 5}
-        self._internal_walls = first_barrier | second_barrier
+        self._internal_walls = {
+            self._layout_coords(row, col)
+            for row, col in first_barrier | second_barrier
+        }
+
+    def _layout_coords(self, row: int, col: int) -> tuple[int, int]:
+        if self.layout_mode == "mirror_x":
+            return row, self.size - 1 - col
+        return row, col
 
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
@@ -81,9 +93,11 @@ class WorkshopEnv(gym.Env):
                 if (row, col) != (1, 3)
             ]
             chosen = int(self.np_random.integers(len(options_list)))
-            self._pos = np.array(options_list[chosen], dtype=np.int64)
+            self._pos = np.array(
+                self._layout_coords(*options_list[chosen]), dtype=np.int64
+            )
         else:
-            self._pos = np.array([1, 1], dtype=np.int64)
+            self._pos = np.array(self._layout_coords(1, 1), dtype=np.int64)
         return self._observe(), self._info(events=["reset"])
 
     def step(self, action):
