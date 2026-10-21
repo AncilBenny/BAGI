@@ -35,15 +35,15 @@ def test_unseen_history_is_abstention_not_success():
 
 def test_episode_split_and_real_interaction_accounting():
     env = WorkshopEnv(size=9, max_steps=100, view_size=5)
-    design = dict(
-        guided_actions=[1, 1, 3, 3, 2, 2],
-        prefixes=[0, 2],
-        train_episodes=3,
-        holdout_episodes=2,
-        continuation_steps=7,
-        seed=12051,
-        max_history=4,
-    )
+    design = {
+        "guided_actions": [1, 1, 3, 3, 2, 2],
+        "prefixes": [0, 2],
+        "train_episodes": 3,
+        "holdout_episodes": 2,
+        "continuation_steps": 7,
+        "seed": 12051,
+        "max_history": 4,
+    }
     rows, counts = generate(env, **design)
     again, same = generate(env, **design)
     assert rows == again
