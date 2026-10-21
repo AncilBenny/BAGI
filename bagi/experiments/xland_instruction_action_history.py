@@ -23,7 +23,6 @@ from bagi.experiments.xland_existing_bc import ALL_TASKS, TRAIN_TASKS, get_rules
 from bagi.experiments.xland_upstream_instruction_bc import (
     INPUT_WIDTH,
     load_verified_source,
-    observation_with_instruction,
     task_instructions,
 )
 
