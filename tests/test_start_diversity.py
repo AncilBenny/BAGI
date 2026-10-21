@@ -5,7 +5,6 @@ import pytest
 from bagi.experiments.start_diversity import collect, expert_actions_from_start
 from bagi.worlds import WorkshopEnv
 
-
 GUIDED = [1, 1, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2]
 
 
