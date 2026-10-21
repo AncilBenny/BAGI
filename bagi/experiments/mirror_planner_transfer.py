@@ -46,7 +46,7 @@ def evaluate(model, env_cfg, layout, plan_cfg, planner_seed, episodes, eval_seed
         attained = {name: False for name in STAGES}
         while True:
             action = planner.select_action(obs)
-            obs, reward, terminated, truncated, info = env.step(action)
+            obs, _reward, terminated, truncated, info = env.step(action)
             event_set = set(info["events"])
             attained["switch"] |= "switch_activated" in event_set
             attained["door"] |= tuple(info["position"]) == tuple(env._door)
