@@ -12,6 +12,9 @@ on:
       - "tests/test_uncertainty_planner.py"
       - "configs/planner_uncertainty_ablation.yaml"
       - "configs/planner_uncertainty_replication.yaml"
+      - "bagi/experiments/dataset_foundations.py"
+      - "tests/test_dataset_foundations.py"
+      - "configs/dataset_foundations.yaml"
       - ".github/workflows/imagination-gap.yml"
   workflow_dispatch:
 
@@ -49,20 +52,55 @@ jobs:
           if [ ! -f runs/sample_efficiency_causal_v2/guided_050/world_model/world_model.pt ]; then
             make sample-efficiency-causal-v2
           fi
+      - name: Restore the training dataset if cache lacks transition logs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          from bagi.experiments.collect_guided import run as collect
+          original = yaml.safe_load(Path("configs/sample_efficiency_causal_v2.yaml").read_text())
+          data = Path("runs/sample_efficiency_causal_v2/guided_050/data/transitions.jsonl")
+          if data.exists():
+              print("Auditing existing cached training transitions")
+          else:
+              print("Cache missing logs: deterministically reconstructing collection data, without training")
+              coll = {
+                  "seed": original["seed"],
+                  "environment": original["environment"],
+                  "collection": {
+                      "guided_episodes": 50,
+                      "random_episodes": original["sweep"]["random_episodes"],
+                      "guided_seed_base": original["sweep"]["guided_seed_base"],
+                      "random_seed_base": original["sweep"]["random_seed_base"],
+                      "output_dir": str(data.parent),
+                  },
+              }
+              config_path = Path("runs/dataset_foundations/reconstruction.yaml")
+              config_path.parent.mkdir(parents=True, exist_ok=True)
+              config_path.write_text(yaml.safe_dump(coll), encoding="utf-8")
+              collect(str(config_path))
+              Path("runs/dataset_foundations/reconstructed.txt").write_text(
+                  "Collected identical policy and seeds, no new model training\n",
+                  encoding="utf-8",
+              )
+          PY
+      - name: Audit Gate A data diversity, leakage and hidden-state aliasing
+        run: python -m bagi.experiments.dataset_foundations --config configs/dataset_foundations.yaml
       - name: Run E6 imagination gap
         run: python -m bagi.experiments.imagination_gap --config configs/imagination_gap.yaml
       - name: Run E9 paired uncertainty ablation
         run: python -m bagi.experiments.planner_uncertainty_ablation --config configs/planner_uncertainty_ablation.yaml
       - name: Run E10 held-out uncertainty replication
         run: python -m bagi.experiments.planner_uncertainty_ablation --config configs/planner_uncertainty_replication.yaml
-      - name: Upload E6, E9 and E10 results
+      - name: Upload E6, E9, E10 and Gate A results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bagi-e6-e9-e10-research
+          name: bagi-e6-e9-e10-gate-a
           path: |
             runs/imagination_gap/summary.json
             runs/planner_uncertainty_ablation/summary.json
             runs/planner_uncertainty_replication/summary.json
+            runs/dataset_foundations/summary.json
           if-no-files-found: warn
           retention-days: 30

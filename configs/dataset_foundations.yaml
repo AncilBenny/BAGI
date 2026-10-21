@@ -1,0 +1,7 @@
+# Gate A: measure training-data diversity and train/validation overlap.
+transitions: runs/sample_efficiency_causal_v2/guided_050/data/transitions.jsonl
+training_seed: 42
+validation_fraction: 0.2
+guided_episodes: 50
+reconstruction_marker: runs/dataset_foundations/reconstructed.txt
+output_dir: runs/dataset_foundations
