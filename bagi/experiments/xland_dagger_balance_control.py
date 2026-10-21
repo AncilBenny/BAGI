@@ -177,7 +177,7 @@ def run(config_path):
                     "condition": condition,
                     "source_pool_sha256": checksum,
                     "source_pool_size": len(acts),
-                    "distinct_source_indices_sampled": int(len(np.unique(indices))),
+                    "distinct_source_indices_sampled": len(np.unique(indices)),
                     "optimization_sample_exposures": len(acts) * 12,
                     "sampled_action_counts": dict(Counter(map(int, acts[indices]))),
                     "training_seconds": fit_seconds,
