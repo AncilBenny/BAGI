@@ -99,3 +99,12 @@ compatibility, license, version, compute and known limitations. Do not use
 the next GitHub Actions run merely to train an established baseline again
 without identifying a new open question. Record any negative result, not
 only model victories.
+
+## Pinned pretrained DoorKey artifact (REUSE-2)
+
+- Hugging Face model repo: https://huggingface.co/sb3/ppo-MiniGrid-DoorKey-5x5-v0
+- Exact revision: `90b0f9903be52f016a4f9f378d027f441350444f`
+- Model ZIP SHA-256: `8343ddfedf676da11b05407fabe3e8a5ede175a04ebc32731ab670ff713be5e2`; upstream size 4,390,847 bytes, verified from the source manifest (but download not yet locally audited).
+- Upstream `results.json`: stochastic mean reward 0.96508 across 10 episodes, published March 2023. This is **not** BAGI's measured result.
+- Unlike BAGI's image-only pipeline, the upstream recipe uses legacy `gym_minigrid.wrappers.FlatObsWrapper` and observation `VecNormalize`. Do not deserialize the upstream `vec_normalize.pkl` in a privileged runner.
+- Automated dedicated read-only static auditor: `bagi/experiments/pretrained_checkpoint_audit.py`; fail-closed ZIP and SHA256 inspection with zero model execution. Results saved as JSON in GitHub artifact after the job completes. Use that verification before proposing inference.
