@@ -32,7 +32,7 @@ def test_exact_positive_budget_and_nonoverlapping_seeds():
 
 def test_only_training_skills_permitted_for_demonstrations():
     assert ALL_TASKS[-1] == "hold_then_near"
-    with pytest.raises(ValueError, match="TRAIN"):
+    with pytest.raises(ValueError, match="held-out"):
         collect(None, None, ("hold_then_near",), budget=8,
                 seed_base=0, cap=40, max_attempts=5)
     with pytest.raises(ValueError, match="Unapproved"):
