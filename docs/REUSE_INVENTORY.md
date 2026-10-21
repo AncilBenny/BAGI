@@ -172,3 +172,10 @@ only model victories.
   learning histories. Its public data runs to tens/hundreds of GB:
   https://github.com/dunnolab/xland-minigrid-datasets . Do not download
   these large files to GitHub Actions to repeat existing work.
+
+
+### REUSE-5 confirmed task-solvability and detected invalid transfer contrast
+
+- Success: GitHub Actions \`39578198961\` proves 12/12 seeded task episodes are solvable in 7–11 real simulator steps by a classical full-state navigation oracle, with transformation and pickup both observed.
+- **Disqualifying caveat:** for each held-out seed, the same action sequence solves **all four** apparently different color recombinations. Distinct SHA256 ruleset IDs do not mean behaviorally different tasks. **Do not cite this split as a valid compositional-generalization benchmark or train costly agents on it.**
+- Next benchmark must include genuine changes in causal behavior, potentially using existing \`AgentNearRule\`, \`AgentHoldRule\`, \`TileNearRule\`, multi-rule chains and distinguishable goal predicates, and must specify whether the agent sees a task description or must infer rules via experience. Prefer official upstream XLand-MiniGrid task families and published recurrent PPO baselines, after security review of any downloaded pickle task file. No bespoke RL rewrite.
