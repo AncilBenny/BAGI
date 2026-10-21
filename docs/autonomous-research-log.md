@@ -318,3 +318,25 @@
   and cannot be interpreted as failed learning or failure of transfer.
 - **Status:** proposed to isolated CI and default CI. No learned capability,
   generalization improvement, or experiment success claimed yet.
+
+
+### REUSE-4 verification and prerequisite refinement
+
+- GitHub Actions 39576295564 passed the XLand 0.9.3 isolated suite at commit
+  750fc466cbcb7bfbab138687586c72d1824ff3b7. Four rule-goal hashes
+  were distinct, train vs held-out groups did not overlap, and all 12
+  untrained random-policy evaluation episodes consumed 480 of 480 allowed
+  simulator interactions, with 0/12 goals. This is environment wiring,
+  NOT a learned transfer outcome.
+- Source review identified a flaw in the *first task formulation*:
+  \`AgentNearRule\` followed by \`AgentNearGoal\` may immediately satisfy
+  the goal on the same activation action, not requiring a causal
+  sequence. Correct the built-in goal primitive to \`AgentHoldGoal\`
+  for the produced BALL tile. It checks pocket contents on pickup
+  action, while the upstream \`AgentNearRule\` changes a neighboring
+  SQUARE on a different action. Thus rule activation and object pickup
+  are required separately, without new algorithms or controllers.
+- Add a test pinning the upstream goal ID and rule ID so future changes
+  cannot silently make the challenge a one-step trigger again.
+- Status: refined version submitted for revalidation; no learned
+  competence, end-to-end solvability or multi-layout transfer claimed.

@@ -25,6 +25,8 @@ def test_ruleset_ids_are_distinct_and_reproducible():
     train, held = disjoint_tasks(config)
     assert train[0]["fingerprint"] != held[0]["fingerprint"]
     assert train[0]["fingerprint"] == fingerprint(ruleset_for(config["tasks"]["train"][0]))
+    assert int(train[0]["ruleset"].goal[0]) == 1  # AgentHoldGoal, not immediate proximity
+    assert int(train[0]["ruleset"].rules[0, 0]) == 2  # AgentNearRule
 
 
 def test_duplicate_task_leakage_is_rejected():

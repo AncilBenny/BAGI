@@ -18,7 +18,7 @@ def ruleset_for(spec: dict):
     """Compose published XLand RuleSet, AgentNearRule and AgentNearGoal primitives."""
     import jax.numpy as jnp
     from xminigrid.core.constants import TILES_REGISTRY, Colors, Tiles
-    from xminigrid.core.goals import AgentNearGoal
+    from xminigrid.core.goals import AgentHoldGoal
     from xminigrid.core.rules import AgentNearRule
     from xminigrid.types import RuleSet
 
@@ -31,7 +31,7 @@ def ruleset_for(spec: dict):
     if bool(jnp.array_equal(source, result)):
         raise ValueError("Task must actually transform one tile into another")
     return RuleSet(
-        goal=AgentNearGoal(tile=result).encode(),
+        goal=AgentHoldGoal(tile=result).encode(),
         rules=AgentNearRule(tile=source, prod_tile=result).encode()[None, :],
         init_tiles=jnp.stack([source]),
     )
