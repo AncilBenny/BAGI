@@ -19,6 +19,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.6"]
+# Optional; default CI and the lightweight environment do not install these.
+rl = ["stable-baselines3==2.9.0", "sb3-contrib==2.9.0"]
 
 [tool.setuptools.packages.find]
 include = ["bagi*"]
