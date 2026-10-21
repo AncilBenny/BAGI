@@ -211,3 +211,11 @@
 - Adapted mirror matched default-frame reference exactly on cell, whole-view, reward MAE and event Brier (zero reported metric differences). This confirms the supplied reflection transform and output/action alignment recover the known isomorphic orientation at inference time.
 - Interpretation: orientation-specific failure is addressable with an exact **human-specified** symmetry, without learning a new world model. This is not evidence of learned equivariance, general transfer, better planning, or reaching the Workshop goal.
 - Next decisive checkpoint: test equivalent closed-loop planning under reflection with matched random candidate sequences, model input/output transforms and action inversion. Keep the baseline planner's poor native-frame performance visible; report causal-stage progress and goal rates, not only one-step accuracy.
+
+## 2026-10-21 — Gate A8: closed-loop symmetry-transfer planning
+
+- Prerequisite: A7 conclusively recovered the frozen model's default one-step metrics on the exact mirrored map with a human-supplied orientation transform, no retraining. A7 did not measure planning.
+- Question: does that same transform recover full-sequence switch/door/key/lock/goal performance, or does the original planner remain limited by its native weak imagination?
+- Design: compare the original random-shooting MPC on default layout, unadapted mirror, and canonicalized mirror using the identical frozen checkpoint, three planner seeds [171,272,373], two episodes each, horizon eight, 128 candidates, and fixed observation/action-only world-model inputs. Each arm has an identical evaluation step cap and fixed starting state in its layout. Use actual environment event outcomes to score causal stages. Count evaluation simulator interactions separately from 128x8 imagined actions for every real decision; no model training. The known reflection wrapper is hand-coded, not learned. Candidate sequences are not coupled under reflection despite matching seeds, and this limits paired interpretation.
+- Null outcome: if mirrored planning still fails to reach the goal, the A7 one-step transfer fix alone is insufficient. Do not attribute remaining failure solely to memory without a targeted test.
+- Status: submitted to CI and research workflow; no behavioral improvement claimed before measurements complete.

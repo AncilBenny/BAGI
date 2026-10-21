@@ -28,6 +28,9 @@ on:
       - "bagi/experiments/symmetry_canonicalization.py"
       - "tests/test_symmetry_canonicalization.py"
       - "configs/symmetry_canonicalization.yaml"
+      - "bagi/experiments/mirror_planner_transfer.py"
+      - "tests/test_mirror_planner_transfer.py"
+      - "configs/mirror_planner_transfer.yaml"
       - ".github/workflows/imagination-gap.yml"
   workflow_dispatch:
 
@@ -107,6 +110,8 @@ jobs:
         run: python -m bagi.experiments.layout_transfer --config configs/layout_transfer.yaml
       - name: Evaluate frozen symmetry canonicalization (Gate A7)
         run: python -m bagi.experiments.symmetry_canonicalization --config configs/symmetry_canonicalization.yaml
+      - name: Compare closed-loop mirrored planning (Gate A8)
+        run: python -m bagi.experiments.mirror_planner_transfer --config configs/mirror_planner_transfer.yaml
       - name: Run E6 imagination gap
         run: python -m bagi.experiments.imagination_gap --config configs/imagination_gap.yaml
       - name: Run E9 paired uncertainty ablation
@@ -127,5 +132,6 @@ jobs:
             runs/coverage_collection/summary.json
             runs/layout_transfer/summary.json
             runs/symmetry_canonicalization/summary.json
+            runs/mirror_planner_transfer/summary.json
           if-no-files-found: warn
           retention-days: 30
