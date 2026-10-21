@@ -14,6 +14,9 @@ on:
       - "bagi/experiments/xland_structural_composition.py"
       - "tests/test_xland_structural_composition.py"
       - "configs/xland_structural_composition.yaml"
+      - "bagi/experiments/xland_action_coverage.py"
+      - "tests/test_xland_action_coverage.py"
+      - "configs/xland_action_coverage.yaml"
       - ".github/workflows/bagi-xland-composition.yml"
   workflow_dispatch:
 
@@ -35,7 +38,7 @@ jobs:
         run: pip install "xminigrid==0.9.3" "pyyaml>=6.0" "pytest>=8.0" "ruff>=0.6"
       - name: Validate task splits and no-op rules rejection
         run: |
-          ruff check bagi/experiments/xland_composition_smoke.py tests/test_xland_composition_smoke.py bagi/experiments/xland_solvability_oracle.py tests/test_xland_solvability_oracle.py bagi/experiments/xland_structural_composition.py tests/test_xland_structural_composition.py
+          ruff check bagi/experiments/xland_composition_smoke.py tests/test_xland_composition_smoke.py bagi/experiments/xland_solvability_oracle.py tests/test_xland_solvability_oracle.py bagi/experiments/xland_structural_composition.py tests/test_xland_structural_composition.py bagi/experiments/xland_action_coverage.py tests/test_xland_action_coverage.py tests/test_xland_action_coverage.py
           python -m pytest -q tests/test_xland_composition_smoke.py tests/test_xland_solvability_oracle.py tests/test_xland_structural_composition.py
       - name: Evaluate distinct causal task compositions with existing simulator
         env:
@@ -49,6 +52,10 @@ jobs:
         env:
           JAX_PLATFORM_NAME: cpu
         run: python -m bagi.experiments.xland_structural_composition --config configs/xland_structural_composition.yaml
+      - name: Validate rewarded put-down train skill and action support (REUSE-8)
+        env:
+          JAX_PLATFORM_NAME: cpu
+        run: python -m bagi.experiments.xland_action_coverage --config configs/xland_action_coverage.yaml
       - name: Preserve small compatibility evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -58,5 +65,6 @@ jobs:
             runs/xland_composition_smoke/summary.json
             runs/xland_composition_oracle/summary.json
             runs/xland_structural_composition/summary.json
+            runs/xland_action_coverage/summary.json
           if-no-files-found: warn
           retention-days: 30
