@@ -1,4 +1,6 @@
 """Guard the legal learner input and source control on recovery probe."""
+from typing import ClassVar
+
 import numpy as np
 import pytest
 
@@ -22,7 +24,7 @@ def test_recovery_was_precommitted_to_actual_failure():
 
 def test_policy_input_uses_only_public_obs_and_action_history():
     class Dummy:
-        observation = {
+        observation: ClassVar[dict] = {
             "img": np.zeros((5, 5, 2), dtype=np.uint8),
             "direction": np.array([1, 0, 0, 0], dtype=np.float32),
             "goal_encoding": np.zeros(5, dtype=np.int32),
@@ -44,7 +46,7 @@ def test_out_of_range_policy_action_is_forbidden():
             return np.array(7), None
 
     class Dummy:
-        observation = {
+        observation: ClassVar[dict] = {
             "img": np.zeros((5, 5, 2), dtype=np.uint8),
             "direction": np.array([1, 0, 0, 0], dtype=np.float32),
             "goal_encoding": np.zeros(5, dtype=np.int32),
