@@ -142,13 +142,20 @@ def run(config_path: str) -> dict:
     reachable = {model_input(x) for x in reachable_rows}
     ecfg = cfg["evaluation"]
     arms = {"existing_50guided_50random": coverage(original, reachable, original_keys)}
-    for policy in ("random", "novelty"):
-        rows = collect(
-            env, budget=budget, guided_episodes=int(ecfg["guided_episodes"]),
-            policy=policy, seed=int(ecfg["seed"]),
-            epsilon=float(ecfg["novelty_epsilon"]),
-        )
-        arms[f"five_guided_plus_{policy}"] = coverage(rows, reachable, original_keys)
+    labels = {5: "five", 50: "fifty"}
+    counts = [int(x) for x in ecfg["guided_episode_counts"]]
+    if counts != [5, 50]:
+        raise ValueError("A4 protocol requires the preregistered [5, 50] guided episodes")
+    for guided in counts:
+        for policy in ("random", "novelty"):
+            rows = collect(
+                env, budget=budget, guided_episodes=guided,
+                policy=policy, seed=int(ecfg["seed"]),
+                epsilon=float(ecfg["novelty_epsilon"]),
+            )
+            arms[f"{labels[guided]}_guided_plus_{policy}"] = coverage(
+                rows, reachable, original_keys
+            )
     for name, result in arms.items():
         print(f"{name}: steps={result['real_transitions']}, "
               f"unique_input={result['unique_observation_action_keys']}, "
@@ -168,18 +175,38 @@ def run(config_path: str) -> dict:
         }
         for name, arm in arms.items() if name != "existing_50guided_50random"
     }
+    paired_policy_effects = {}
+    for guided, label in labels.items():
+        random_arm = arms[f"{label}_guided_plus_random"]
+        novelty_arm = arms[f"{label}_guided_plus_novelty"]
+        paired_policy_effects[str(guided)] = {
+            "unique_input_delta_novelty_minus_random": (
+                novelty_arm["unique_observation_action_keys"] -
+                random_arm["unique_observation_action_keys"]
+            ),
+            "reachable_coverage_delta_novelty_minus_random": (
+                novelty_arm["reachable_input_fraction_covered"] -
+                random_arm["reachable_input_fraction_covered"]
+            ),
+            "event_positive_row_deltas_novelty_minus_random": {
+                name: novelty_arm["positive_event_rows"][name] -
+                      random_arm["positive_event_rows"][name]
+                for name in EVENTS
+            },
+        }
     summary = {
-        "question": "Can a fixed 5765-step budget yield more distinct visible state-action experience by replacing redundant guided episodes?",
+        "question": "At matched collection budgets and the same guided demonstrations, does observation-count novelty outperform random exploration?",
         "existing_data": str(source),
         "all_arms_real_interaction_budget": budget,
-        "new_simulator_interactions": budget * 2,
-        "initial_guided_episodes_per_new_arm": int(ecfg["guided_episodes"]),
+        "new_simulator_interactions": budget * len(counts) * 2,
+        "guided_episode_counts": counts,
         "new_policy_seed": int(ecfg["seed"]),
         "novelty_epsilon": float(ecfg["novelty_epsilon"]),
         "reachable_graph": graph_info,
         "reachable_input_key_count": len(reachable),
         "results": arms,
         "effects_vs_existing_collection": effects,
+        "paired_policy_effects": paired_policy_effects,
         "limitations": [
             "Only the fixed Workshop layout; no new-layout generalization is measured.",
             "Novelty is the number of encounters with visible observation/action pairs, not information gain or epistemic uncertainty.",
@@ -187,6 +214,7 @@ def run(config_path: str) -> dict:
             "The policies do not use hidden flags or diagnostic state, but graph coverage is measured post hoc using simulator state.",
             "This measures data coverage and event support, NOT model validation accuracy or downstream policy success.",
             "Single preregistered policy RNG seed; replicate across seeds if coverage gains matter.",
+            "The 50-guided policy comparison isolates exploration policy while preserving the expert prefix; the original legacy random policy uses a different seeded collection schedule.",
         ],
     }
     destination = Path(ecfg["output_dir"]) / "summary.json"
