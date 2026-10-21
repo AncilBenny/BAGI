@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 from collections import Counter, defaultdict, deque
+from itertools import pairwise
 from pathlib import Path
 
 import yaml
@@ -130,7 +131,7 @@ def run(config_path: str) -> dict:
         raise ValueError("History lengths must be distinct, sorted and begin at zero")
     rows = [ambiguity(samples, length) for length in lengths]
     # More observable history refines, never removes, information from a group.
-    for old, new in zip(rows, rows[1:]):
+    for old, new in pairwise(rows):
         if new["minimal_empirical_whole_outcome_errors"] > (
             old["minimal_empirical_whole_outcome_errors"]
         ):
