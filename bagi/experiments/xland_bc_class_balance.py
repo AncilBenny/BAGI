@@ -125,7 +125,7 @@ def run(config_path):
                 "sampling": condition,
                 "model_seed": seed,
                 "expert_example_pool_size": budget,
-                "unique_expert_indices_sampled": int(len(np.unique(indices))),
+                "unique_expert_indices_sampled": len(np.unique(indices)),
                 "optimization_sample_exposures": budget * int(cfg["epochs"]),
                 "sampled_action_frequencies": dict(Counter(map(int, sampled["acts"]))),
                 "train_seconds": train_seconds,
