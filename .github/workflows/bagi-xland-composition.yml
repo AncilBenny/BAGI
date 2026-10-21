@@ -38,8 +38,8 @@ jobs:
         run: pip install "xminigrid==0.9.3" "pyyaml>=6.0" "pytest>=8.0" "ruff>=0.6"
       - name: Validate task splits and no-op rules rejection
         run: |
-          ruff check bagi/experiments/xland_composition_smoke.py tests/test_xland_composition_smoke.py bagi/experiments/xland_solvability_oracle.py tests/test_xland_solvability_oracle.py bagi/experiments/xland_structural_composition.py tests/test_xland_structural_composition.py bagi/experiments/xland_action_coverage.py tests/test_xland_action_coverage.py tests/test_xland_action_coverage.py
-          python -m pytest -q tests/test_xland_composition_smoke.py tests/test_xland_solvability_oracle.py tests/test_xland_structural_composition.py
+          ruff check bagi/experiments/xland_composition_smoke.py tests/test_xland_composition_smoke.py bagi/experiments/xland_solvability_oracle.py tests/test_xland_solvability_oracle.py bagi/experiments/xland_structural_composition.py tests/test_xland_structural_composition.py bagi/experiments/xland_action_coverage.py tests/test_xland_action_coverage.py
+          python -m pytest -q tests/test_xland_composition_smoke.py tests/test_xland_solvability_oracle.py tests/test_xland_structural_composition.py tests/test_xland_action_coverage.py
       - name: Evaluate distinct causal task compositions with existing simulator
         env:
           JAX_PLATFORM_NAME: cpu
