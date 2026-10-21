@@ -6,7 +6,6 @@ import pytest
 from bagi.experiments.reachable_state_holdout import enumerate_reachable
 from bagi.worlds import WorkshopEnv
 
-
 ACTIONS = [1, 1, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2]
 MIRROR_ACTION = {0: 0, 1: 3, 2: 2, 3: 1}
 
