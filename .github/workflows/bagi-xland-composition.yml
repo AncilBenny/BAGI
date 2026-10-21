@@ -11,6 +11,9 @@ on:
       - "bagi/experiments/xland_solvability_oracle.py"
       - "tests/test_xland_solvability_oracle.py"
       - "configs/xland_composition_oracle.yaml"
+      - "bagi/experiments/xland_structural_composition.py"
+      - "tests/test_xland_structural_composition.py"
+      - "configs/xland_structural_composition.yaml"
       - ".github/workflows/bagi-xland-composition.yml"
   workflow_dispatch:
 
@@ -32,8 +35,8 @@ jobs:
         run: pip install "xminigrid==0.9.3" "pyyaml>=6.0" "pytest>=8.0" "ruff>=0.6"
       - name: Validate task splits and no-op rules rejection
         run: |
-          ruff check bagi/experiments/xland_composition_smoke.py tests/test_xland_composition_smoke.py bagi/experiments/xland_solvability_oracle.py tests/test_xland_solvability_oracle.py
-          python -m pytest -q tests/test_xland_composition_smoke.py tests/test_xland_solvability_oracle.py
+          ruff check bagi/experiments/xland_composition_smoke.py tests/test_xland_composition_smoke.py bagi/experiments/xland_solvability_oracle.py tests/test_xland_solvability_oracle.py bagi/experiments/xland_structural_composition.py tests/test_xland_structural_composition.py
+          python -m pytest -q tests/test_xland_composition_smoke.py tests/test_xland_solvability_oracle.py tests/test_xland_structural_composition.py
       - name: Evaluate distinct causal task compositions with existing simulator
         env:
           JAX_PLATFORM_NAME: cpu
@@ -42,6 +45,10 @@ jobs:
         env:
           JAX_PLATFORM_NAME: cpu
         run: python -m bagi.experiments.xland_solvability_oracle --config configs/xland_composition_oracle.yaml
+      - name: Check structurally held-out rules with upstream simulator (REUSE-6)
+        env:
+          JAX_PLATFORM_NAME: cpu
+        run: python -m bagi.experiments.xland_structural_composition --config configs/xland_structural_composition.yaml
       - name: Preserve small compatibility evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -50,5 +57,6 @@ jobs:
           path: |
             runs/xland_composition_smoke/summary.json
             runs/xland_composition_oracle/summary.json
+            runs/xland_structural_composition/summary.json
           if-no-files-found: warn
           retention-days: 30
