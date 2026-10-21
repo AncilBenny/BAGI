@@ -133,8 +133,8 @@ def probe_flat_semantics(env_id: str) -> dict:
                 "image_prefix_equal": prefix_equal,
                 "mission_one_hot_suffix_equal": suffix_equal,
                 "mission_characters_one_hot": one_hot,
-                "image_features": int(len(image)),
-                "mission_features": int(len(mission_encoding)),
+                "image_features": len(image),
+                "mission_features": len(mission_encoding),
                 "mission_encoding_dims": suffix_dims,
                 "flat_output_features": int(output.size),
             })
