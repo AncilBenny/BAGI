@@ -18,8 +18,9 @@ autonomous research automation; never add a duplicate.
 | REUSE-19, run 39637067506 | 83.1%/78.8% of teacher labels differ from ACTUALLY executed actions during DAgger beta0; four-action histories mostly unique | Only history of the agent's own executed commands can be a legal policy input |
 | REUSE-20/21, runs 39638358164 / 39639959628 | XLand PUBLIC goal/rule wrapper missing from initial 54-input BC; task instructions improved some primitives but not robust putdown | All legitimate learners should receive a deliberate, consistent task-instruction observation contract |
 | REUSE-22, run 39643131034 | Carried pocket can affect putdown despite identical standard image+heading+public task tokens; counterfactual empty-pocket states not claimed reachable | Instantaneous policy input omits a causal state; test valid history/stateful baselines |
-| REUSE-23, run 39644180240 | FIRST learned putdown reward at seed29/layout9604, 1/10 for sham and true-four-action-history; history did not improve successful-layout IDs | Do not claim a causal memory benefit or stable placement skill |
+| REUSE-23/26, runs 39644180240 / 39650414747 | First putdown benchmark reward was later proven VACUOUS on layout9604: objects started adjacent, 0 real pickups/drops/grid changes | RETRACT earlier learned-placement-skill claim; always screen preexisting adjacency and audit real manipulation |
 | **REUSE-24, run 39646704229** | Ten untouched layouts per model/condition: 0/40 rewarded putdown, no correct BLUE square held on any putdown rollout; one genuine effective RED-ball pickup/drop under seed29 true history/layout9708 | Failure is upstream of rewarded placement: correct-object acquisition, recovery, stage navigation, and maybe memory |
+| **REUSE-25, run 39649325255** | Real wrong-RED-ball learner state rejected by existing teacher's missing-grid-RED lookup; one legal native drop then 19 train-only correction actions recovered the putdown goal in 24 total steps | One REAL learner mistake is salvageable with existing BFS, but teacher coverage has a verified state gap; learned policy did not choose the rescue |
 
 No heldout causal-chain completion is established. A positive supervised teacher-label
 action recall is not proof of closed-loop causal understanding. Do not treat
@@ -56,6 +57,38 @@ learned hold/near rewards as compositional transfer.
   including previously tested references only to confirm exact model replay;
   do NOT count reference repetitions as new independent test layouts.
   Both dedicated experiment and code-commit CI checks passed.
+
+## Critical benchmark-validity correction (REUSE-26)
+
+**REUSE-26, run 39650414747** replayed the exact 13 upstream
+native actions of the previous seed29/layout9604 "learned rewarded putdown".
+The blue square began at [3,5] and the red ball at [2,5]: **already
+adjacent** (Manhattan distance1). Throughout all 13 steps, XLand
+showed **zero effective pickups, zero effective drops, zero grid modifications**
+and the pocket stayed empty. Native action4 at the end nonetheless yielded
+a real XLand reward **0.7075000405**. The current upstream TileNearGoal
+predicate checks action4 and target-tile adjacency but does not itself
+require a successful pickup or drop. Therefore the earlier REUSE-23
+"first learner-controlled putdown" is a REAL GAME REWARD but
+**NOT an acquired physical pickup-and-placement skill**.
+
+This **explicitly supersedes** every earlier optimistic
+"learned putdown skill" phrasing in research logs, inventory, and user
+updates. It does not invalidate the observed hold/near skill rewards, the
+REUSE-24 zero real putdown successes on fresh layouts, or the REUSE-25
+manual-intervention full expert recovery.
+
+**Mandatory for future physical-placement skill evaluation:**
+(1) verify BLUE square and RED ball are *not* adjacent at reset;
+(2) record that the learner **actually** picked up the BLUE square;
+(3) record that it **actually** dropped that BLUE square;
+(4) verify native goal reward on that episode.
+Only (1)+(2)+(3)+(4) establishes a nonvacuous rewarded putdown
+under our research definition. Preserve the native reward separately
+as a benchmark score. This is a task-validity exclusion, not
+posthoc cherry-picking: preregister and report excluded layouts before
+future learner evaluations, and never silently redefine old denominators.
+
 
 ## What to do when learning reaches a bottleneck
 
@@ -128,6 +161,18 @@ Upstream references:
 - https://github.com/dunnolab/xland-minigrid (official recurrent PPO baselines)
 - https://sb3-contrib.readthedocs.io/en/master/modules/ppo_recurrent.html
 - https://imitation.readthedocs.io/en/stable/algorithms/dagger.html
+
+**Gate A limited feasibility result (REUSE-25 run 39649325255):** verified.
+Original learner seed29/layout9708 picked wrong RED ball at step4 and
+dropped it at step16 without reward. `correction_plan` failed because
+it attempted to find RED on grid before checking that RED was held.
+A separate privileged *diagnostic* native action4 released the RED ball;
+the original unchanged BFS teacher then corrected it in 19 native actions
+and rewarded the goal at step24 total. One rejected teacher query and
+19 successful teacher calls; 97 simulator calls including controls.
+This supports a **bounded teacher coverage repair** and controlled
+on-policy correction study, not learned learner recovery or general teacher
+validity. Check future wrong-object reachability separately.
 
 ### Gate D — only then test genuine composition
 
