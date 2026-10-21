@@ -15,6 +15,9 @@ on:
       - "bagi/experiments/dataset_foundations.py"
       - "tests/test_dataset_foundations.py"
       - "configs/dataset_foundations.yaml"
+      - "bagi/experiments/reachable_state_holdout.py"
+      - "tests/test_reachable_state_holdout.py"
+      - "configs/reachable_state_holdout.yaml"
       - ".github/workflows/imagination-gap.yml"
   workflow_dispatch:
 
@@ -86,21 +89,24 @@ jobs:
           PY
       - name: Audit Gate A data diversity, leakage and hidden-state aliasing
         run: python -m bagi.experiments.dataset_foundations --config configs/dataset_foundations.yaml
+      - name: Evaluate on all reachable state/action transitions (Gate A2)
+        run: python -m bagi.experiments.reachable_state_holdout --config configs/reachable_state_holdout.yaml
       - name: Run E6 imagination gap
         run: python -m bagi.experiments.imagination_gap --config configs/imagination_gap.yaml
       - name: Run E9 paired uncertainty ablation
         run: python -m bagi.experiments.planner_uncertainty_ablation --config configs/planner_uncertainty_ablation.yaml
       - name: Run E10 held-out uncertainty replication
         run: python -m bagi.experiments.planner_uncertainty_ablation --config configs/planner_uncertainty_replication.yaml
-      - name: Upload E6, E9, E10 and Gate A results
+      - name: Upload E6, E9, E10 and Gate A/A2 results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bagi-e6-e9-e10-gate-a
+          name: bagi-e6-e9-e10-gate-a2
           path: |
             runs/imagination_gap/summary.json
             runs/planner_uncertainty_ablation/summary.json
             runs/planner_uncertainty_replication/summary.json
             runs/dataset_foundations/summary.json
+            runs/reachable_state_holdout/summary.json
           if-no-files-found: warn
           retention-days: 30
