@@ -1,6 +1,6 @@
 """Verify matched budgets and no privileged observations in Gate A3."""
-from collections import Counter
 import random
+from collections import Counter
 
 import numpy as np
 import pytest
