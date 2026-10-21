@@ -108,3 +108,10 @@ only model victories.
 - Upstream `results.json`: stochastic mean reward 0.96508 across 10 episodes, published March 2023. This is **not** BAGI's measured result.
 - Unlike BAGI's image-only pipeline, the upstream recipe uses legacy `gym_minigrid.wrappers.FlatObsWrapper` and observation `VecNormalize`. Do not deserialize the upstream `vec_normalize.pkl` in a privileged runner.
 - Automated dedicated read-only static auditor: `bagi/experiments/pretrained_checkpoint_audit.py`; fail-closed ZIP and SHA256 inspection with zero model execution. Results saved as JSON in GitHub artifact after the job completes. Use that verification before proposing inference.
+
+### REUSE-2 measured compatibility verdict
+
+- GitHub report: Actions run `39572829556` / artifact `bagi-pretrained-compatibility-audit`. The pinned upstream ZIP downloaded and matched SHA256 **exactly**. Original SB3 version embedded in model is `1.8.0a11`; the model's JSON includes serialized Python spaces/policy fields that were not decoded.
+- Official current Farama MiniGrid `FlatObsWrapper` yields **2,835** features on DoorKey-5x5; BAGI's `ImgObsWrapper+FlattenObservation` yields **147**. Both action spaces have 7 actions. Thus **no direct model compatibility**. The upstream `vec_normalize.pkl` was not downloaded/deserialized; original normalization remains unresolved.
+- Normal CI and the isolated read-only audit all passed at `8d6c3ba`. No pretrained inference or reward claimed.
+- **Next use of effort:** locate a newer safely loadable compatible pretrained agent, or establish the exact trusted, isolated Zoo environment+normalization migration. Do not implement another PPO, create new planners, or expend 100k training steps to reproduce an existing specialist without a research reason.
