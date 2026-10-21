@@ -130,7 +130,7 @@ def run(config_path):
     import torch
     import xminigrid
     from imitation.algorithms.bc import BC
-    from imitation.data.types import TransitionsMinimal
+    from imitation.data.types import Transitions
     from xminigrid.wrappers import (
         DirectionObservationWrapper,
         RulesAndGoalsObservationWrapper,
@@ -187,9 +187,15 @@ def run(config_path):
                 observation_space=gym.spaces.Box(
                     low=-np.inf, high=np.inf, shape=(INPUT_WIDTH,), dtype=np.float32),
                 action_space=gym.spaces.Discrete(6),
-                demonstrations=TransitionsMinimal(
-                    obs=observations[drawn], acts=data["expert_label"][drawn],
-                    infos=np.array([None] * len(drawn), dtype=object)
+                demonstrations=Transitions(
+                    obs=observations[drawn],
+                    acts=data["expert_label"][drawn],
+                    # Supervised imitation.BC 1.0.1 ignores next_obs/dones in loss.
+                    # The logged provenance pool does not save terminal next_obs,
+                    # so this adapter uses an explicitly NONPHYSICAL placeholder.
+                    next_obs=observations[drawn].copy(),
+                    dones=np.asarray(data["done"][drawn], dtype=bool),
+                    infos=np.array([None] * len(drawn), dtype=object),
                 ),
                 rng=np.random.default_rng(seed),
                 batch_size=32, device="cpu",
@@ -245,6 +251,7 @@ def run(config_path):
             "Within this experiment both 87-feature models have identical architecture and training data; instruction slots are informative versus constant.",
             "Rule slot padding is fixed to 4 and contains upstream public task instructions, never full simulator grid.",
             "Episode index cycles only original training primitives to recover existing numeric pool task membership.",
+            "The upstream imitation 1.0.1 transition collator requires next_obs/dones, but BC uses only obs+acts; placeholder copied next_obs is NONPHYSICAL, never evaluated or used as training feature.",
             "Heldout chain is NEVER trained or teacher queried; heldout reward is descriptive until all primitives robust.",
             "Two model seeds and five fresh evaluation seeds are too small for population competence claims.",
         ],
