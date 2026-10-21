@@ -2,7 +2,9 @@
 import torch
 
 from bagi.experiments.imagination_gap import (
-    evaluate_trajectory, outcome_errors, summarize_event_errors,
+    evaluate_trajectory,
+    outcome_errors,
+    summarize_event_errors,
 )
 
 
