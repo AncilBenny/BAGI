@@ -203,3 +203,11 @@
 - Change: add a stateless zero-training canonicalization wrapper swapping right/left action IDs and flipping observation columns before world-model inference; flip only the predicted next-observation spatial axis back, not causal event or scalar reward predictions. Compare raw mirror, adapted mirror and original reference on exhaustive replayed reachable transitions under identical checkpoint; count all evaluator simulator steps separately. Include unit tests for action involution and transformed observation/logit correspondence.
 - Restrictions: fixed rule symmetry known ahead of time, no hidden-state inputs into model, no trained parameters changed, no policy success claim. This evaluates a reusable equivariant inference transformation rather than new learned intelligence.
 - Status: submitted for CI and evaluation; do not claim positive result until artifact confirms.
+
+### Gate A7 verified measurement — GitHub Actions 39561554008
+
+- CI 39561553908 and scientific workflow 39561554008 succeeded at commit 3b6cdb2ef36788ffed7500061b993fb9b897c102. Combined research artifact includes `symmetry_canonicalization/summary.json`.
+- Exhaustive 312 reachable state/action evaluations per layout; same original frozen learned checkpoint and no new training. Mirrored raw cell prediction accuracy 0.717692 and whole-view accuracy 0.012821; canonicalized mirror cell accuracy 0.831410 and whole-view accuracy 0.259615. Reward MAE improved from 0.119458 to 0.056557; positive-event Brier from 0.477333 to 0.093218.
+- Adapted mirror matched default-frame reference exactly on cell, whole-view, reward MAE and event Brier (zero reported metric differences). This confirms the supplied reflection transform and output/action alignment recover the known isomorphic orientation at inference time.
+- Interpretation: orientation-specific failure is addressable with an exact **human-specified** symmetry, without learning a new world model. This is not evidence of learned equivariance, general transfer, better planning, or reaching the Workshop goal.
+- Next decisive checkpoint: test equivalent closed-loop planning under reflection with matched random candidate sequences, model input/output transforms and action inversion. Keep the baseline planner's poor native-frame performance visible; report causal-stage progress and goal rates, not only one-step accuracy.
