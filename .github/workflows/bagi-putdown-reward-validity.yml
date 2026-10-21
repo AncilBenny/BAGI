@@ -1,0 +1,53 @@
+name: BAGI Putdown Reward Validity Audit
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_putdown_reward_validity.py"
+      - "tests/test_xland_putdown_reward_validity.py"
+      - "configs/xland_putdown_reward_validity.yaml"
+      - ".github/workflows/bagi-putdown-reward-validity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  reward-validity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Fetch original reviewed REUSE-25 learner action trace
+        run: |
+          mkdir -p runs/reuse25_native_trace
+          gh run download 39649325255 --repo AncilBenny/BAGI --name bagi-real-wrong-object-recovery --dir runs/reuse25_native_trace
+          test -f runs/reuse25_native_trace/summary.json
+      - name: Install pinned upstream simulator and guards
+        run: |
+          python -m pip install --no-cache-dir "xminigrid==0.9.3" "pytest>=8" "ruff>=0.6" "pyyaml>=6"
+      - name: Check physical manipulation classification and code quality
+        run: |
+          ruff check bagi/experiments/xland_putdown_reward_validity.py tests/test_xland_putdown_reward_validity.py
+          python -m pytest -q tests/test_xland_putdown_reward_validity.py
+      - name: Replay original rewarded native action trace with transition checks
+        run: python -m bagi.experiments.xland_putdown_reward_validity --config configs/xland_putdown_reward_validity.yaml
+      - name: Archive reward-vs-physical-skill verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-putdown-reward-validity
+          path: runs/xland_putdown_reward_validity/summary.json
+          if-no-files-found: warn
+          retention-days: 30
