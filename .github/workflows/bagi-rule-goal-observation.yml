@@ -1,0 +1,46 @@
+name: BAGI XLand Rule and Goal Observation Audit
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_rule_goal_observation.py"
+      - "tests/test_xland_rule_goal_observation.py"
+      - "configs/xland_rule_goal_observation.yaml"
+      - ".github/workflows/bagi-rule-goal-observation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  task-observation-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install unchanged upstream XLand and audit dependencies
+        run: |
+          python -m pip install --no-cache-dir "xminigrid==0.9.3" "pyyaml>=6" "pytest>=8" "ruff>=0.6"
+      - name: Lint and guard observation interface assumptions
+        run: |
+          ruff check bagi/experiments/xland_rule_goal_observation.py tests/test_xland_rule_goal_observation.py
+          python -m pytest -q tests/test_xland_rule_goal_observation.py
+      - name: Verify upstream task instruction boundary from real resets
+        run: python -m bagi.experiments.xland_rule_goal_observation --config configs/xland_rule_goal_observation.yaml
+      - name: Publish bounded interface audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-rule-goal-observation-boundary
+          path: runs/xland_rule_goal_observation/summary.json
+          if-no-files-found: warn
+          retention-days: 30
