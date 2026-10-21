@@ -294,7 +294,7 @@ def run(config_path):
                 raise AssertionError("Training interaction cap exceeded")
             aggregate = rollout.flatten_trajectories(trainer._all_demos)
             teacher_multiset = Counter(
-                (np.ascontiguousarray(o).tobytes(), int(a))
+                (np.ascontiguousarray(o, dtype=np.float32).tobytes(), int(a))
                 for o, a in zip(aggregate.obs, aggregate.acts)
             )
             executed_multiset = Counter(
@@ -304,7 +304,7 @@ def run(config_path):
             )
             if teacher_multiset != executed_multiset:
                 teacher_obs = Counter(
-                    np.ascontiguousarray(o).tobytes()
+                    np.ascontiguousarray(o, dtype=np.float32).tobytes()
                     for o in aggregate.obs
                 )
                 executed_obs = Counter(
@@ -316,6 +316,8 @@ def run(config_path):
                 record = {
                     "seed": seed,
                     "dagger_flattened_labels": len(aggregate.acts),
+                    "dagger_obs_original_dtype": str(np.asarray(aggregate.obs).dtype),
+                    "learner_observation_canonical_dtype": "float32",
                     "actual_logged_actions": len(room.records),
                     "expert_label_frequencies": dict(Counter(
                         map(int, aggregate.acts)

@@ -69,3 +69,12 @@ def test_numeric_saved_arrays_never_need_pickle():
     }
     assert all(array.dtype != object for array in data.values())
     assert data["prior_executed_actions"].shape == (1, 4)
+
+def test_bytes_are_canonical_after_upstream_dtype_conversion():
+    """Upstream dataset storage may decode float32 learner images as float64."""
+    visible = np.array([0.0, 4.0, 255.0], dtype=np.float32)
+    upstream = visible.astype(np.float64)
+    assert visible.tobytes() != upstream.tobytes()
+    assert visible.tobytes() == np.ascontiguousarray(
+        upstream, dtype=np.float32
+    ).tobytes()
