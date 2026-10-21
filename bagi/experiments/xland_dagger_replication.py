@@ -85,6 +85,7 @@ def successful_seeds(evaluation):
 
 
 def run(config_path):
+    import gymnasium as gym
     import torch
     import xminigrid
     from imitation.algorithms.bc import BC
@@ -129,11 +130,10 @@ def run(config_path):
             )
             torch.manual_seed(seed)
             trainer = BC(
-                observation_space=views.observation_space if False else
-                    __import__("gymnasium").spaces.Box(
-                        low=0, high=255, shape=(54,), dtype=np.float32
-                    ),
-                action_space=__import__("gymnasium").spaces.Discrete(6),
+                observation_space=gym.spaces.Box(
+                    low=0.0, high=255.0, shape=(54,), dtype=np.float32
+                ),
+                action_space=gym.spaces.Discrete(6),
                 demonstrations=pool, rng=np.random.default_rng(seed),
                 batch_size=32, device="cpu",
             )
