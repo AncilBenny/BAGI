@@ -93,6 +93,7 @@ def collect(env, defaults, skills, *, budget, seed_base, cap, max_attempts):
 
     wrapped = DirectionObservationWrapper(env)
     observations, labels, next_observations, terminals = [], [], [], []
+    used_label_skill_names = []
     attempts = rejected = generator_steps = replay_steps = 0
     per_skill_episodes = Counter()
     expert_action_support = {skill: set() for skill in skills}
@@ -116,6 +117,7 @@ def collect(env, defaults, skills, *, budget, seed_base, cap, max_attempts):
         next_observations.extend(next_views[:count])
         terminals.extend(dones[:count])
         labels.extend(actions[:count])
+        used_label_skill_names.extend([skill] * count)
     if len(labels) != budget:
         raise RuntimeError("Insufficient teacher demonstrations in fixed seed range")
     data = {
@@ -126,6 +128,7 @@ def collect(env, defaults, skills, *, budget, seed_base, cap, max_attempts):
     }
     audit = {
         "used_labeled_examples": budget,
+        "used_label_skill_names": used_label_skill_names,
         "successful_expert_episodes": dict(per_skill_episodes),
         "successful_teacher_generator_real_steps": generator_steps,
         "successful_teacher_replay_real_steps": replay_steps,
