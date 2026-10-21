@@ -3,6 +3,7 @@
 import pytest
 import torch
 
+from bagi.experiments.planner_uncertainty_ablation import paired_stage_statistics
 from bagi.planning.model_predictive import ModelPredictivePlanner
 from bagi.planning.uncertainty_aware import UncertaintyAwarePlanner
 
@@ -53,3 +54,27 @@ def test_negative_uncertainty_weight_is_rejected():
             ToyModel(), actions=2, horizon=1, candidates=2,
             uncertainty_weight=-0.1,
         )
+
+
+def test_paired_statistics_exact_sign_flip_and_no_goal_positives():
+    rows = []
+    for seed in (401, 402, 403, 404):
+        base = {"planner_seed": seed, "uncertainty_weight": 0.0}
+        treated = {"planner_seed": seed, "uncertainty_weight": 1.0}
+        for stage in ("switch", "door", "key", "lock", "goal"):
+            base[f"{stage}_rate"] = 0.0
+            treated[f"{stage}_rate"] = 1.0 if stage == "switch" else 0.0
+        rows.extend((base, treated))
+    result = paired_stage_statistics(rows, 1.0)
+    assert result["switch"]["mean_paired_difference"] == 1.0
+    assert result["switch"]["improved_seeds"] == 4
+    assert result["switch"]["exact_two_sided_sign_flip_p"] == 0.125
+    assert result["goal"]["tied_seeds"] == 4
+    assert result["goal"]["exact_two_sided_sign_flip_p"] == 1.0
+
+
+def test_paired_statistics_requires_identical_planner_seeds():
+    base = {"uncertainty_weight": 0.0, "planner_seed": 401}
+    treated = {"uncertainty_weight": 1.0, "planner_seed": 402}
+    with pytest.raises(ValueError, match="matched"):
+        paired_stage_statistics([base, treated], 1.0)

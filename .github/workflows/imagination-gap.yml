@@ -11,6 +11,7 @@ on:
       - "bagi/experiments/planner_uncertainty_ablation.py"
       - "tests/test_uncertainty_planner.py"
       - "configs/planner_uncertainty_ablation.yaml"
+      - "configs/planner_uncertainty_replication.yaml"
       - ".github/workflows/imagination-gap.yml"
   workflow_dispatch:
 
@@ -52,13 +53,16 @@ jobs:
         run: python -m bagi.experiments.imagination_gap --config configs/imagination_gap.yaml
       - name: Run E9 paired uncertainty ablation
         run: python -m bagi.experiments.planner_uncertainty_ablation --config configs/planner_uncertainty_ablation.yaml
-      - name: Upload E6 and E9 results
+      - name: Run E10 held-out uncertainty replication
+        run: python -m bagi.experiments.planner_uncertainty_ablation --config configs/planner_uncertainty_replication.yaml
+      - name: Upload E6, E9 and E10 results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: bagi-e6-e9-research
+          name: bagi-e6-e9-e10-research
           path: |
             runs/imagination_gap/summary.json
             runs/planner_uncertainty_ablation/summary.json
+            runs/planner_uncertainty_replication/summary.json
           if-no-files-found: warn
           retention-days: 30

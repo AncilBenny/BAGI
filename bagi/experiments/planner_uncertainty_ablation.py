@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from itertools import product
 from pathlib import Path
 
 import numpy as np
@@ -69,6 +70,40 @@ def evaluate(model, env_config: dict, plan_config: dict, weight: float,
     }
 
 
+
+def paired_stage_statistics(rows: list[dict], comparison_weight: float) -> dict:
+    """Paired seed-level effects with an exact sign-flip test, for small studies.
+
+    Randomization p-values are descriptive: planner seeds are not new world
+    layouts, and neither model training nor evaluation data are independent.
+    """
+    baseline = {int(row["planner_seed"]): row for row in rows
+                if row["uncertainty_weight"] == 0.0}
+    treatment = {int(row["planner_seed"]): row for row in rows
+                 if row["uncertainty_weight"] == comparison_weight}
+    if not baseline or baseline.keys() != treatment.keys():
+        raise ValueError("Paired comparisons require matched baseline and treatment seeds")
+    if len(baseline) > 16:
+        raise ValueError("Exact sign-flip enumeration supports at most 16 seeds")
+    result = {}
+    for stage in STAGES:
+        key = f"{stage}_rate"
+        differences = [treatment[s][key] - baseline[s][key] for s in sorted(baseline)]
+        observed = abs(sum(differences))
+        extreme = sum(
+            abs(sum(sign * delta for sign, delta in zip(signs, differences))) >=
+            observed - 1e-12
+            for signs in product((-1, 1), repeat=len(differences))
+        )
+        result[stage] = {
+            "mean_paired_difference": sum(differences) / len(differences),
+            "improved_seeds": sum(d > 1e-12 for d in differences),
+            "worsened_seeds": sum(d < -1e-12 for d in differences),
+            "tied_seeds": sum(abs(d) <= 1e-12 for d in differences),
+            "exact_two_sided_sign_flip_p": extreme / (2 ** len(differences)),
+        }
+    return result
+
 def run(config_path: str) -> dict:
     cfg = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
     env_cfg = cfg["environment"]
@@ -131,6 +166,15 @@ def run(config_path: str) -> dict:
         "planner_seeds": seeds,
         "results": rows,
         "summary": summaries,
+        "paired_stage_statistics": {
+            str(weight): paired_stage_statistics(rows, weight)
+            for weight in weights if weight != 0.0
+        },
+        "statistics_caveat": (
+            "Two-sided sign-flip tests over planner-seed paired stage rates; "
+            "small exploratory study, five correlated metrics, and fixed layout. "
+            "No causal or generalization claim from nominal p-values."
+        ),
     }
     output_path = Path(experiment["output_dir"]) / "summary.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)

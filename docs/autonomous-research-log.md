@@ -32,3 +32,11 @@
 - Limitations: softmax confidence is not calibrated uncertainty; the world layout is fixed, and three seeds cannot establish significance or transfer.
 - Status: implementation submitted for GitHub CI and E9 evaluation. No E9 success claim is made before artifact verification.
 - Next measurement: compare stage rates and actual real-step counts for each weight. If there is no gain, inspect confidence calibration on planner-selected states before expanding compute or changing architecture.
+
+## 2026-10-21 — E10 held-out replication of uncertainty planning
+
+- Research question: does the E9 improvement at early causal stages for uncertainty_weight=1.0 survive new, previously unused planner seeds at the exact same search budget? Can it advance beyond the door?
+- Prior evidence: E9 GitHub run 39540599254 (46e10ed) reported switch activation 5/9 at baseline versus 9/9 at weight 1.0; door reached 0/9 versus 1/9; key, lock and goal were 0/9 in both. E9 was exploratory with only three planner seeds, and the stronger penalty was chosen after examining the E9 arms. It does not justify a capability improvement claim.
+- Preregistered primary comparison: baseline weight 0 versus E9-selected weight 1.0, 12 *new* planner seeds [404, 505, 606, 707, 808, 909, 1001, 1102, 1203, 1304, 1405, 1506] and three matched evaluation episodes each. All other Workshop layout, environment seeds, model checkpoint, 128 candidates, horizon 8, event weights and step budgets stay unchanged. Stage rates (switch/door/key/lock/goal), real environment steps, imagined steps and seed-wise paired differences are recorded. Exact two-sided sign-flip probabilities describe variation across planner seeds but are exploratory across five correlated stages and one fixed layout.
+- Implementation: add E10 YAML, pure small-sample paired-stage analysis and tests, and call E10 in the existing E6/E9 workflow. No training data recollection or world-model retraining planned.
+- Status: E10 implementation proposed, no E10 result known yet. Next: inspect its uploaded summary and require reproducible gains on held-out seeds before testing a new architecture or generalization claim. If the effect vanishes, report the negative result and investigate model confidence calibration or action bias.
