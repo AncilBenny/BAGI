@@ -262,3 +262,28 @@
 - **Security:** the audited ZIP was SHA256-verified, inspected via `zipfile` and JSON/text only, with unsafe ZIP paths rejected. Ten serialized SB3 data fields were identified but left inert. No weights, pickle, torch.load, SB3.load or model evaluation were executed.
 - **Decision:** BLOCK directly running this older pretrained checkpoint in BAGI's current pipeline. **Do not retrain it automatically**; first seek a newer compatible existing checkpoint or use the upstream Zoo evaluation recipe in a strict isolated nonprivileged runtime and verify semantics/normalization safely. Published reward 0.96508 over 10 stochastic episodes is third-party only.
 - **Next scientific objective:** once a trustworthy competent existing model is available, investigate held-out causal compositionality and skill transfer; repeated wrappers/checkpoint compatibility tests alone are integration work, not AGI progress.
+
+
+### REUSE-3 implementation decision — upstream observation structure, no new encoder
+
+- **Existing work checked:** upstream Farama MiniGrid \`FlatObsWrapper\` source
+  v2.1.1 and v3.2.0. Both encode 147 visible image features and 2,688
+  mission-character one-hot features in the same numerical order (2835 total).
+  Modern mission temporary dtype changed float32 to uint8; this is not an
+  assertion that the original 2023 SB3 model receives identical normalized
+  vectors in practice.
+- **Reuse decision:** use the maintained, already installed Farama wrapper
+  instead of implementing a legacy encoder or retraining a redundant agent.
+  Add a small deterministic source-observation-vs-wrapper contract check for
+  three reset seeds to the existing read-only checkpoint audit, with no
+  new dependency or scheduled workflow.
+- **Open gap:** original \`vec_normalize.pkl\` statistics and old
+  SB3 1.8.0a11 checkpoint loading are still not safely reproduced.
+  An upstream SB3 pickle loading security report (#2281) strengthens
+  the requirement to avoid \`PPO.load\` and \`VecNormalize.load\` on
+  untrusted files in nonisolated/credentialed runners.
+- **Scientific scope:** integration evidence only; no policy execution,
+  model training, accuracy, sample efficiency or transfer measured.
+  If the maintained FlatObs contract passes, stop writing wrapper code
+  and advance the higher-level existing-model/transfer comparison.
+- **Status:** submitted to GitHub CI and isolated audit for measurement.

@@ -105,6 +105,54 @@ def probe_wrappers(env_id: str) -> dict:
     return shapes
 
 
+def probe_flat_semantics(env_id: str) -> dict:
+    """Check maintained FlatObsWrapper image/mission structure across reset seeds."""
+    import gymnasium as gym
+    import minigrid  # noqa: F401
+    import numpy as np
+    from minigrid.wrappers import FlatObsWrapper
+
+    seeds = (117, 211, 307)
+    examples = []
+    for seed in seeds:
+        raw = gym.make(env_id)
+        flattened = FlatObsWrapper(gym.make(env_id))
+        try:
+            source, _ = raw.reset(seed=seed)
+            output, _ = flattened.reset(seed=seed)
+            image = source["image"].reshape(-1)
+            mission_encoding = flattened.cachedArray.reshape(-1)
+            prefix_equal = bool(np.array_equal(output[:len(image)], image))
+            suffix_equal = bool(np.array_equal(output[len(image):], mission_encoding))
+            suffix_dims = list(flattened.cachedArray.shape)
+            one_hot = bool(np.all(flattened.cachedArray.sum(axis=1)[:len(source["mission"])] == 1))
+            if not (prefix_equal and suffix_equal and one_hot):
+                raise AssertionError("Maintained FlatObsWrapper failed observable contract")
+            examples.append({
+                "reset_seed": seed,
+                "image_prefix_equal": prefix_equal,
+                "mission_one_hot_suffix_equal": suffix_equal,
+                "mission_characters_one_hot": one_hot,
+                "image_features": int(len(image)),
+                "mission_features": int(len(mission_encoding)),
+                "mission_encoding_dims": suffix_dims,
+                "flat_output_features": int(output.size),
+            })
+        finally:
+            raw.close()
+            flattened.close()
+    return {
+        "contract": "flatten visible image, append mission character one-hot matrix",
+        "tested_independent_reset_seeds": list(seeds),
+        "examples": examples,
+        "all_checks_passed": True,
+        "historical_source_caveat": (
+            "Static legacy-v2 source has the same character mapping and ordering; "
+            "historical runtime environment parity and normalization are NOT proven."
+        ),
+    }
+
+
 def run(config_path: str) -> dict:
     config = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
     upstream = config["upstream"]
@@ -113,6 +161,7 @@ def run(config_path: str) -> dict:
         upstream["sha256"],
     )
     shapes = probe_wrappers(config["environment"])
+    flat_contract = probe_flat_semantics(config["environment"])
     same = (shapes["published_recipe_flat"]["observation_shape"] ==
             shapes["bagi_current_image"]["observation_shape"])
     report = {
@@ -120,11 +169,12 @@ def run(config_path: str) -> dict:
         "source_model": upstream,
         "static_archive": archive,
         "current_minigrid_wrapper_contracts": shapes,
+        "modern_flat_observation_contract": flat_contract,
         "input_shapes_match": same,
         "safe_to_directly_evaluate": False,
         "blocked_by": [
-            ("Original gym_minigrid FlatObsWrapper input contract must be reconciled "
-             "with current Farama MiniGrid; matching only shape is insufficient."),
+            ("The maintained FlatObsWrapper image+mission contract is consistent, but "
+             "exact legacy runtime normalization and task semantics are not established."),
             ("Published checkpoint requires VecNormalize stats. Its external "
              "vec_normalize.pkl is NOT downloaded or deserialized."),
             ("SB3 archive observation/action spaces contain serialized Python objects; "

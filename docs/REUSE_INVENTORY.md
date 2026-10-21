@@ -115,3 +115,29 @@ only model victories.
 - Official current Farama MiniGrid `FlatObsWrapper` yields **2,835** features on DoorKey-5x5; BAGI's `ImgObsWrapper+FlattenObservation` yields **147**. Both action spaces have 7 actions. Thus **no direct model compatibility**. The upstream `vec_normalize.pkl` was not downloaded/deserialized; original normalization remains unresolved.
 - Normal CI and the isolated read-only audit all passed at `8d6c3ba`. No pretrained inference or reward claimed.
 - **Next use of effort:** locate a newer safely loadable compatible pretrained agent, or establish the exact trusted, isolated Zoo environment+normalization migration. Do not implement another PPO, create new planners, or expend 100k training steps to reproduce an existing specialist without a research reason.
+
+
+### REUSE-3 — reuse the maintained FlatObsWrapper instead of writing a legacy adapter
+
+- Historical source checked directly in the upstream Farama Minigrid repo at
+  \`v2.1.1:minigrid/wrappers.py\` versus \`v3.2.0:minigrid/wrappers.py\`:
+  https://github.com/Farama-Foundation/Minigrid/blob/v2.1.1/minigrid/wrappers.py
+  https://github.com/Farama-Foundation/Minigrid/blob/v3.2.0/minigrid/wrappers.py
+  Both flatten the 7×7×3 image (147 values), then append 96×28 encoded
+  mission character features (2,688 values), total 2,835. The modern
+  implementation uses uint8 where older code uses a float32 temporary for
+  mission characters; numerical 0/1 feature ordering appears the same.
+- A dedicated REUSE-3 test checks actual Farama \`FlatObsWrapper\` output
+  against its *own* underlying image and one-hot mission encoding on three
+  independent reset seeds. This is a reproducible representation contract,
+  not a claim of full historical emulator or policy reproducibility.
+- **Do not create a replacement encoder**: reuse the modern maintained
+  upstream \`FlatObsWrapper\`. The 147-vs-2835 mismatch arises because
+  BAGI's 512-step learner used \`ImgObsWrapper\`; that test is not intended
+  to load this external agent. We still need separately verified
+  normalization parameters and SB3 checkpoint version adaptation.
+- Security review: SB3's model loading behavior has an upstream
+  unpickling issue report https://github.com/DLR-RM/stable-baselines3/issues/2281 .
+  Static inspection of a SHA-256-matched ZIP does not itself make
+  \`PPO.load\` or \`VecNormalize.load\` safe. No such untrusted deserialization
+  is authorized on credentialed runners.

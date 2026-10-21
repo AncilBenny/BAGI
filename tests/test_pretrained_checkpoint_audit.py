@@ -6,7 +6,10 @@ import zipfile
 
 import pytest
 
-from bagi.experiments.pretrained_checkpoint_audit import verify_and_inspect_archive
+from bagi.experiments.pretrained_checkpoint_audit import (
+    probe_flat_semantics,
+    verify_and_inspect_archive,
+)
 
 
 def specimen(*, traversal=False):
@@ -43,3 +46,18 @@ def test_path_traversal_fails_closed():
     blob, digest = specimen(traversal=True)
     with pytest.raises(ValueError, match="Unsafe"):
         verify_and_inspect_archive(blob, digest)
+
+
+
+def test_upstream_flat_wrapper_contract_not_reinvented():
+    # Uses Farama's own flat-observation encoder, not BAGI replacement logic.
+    report = probe_flat_semantics("MiniGrid-DoorKey-5x5-v0")
+    assert report["all_checks_passed"]
+    assert len(report["examples"]) == 3
+    for result in report["examples"]:
+        assert result["image_features"] == 147
+        assert result["mission_features"] == 2688
+        assert result["mission_encoding_dims"] == [96, 28]
+        assert result["flat_output_features"] == 2835
+        assert result["image_prefix_equal"]
+        assert result["mission_one_hot_suffix_equal"]
