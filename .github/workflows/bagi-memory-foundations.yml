@@ -1,0 +1,42 @@
+name: BAGI Memory Foundations
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/history_ambiguity.py"
+      - "tests/test_history_ambiguity.py"
+      - "configs/history_ambiguity.yaml"
+      - ".github/workflows/bagi-memory-foundations.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bagi-memory-foundations
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install minimal simulator dependencies
+        run: pip install "numpy>=1.26" "gymnasium>=1.0" "pyyaml>=6.0" "pytest>=8.0"
+      - name: Test history ambiguity diagnostic
+        run: pytest -q tests/test_history_ambiguity.py
+      - name: Measure observable history information
+        run: python -m bagi.experiments.history_ambiguity --config configs/history_ambiguity.yaml
+      - name: Preserve measured evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-gate-b1-history
+          path: runs/history_ambiguity/summary.json
+          if-no-files-found: warn
+          retention-days: 30
