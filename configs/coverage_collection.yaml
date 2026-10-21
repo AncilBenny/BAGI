@@ -1,0 +1,12 @@
+# Gate A3: compare data-collection policies at EXACTLY the legacy budget.
+existing_training_data: runs/sample_efficiency_causal_v2/guided_050/data/transitions.jsonl
+environment:
+  size: 9
+  max_steps: 100
+  view_size: 5
+evaluation:
+  guided_episodes: 5
+  seed: 62031
+  novelty_epsilon: 0.15
+  max_states: 512
+  output_dir: runs/coverage_collection
