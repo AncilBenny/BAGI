@@ -8,6 +8,9 @@ on:
       - "bagi/experiments/xland_composition_smoke.py"
       - "tests/test_xland_composition_smoke.py"
       - "configs/xland_composition_smoke.yaml"
+      - "bagi/experiments/xland_solvability_oracle.py"
+      - "tests/test_xland_solvability_oracle.py"
+      - "configs/xland_composition_oracle.yaml"
       - ".github/workflows/bagi-xland-composition.yml"
   workflow_dispatch:
 
@@ -29,17 +32,23 @@ jobs:
         run: pip install "xminigrid==0.9.3" "pyyaml>=6.0" "pytest>=8.0" "ruff>=0.6"
       - name: Validate task splits and no-op rules rejection
         run: |
-          ruff check bagi/experiments/xland_composition_smoke.py tests/test_xland_composition_smoke.py
-          python -m pytest -q tests/test_xland_composition_smoke.py
+          ruff check bagi/experiments/xland_composition_smoke.py tests/test_xland_composition_smoke.py bagi/experiments/xland_solvability_oracle.py tests/test_xland_solvability_oracle.py
+          python -m pytest -q tests/test_xland_composition_smoke.py tests/test_xland_solvability_oracle.py
       - name: Evaluate distinct causal task compositions with existing simulator
         env:
           JAX_PLATFORM_NAME: cpu
         run: python -m bagi.experiments.xland_composition_smoke --config configs/xland_composition_smoke.yaml
+      - name: Establish privileged, deterministic task-solvability ceiling
+        env:
+          JAX_PLATFORM_NAME: cpu
+        run: python -m bagi.experiments.xland_solvability_oracle --config configs/xland_composition_oracle.yaml
       - name: Preserve small compatibility evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bagi-xland-composition-contract
-          path: runs/xland_composition_smoke/summary.json
+          path: |
+            runs/xland_composition_smoke/summary.json
+            runs/xland_composition_oracle/summary.json
           if-no-files-found: warn
           retention-days: 30

@@ -340,3 +340,13 @@
   cannot silently make the challenge a one-step trigger again.
 - Status: refined version submitted for revalidation; no learned
   competence, end-to-end solvability or multi-layout transfer claimed.
+
+
+## 2026-10-21 — REUSE-5: establish bounded solvability of existing XLand causal compositions
+
+- **Existing work reused:** exact \`xminigrid==0.9.3\` XLand room, six-action simulator, \`AgentNearRule\`, \`AgentHoldGoal\` and classical, well-established shortest-path **breadth-first search**. No original neural architecture or RL method. The diagnostic BFS is tiny navigation glue over (position, heading), used as a privileged capability ceiling.
+- **Scientific prerequisite:** REUSE-4 established four SHA256-distinct train/held-out source/result rule-goal pairs but a uniform-random agent achieved 0/12 within 40 steps (run 39576647873). That does not prove the new task design is solvable at the same interaction cap. Check this **before** expensive learning.
+- **Method:** for each of the same 4 tasks x evaluation seeds [5100,5101,5102], read the simulator's exact initial grid/agent orientation solely for the diagnostic oracle. BFS to a traversable adjacent cell facing the source SQUARE; execute the resulting turn/forward actions in the *unmodified* environment, then action 0 to trigger \`AgentNearRule\`, then action 3 to pick up the produced BALL satisfying \`AgentHoldGoal\`. Report executed steps, BFS expansions, intermediate transformation, carried result and true simulator goal reward. Cap each trajectory at the same 40 real actions. Predeclared tests cover shortest heading-aware paths and unreachable objects. Same-task random result appears as **separately measured reference**, not an information-matched control.
+- **Limits:** full-state object position and goal/result identity are privileged inputs to this diagnostic; never supply them to a learned/observation-only policy. BFS proves only navigational task feasibility for these specific seeded layouts, not intelligence, adaptation, compositional generalization, or an independent learner baseline.
+- **Stop/negative rule:** if the privileged ceiling cannot solve the tasks, revise their specification or cap before training anything. If the ceiling solves them, retain its true minimal action counts and adopt existing upstream recurrent/meta-RL implementations for an actual training vs held-out recombination study; do not build RL anew.
+- **Status:** pushed with bounded XLand workflow; no solvability result claimed until CI and artifact complete.
