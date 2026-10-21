@@ -2,6 +2,77 @@
 
 The project is judged by **learning efficiency and transfer**, not only final task reward.
 
+
+## Non-negotiable research rule: reuse first, research the frontier
+
+**BAGI's objective is to advance beyond the state of the art, not to rediscover
+established science.** If a solution already exists and meets the relevant
+requirements, use it. Reimplementing solved foundations, designing arbitrary
+architectures and running experiments that merely confirm well-established
+results consume our scarce time, compute and attention without advancing BAGI.
+
+This rule applies to **human-led ChatGPT work, scheduled ChatGPT work, GitHub
+Copilot, and other automated research agents**.
+
+### Mandatory pre-implementation review
+
+Before proposing a new model, planner, memory mechanism, training method,
+benchmark or algorithm:
+
+1. **Define the BAGI-specific objective and missing capability.** Identify
+   what is not covered by our current tools or established knowledge. Avoid
+   substituting a new implementation for a clearly specified scientific
+   question.
+2. **Survey and reuse existing work.** Prefer peer-reviewed or influential
+   papers with demonstrated results, well-maintained reference implementations,
+   established libraries, and standard benchmarks. Look for both successful
+   approaches and known negative results/limitations. Check repository
+   citations and packages before searching further. If external literature
+   access is unavailable, clearly mark the literature review incomplete; do
+   not assert novelty.
+3. **Make an explicit build-versus-reuse decision.** Can BAGI call a library,
+   adapt a maintained implementation, use existing checkpoints or test a
+   well-established benchmark? Consider license, provenance, security,
+   reproducibility, task/observation/action compatibility, compute budget and
+   scientific validity. Favor small integration and fair evaluation over
+   rebuilding a framework.
+4. **Identify the genuine research gap.** Only implement new research logic
+   after explaining the specific missing property, incompatibility,
+   contradiction, unresolved mechanism, or untested generalization question
+   that existing work does not answer. Merely using an established method on
+   BAGI is integration or replication, not invention.
+5. **Spend experiments only on unresolved questions.** Test the smallest
+   falsifiable hypothesis that differentiates explanations or validates a
+   necessary new capability, with established baselines, held-out conditions,
+   actual resource accounting and decisive negative outcomes. Stop repeating
+   settled experiments or endlessly tuning benchmark-specific tricks.
+
+### Required evidence in research proposals and logs
+
+For each substantive research iteration, record:
+
+- **Existing work checked:** named literature, existing code or framework,
+  maintained benchmark, and known limitations; include identifiers/links when
+  actually verified.
+- **Reuse decision:** what we will import, adapt, configure or evaluate, with
+  license/dependency and compute implications; or why those candidates fail.
+- **Truly open question:** precisely what existing work does *not* establish
+  for the BAGI objective.
+- **Contribution type:** integration, reproduction, adaptation, evaluation,
+  or genuinely novel hypothesis. Never call reused machinery an invention.
+- **Falsifiable next test:** measurable criterion, comparison, held-out data,
+  interaction budget, failure interpretation, and an explicit stop condition.
+
+If the search finds an adequate, already established solution, **integrate it
+instead of launching a parallel invention project**. If no open question or
+BAGI-specific gap can be established, perform literature/implementation
+synthesis rather than making a commit simply to show activity.
+
+BAGI is a long-horizon research platform; incremental diagnostic gates are
+useful only when they enable progress toward its larger objective. Prioritize
+high-leverage integrations and scientific bottlenecks over reinventing
+foundational methods or accumulating low-value experiments.
+
 ## Every experiment records
 
 - code commit SHA
