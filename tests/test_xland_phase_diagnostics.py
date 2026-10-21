@@ -2,6 +2,7 @@
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from bagi.experiments.xland_phase_diagnostics import (
     FROZEN_FRESH_SUCCESSES,
@@ -10,6 +11,7 @@ from bagi.experiments.xland_phase_diagnostics import (
 
 
 def test_phase_flags_detect_carried_tile_and_adjacent_objects():
+    pytest.importorskip("xminigrid")
     from xminigrid.core.constants import TILES_REGISTRY, Colors, Tiles
 
     grid = np.zeros((5, 5, 2), dtype=np.uint8)
@@ -26,6 +28,7 @@ def test_phase_flags_detect_carried_tile_and_adjacent_objects():
 
 
 def test_empty_pocket_not_confused_with_correct_drop():
+    pytest.importorskip("xminigrid")
     from xminigrid.core.constants import Tiles
 
     state = SimpleNamespace(
