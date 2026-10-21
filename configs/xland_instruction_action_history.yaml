@@ -1,0 +1,15 @@
+# REUSE-23: true action history vs sham, BOTH see upstream public rules/goals.
+# Same verified REUSE-19 training-only numeric label pool. No new teacher.
+environment: XLand-MiniGrid-R1-9x9
+source_run: 39637067506
+source_dir: runs/reuse19_action_history_source
+train_tasks: [hold, near, putdown]
+model_seeds: [17, 29]
+conditions: [sham_action_history, real_executed_action_history]
+evaluation_seeds: [9600, 9601, 9602, 9603, 9604]
+history_length: 4
+input_width: 115
+episode_cap: 40
+batch_size: 32
+epochs: 12
+output_dir: runs/xland_instruction_action_history
