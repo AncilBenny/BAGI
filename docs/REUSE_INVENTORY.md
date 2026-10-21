@@ -141,3 +141,34 @@ only model victories.
   Static inspection of a SHA-256-matched ZIP does not itself make
   \`PPO.load\` or \`VecNormalize.load\` safe. No such untrusted deserialization
   is authorized on credentialed runners.
+
+
+## REUSE-4 — a real compositional task-distribution benchmark, not another Workshop variant
+
+- Established research: *XLand-MiniGrid: Scalable Meta-Reinforcement Learning
+  Environments in JAX*, NeurIPS 2024 Datasets and Benchmarks Track,
+  https://proceedings.neurips.cc/paper_files/paper/2024/hash/4d8a58a62c1a85ebb2cbea798c2779e2-Abstract-Datasets_and_Benchmarks_Track.html .
+  Upstream Apache-2.0 implementation https://github.com/dunnolab/xland-minigrid ,
+  PyPI \`xminigrid==0.9.3\`. It provides existing JAX goal/rule objects, multi-task
+  generators, held-out task splits and existing recurrent PPO baselines.
+- High-leverage adoption: stop expanding a single handcrafted Workshop as if
+  it represented arbitrary compositional transfer. Keep Workshop for debugging;
+  use XLand-MiniGrid for systematic variation of causal rules and goals.
+- **Security constraint verified from source:** upstream
+  \`src/xminigrid/benchmarks.py:load_bz2_pickle()\` invokes \`pickle.load\` on
+  a benchmark retrieved from a remote Hugging Face dataset. Do not call
+  \`xminigrid.load_benchmark\` on external task sets in privileged automation.
+  Instead, first use upstream \`RuleSet\`, \`AgentNearRule\`, and \`AgentNearGoal\`
+  in memory; no remote task artifacts or new benchmark implementation.
+- Proposed first gate: 4 compositions pairing familiar source colors with
+  familiar output colors in new rule combinations; two train-labelled versus
+  two test-labelled task IDs with SHA-256 disjointness. Tiny random-policy
+  environment contract only, no learned policy. Record actual real steps and
+  goal events. Once validated, transfer experiments must compare existing
+  recurrent PPO/other maintained agents with matched interactions and a
+  defined task-instruction information policy. No large dataset download
+  or million-step JAX training without separate evidence-backed justification.
+- Optional existing dataset: XLand-100B (ICLR 2025) supplies recorded RL
+  learning histories. Its public data runs to tens/hundreds of GB:
+  https://github.com/dunnolab/xland-minigrid-datasets . Do not download
+  these large files to GitHub Actions to repeat existing work.

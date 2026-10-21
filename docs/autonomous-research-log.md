@@ -287,3 +287,34 @@
   If the maintained FlatObs contract passes, stop writing wrapper code
   and advance the higher-level existing-model/transfer comparison.
 - **Status:** submitted to GitHub CI and isolated audit for measurement.
+
+
+## 2026-10-21 — REUSE-4: adopt established compositional task distribution before new learning code
+
+- **Existing work checked:** NeurIPS 2024 XLand-MiniGrid (Nikulin et al.) and
+  official Apache-2.0 package \`xminigrid==0.9.3\` with built-in
+  \`RuleSet\`, \`AgentNearRule\`, \`AgentNearGoal\` and JAX environments. This
+  supplies existing rule-changing task distributions and recurrent PPO
+  baselines; no need to design another bespoke causal world or agent.
+- **Security and resource decision:** the project's benchmark loader itself
+  unpickles external downloaded bz2 tasksets; avoid it in credentialed
+  automation. Do not download 60GB+ XLand learning histories or train a
+  large baseline. Use only standard in-memory upstream primitives on a
+  short CPU-limited smoke test with no downloaded task data.
+- **Open question:** whether BAGI's eventual agents transfer across held-out
+  *combinations of previously seen causal components* at fixed interaction
+  budgets, not merely across a horizontal reflection of one geometry.
+- **Experiment design:** choose two familiar source colors BLUE/YELLOW, two
+  familiar result colors RED/GREEN. Train-labelled compositions are
+  BLUE->RED and YELLOW->GREEN; held-out compositions BLUE->GREEN and
+  YELLOW->RED. All use upstream \`AgentNearRule\` to transform a visible
+  SQUARE tile into BALL on the established action and \`AgentNearGoal\` as
+  goal. Verify SHA-256 disjoint encoded rulesets. Run only an untrained
+  uniform-action evaluation baseline for 3 seeded episodes per task, capped
+  at 40 real interactions each (480 maximum), counting actual steps.
+  Training labels define future splits; NO learning is performed in REUSE-4.
+- **Negative interpretation:** this only checks the borrowed benchmark
+  interface and train/held-out task IDs. Zero random successes are expected
+  and cannot be interpreted as failed learning or failure of transfer.
+- **Status:** proposed to isolated CI and default CI. No learned capability,
+  generalization improvement, or experiment success claimed yet.
