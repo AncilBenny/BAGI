@@ -1,0 +1,15 @@
+# REUSE-15: integration of original HumanCompatibleAI SimpleDAggerTrainer.
+# 2 policy seeds; 256 step LOWER BOUND per model, 2+ rounds; train skills only.
+environment: XLand-MiniGrid-R1-9x9
+baseline_config: configs/xland_bc_class_balance.yaml
+training_tasks: [hold, near, putdown]
+training_seed_base: 7500
+model_seeds: [17, 29]
+evaluation_seeds: [9100, 9101, 9102]
+episode_cap: 40
+rollout_timesteps: 256
+round_min_timesteps: 128
+round_min_episodes: 3
+batch_size: 32
+bc_epochs_per_round: 4
+output_dir: runs/xland_existing_dagger
