@@ -101,7 +101,6 @@ def run(config_path: str) -> dict:
         raise FileNotFoundError("Missing pinned upstream training/ checkout")
     sys.path.insert(0, str(upstream_dir))
     try:
-        import train_meta_task
         from train_meta_task import TrainConfig, make_states, make_train
 
         benchmark, held_out, train_hashes, held_hash = create_train_benchmark()
