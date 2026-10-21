@@ -29,7 +29,7 @@ jobs:
       - name: Install minimal simulator dependencies
         run: pip install "numpy>=1.26" "gymnasium>=1.0" "pyyaml>=6.0" "pytest>=8.0"
       - name: Test history ambiguity diagnostic
-        run: pytest -q tests/test_history_ambiguity.py
+        run: python -m pytest -q tests/test_history_ambiguity.py
       - name: Measure observable history information
         run: python -m bagi.experiments.history_ambiguity --config configs/history_ambiguity.yaml
       - name: Preserve measured evidence
