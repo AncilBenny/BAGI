@@ -91,6 +91,12 @@ def replay_learner(policy, env, params, seed, *, limit):
     }
 
 
+def native_trace_sha256(prefix_actions, release_action, oracle_actions):
+    """Hash exactly the native actions executed; ignore future/planned actions."""
+    actions = [*prefix_actions, int(release_action), *oracle_actions]
+    return hashlib.sha256(np.asarray(actions, dtype="<i8").tobytes()).hexdigest()
+
+
 def recover_from_actual_failure(policy, env, params):
     import jax
     from xminigrid.core.constants import TILES_REGISTRY, Colors, Tiles
@@ -117,8 +123,9 @@ def recover_from_actual_failure(policy, env, params):
     proposal, release_stage = correction_plan(ts, "putdown")
     if proposal != [4] or release_stage != "release_wrong_red":
         raise AssertionError("Teacher did not choose native wrong-RED release")
+    release_action = int(proposal[0])
     before_grid = np.asarray(ts.state.grid).copy()
-    ts = step(params, ts, int(proposal[0]))
+    ts = step(params, ts, release_action)
     after_grid = np.asarray(ts.state.grid)
     pocket_is_empty = int(np.asarray(ts.state.agent.pocket)[0]) == empty
     red_on_map = np.any(np.all(after_grid == red, axis=-1))
@@ -141,8 +148,7 @@ def recover_from_actual_failure(policy, env, params):
         stages[stage] += 1
         ts = step(params, ts, chosen)
     recovered = int(float(ts.reward) > 0)
-    all_actions = [*prefix_actions, *proposal, *oracle_actions]
-    digest = hashlib.sha256(np.asarray(all_actions, dtype="<i8").tobytes()).hexdigest()
+    digest = native_trace_sha256(prefix_actions, release_action, oracle_actions)
     archived_digest = "3b620a8c6090f756a0dcf4e9af276a1526c59f040c5708dcad77f8ba8a630d36"
     if digest != archived_digest:
         raise AssertionError("Teacher trace diverged from REUSE-28 physically verified replay")

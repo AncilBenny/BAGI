@@ -11,6 +11,7 @@ from bagi.experiments.xland_wrong_object_recovery import (
     MODEL_SEED,
     REFERENCE_LAYOUT,
     action_from_policy,
+    native_trace_sha256,
 )
 
 
@@ -63,6 +64,7 @@ def test_train_only_teacher_releases_wrong_red_only_into_free_floor():
 
     pytest.importorskip("xminigrid")
     from xminigrid.core.constants import TILES_REGISTRY, Colors, Tiles
+
     from bagi.experiments.xland_dagger_teacher_feasibility import correction_plan
 
     grid = np.zeros((9, 9, 2), dtype=np.int32)
@@ -77,3 +79,16 @@ def test_train_only_teacher_releases_wrong_red_only_into_free_floor():
     grid[4, 5, 0] = int(Tiles.WALL)
     with pytest.raises(ValueError, match="blocked cell"):
         correction_plan(ts, "putdown")
+
+
+def test_native_recovery_trace_hash_uses_executed_release_once():
+    import hashlib
+
+    prefix = [0, 0, 1, 3]
+    release = 4
+    corrective_actions = [0, 1, 3]
+    expected_actions = [0, 0, 1, 3, 4, 0, 1, 3]
+    expected_digest = hashlib.sha256(
+        np.asarray(expected_actions, dtype="<i8").tobytes()
+    ).hexdigest()
+    assert native_trace_sha256(prefix, release, corrective_actions) == expected_digest
