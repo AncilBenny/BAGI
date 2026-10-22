@@ -10,6 +10,7 @@ No new learning algorithm, checkpoint, training or heldout demonstration.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections import Counter
 from pathlib import Path
@@ -111,29 +112,13 @@ def recover_from_actual_failure(policy, env, params):
     if np.array_equal(np.asarray(ts.state.agent.pocket), square):
         raise AssertionError("Wrong-object checkpoint confused with blue-square carry")
 
-    # The existing expert currently refuses to label exactly this REAL state.
-    original_teacher_errors = []
-    original_teacher_queries = 1
-    try:
-        _proposal, _stage = correction_plan(ts, "putdown")
-    except ValueError as e:
-        original_teacher_errors.append(str(e))
-    # The planner locates the RED ball on GRID *before* checking pocket;
-    # once the learner carries RED, that grid lookup raises first. This is
-    # the concrete actual-state failure, not the later unsupported-pocket
-    # branch. Keep its precise expected error as a provenance assertion.
-    if original_teacher_errors != [
-        "Expected exactly one required initial object, got 0"
-    ]:
-        raise AssertionError(
-            f"Actual wrong-held-object teacher failure changed: {original_teacher_errors}"
-        )
-
-    # Native operation only: put the wrong RED ball back in the vacant tile
-    # directly in front of the agent after pickup. This is an INTERVENTION by
-    # privileged diagnostic, NEVER an action selected by the learned agent.
+    # The train-only expert, not a manual intervention or the learned agent,
+    # must choose the valid native RED-ball release at this REAL failure.
+    proposal, release_stage = correction_plan(ts, "putdown")
+    if proposal != [4] or release_stage != "release_wrong_red":
+        raise AssertionError("Teacher did not choose native wrong-RED release")
     before_grid = np.asarray(ts.state.grid).copy()
-    ts = step(params, ts, 4)
+    ts = step(params, ts, int(proposal[0]))
     after_grid = np.asarray(ts.state.grid)
     pocket_is_empty = int(np.asarray(ts.state.agent.pocket)[0]) == empty
     red_on_map = np.any(np.all(after_grid == red, axis=-1))
@@ -142,7 +127,7 @@ def recover_from_actual_failure(policy, env, params):
     if np.array_equal(before_grid, after_grid):
         raise AssertionError("Native wrong-object release did not change object grid")
 
-    stages, oracle_actions, errors = Counter(), [], []
+    stages, oracle_actions, errors = Counter({release_stage: 1}), [], []
     while not bool(ts.last()) and 5 + len(oracle_actions) < CAP:
         try:
             proposal, stage = correction_plan(ts, "putdown")
@@ -156,15 +141,23 @@ def recover_from_actual_failure(policy, env, params):
         stages[stage] += 1
         ts = step(params, ts, chosen)
     recovered = int(float(ts.reward) > 0)
+    all_actions = [*prefix_actions, *proposal, *oracle_actions]
+    digest = hashlib.sha256(np.asarray(all_actions, dtype="<i8").tobytes()).hexdigest()
+    archived_digest = "3b620a8c6090f756a0dcf4e9af276a1526c59f040c5708dcad77f8ba8a630d36"
+    if digest != archived_digest:
+        raise AssertionError("Teacher trace diverged from REUSE-28 physically verified replay")
     return {
         "actual_learner_failure_seed": FAILED_LAYOUT,
         "checkpoint_learner_prefix_steps": len(prefix_actions),
         "learner_executed_prefix": prefix_actions,
         "checkpoint_wrong_red_held": True,
-        "original_teacher_unsupported_queries": original_teacher_queries,
-        "original_teacher_errors": original_teacher_errors,
-        "intervention_kind": "native action4 on REAL learner state, never policy input",
-        "manual_wrong_red_release_steps": 1,
+        "historical_REUSE25_teacher_error": "Expected exactly one required initial object, got 0",
+        "teacher_wrong_red_release_queries": 1,
+        "intervention_kind": "privileged teacher-selected native action4; not learner action",
+        "teacher_wrong_red_release_steps": 1,
+        "manual_wrong_red_release_steps": 0,
+        "native_actions_sha256_le_int64": digest,
+        "matches_REUSE28_physically_verified_trace": True,
         "wrong_red_release_restored_empty_pocket": pocket_is_empty,
         "wrong_red_release_restored_red_tile": bool(red_on_map),
         "subsequent_train_only_correction_queries": len(oracle_actions),
@@ -284,7 +277,7 @@ def run(config_path):
     if not baseline["goal_success"]:
         raise AssertionError("Train putdown layout not solvable from standard reset")
     report = {
-        "question": "Can existing train-only expert recover at true learner wrong-red-held putdown states?",
+        "question": "Can existing train-only expert select its own legal RED release at a real learner failure?",
         "source_numeric_run_id": 39637067506,
         "source_original_policy_run_id": 39644180240,
         "source_phase_replication_run_id": 39646704229,
@@ -300,21 +293,21 @@ def run(config_path):
         "actual_native_simulator_step_calls": (
             good["real_steps"] + failed["real_steps"]
             + correction["checkpoint_learner_prefix_steps"]
-            + correction["manual_wrong_red_release_steps"]
+            + correction["teacher_wrong_red_release_steps"]
             + len(correction["correction_actions"])
             + baseline["real_actions"]
         ),
         "actual_train_only_expert_label_queries": (
-            correction["original_teacher_unsupported_queries"]
+            correction["teacher_wrong_red_release_queries"]
             + correction["subsequent_train_only_correction_queries"]
         ),
         "new_online_policy_training_steps": 0,
         "heldout_composition_teacher_queries": 0,
         "privileged_learner_policy_input": False,
         "limitations": [
-            "This is a diagnostic native-action intervention, not a new learned policy success.",
-            "Original teacher correctly rejects wrong-object-held state; no invalid label silently used.",
-            "Manual drop of wrong tile is privileged intervention; learner does NOT choose this recovery action.",
+            "Privileged corrective teacher selected native RED release; learner did not.",
+            "The teacher releases RED only into an unobstructed FLOOR.",
+            "REUSE-28 archived identical action trace physically verifies BLUE pickup/drop.",
             "A successful native teacher recovery does not mean BC learned it or that generic arbitrary state correction exists.",
             "Single preregistered real learner failure layout and one frozen model seed only.",
             "Original expert reset baseline is separate and uses full state only as oracle.",

@@ -55,3 +55,25 @@ def test_out_of_range_policy_action_is_forbidden():
 
     with pytest.raises(AssertionError, match="Non-native"):
         action_from_policy(Policy(), Dummy(), [6, 6, 6, 6])
+
+
+def test_train_only_teacher_releases_wrong_red_only_into_free_floor():
+    """RED is missing from the grid precisely because it is held."""
+    from types import SimpleNamespace
+
+    pytest.importorskip("xminigrid")
+    from xminigrid.core.constants import TILES_REGISTRY, Colors, Tiles
+    from bagi.experiments.xland_dagger_teacher_feasibility import correction_plan
+
+    grid = np.zeros((9, 9, 2), dtype=np.int32)
+    grid[:, :, 0] = int(Tiles.FLOOR)
+    red = np.asarray(TILES_REGISTRY[Tiles.BALL, Colors.RED])
+    agent = SimpleNamespace(
+        position=np.asarray([4, 4]), direction=np.asarray(1),
+        pocket=red.copy(),
+    )
+    ts = SimpleNamespace(state=SimpleNamespace(grid=grid, agent=agent))
+    assert correction_plan(ts, "putdown") == ([4], "release_wrong_red")
+    grid[4, 5, 0] = int(Tiles.WALL)
+    with pytest.raises(ValueError, match="blocked cell"):
+        correction_plan(ts, "putdown")

@@ -21,7 +21,7 @@ from bagi.experiments.xland_action_coverage import (
     plan_putdown_after_pickup,
 )
 from bagi.experiments.xland_existing_bc import TRAIN_TASKS, expert_actions, get_rules
-from bagi.experiments.xland_solvability_oracle import shortest_route_to_face_object
+from bagi.experiments.xland_solvability_oracle import DIRECTIONS, shortest_route_to_face_object
 
 WEAK_PREFIXES = {
     "weak_turn": (0, 1, 0, 1, 0, 1),
@@ -65,14 +65,24 @@ def correction_plan(timestep, task):
     green = np.asarray(TILES_REGISTRY[Tiles.BALL, Colors.GREEN])
 
     if task == "putdown":
+        # RED disappears from the grid when the learner carries it. Offer
+        # native action4 only if its target is a genuinely free FLOOR.
+        if np.array_equal(pocket, red):
+            dy, dx = DIRECTIONS[heading]
+            front = (position[0] + dy, position[1] + dx)
+            if (not 0 <= front[0] < grid.shape[0]
+                    or not 0 <= front[1] < grid.shape[1]
+                    or int(grid[front][0]) != int(Tiles.FLOOR)):
+                raise ValueError("Cannot release wrong RED ball into blocked cell")
+            return [4], "release_wrong_red"
+        if not empty and not np.array_equal(pocket, square):
+            raise ValueError("Unsupported object held in putdown task")
         ball_position = locate_exact(grid, red)
         if np.array_equal(pocket, square):
             navigation, _ = plan_putdown_after_pickup(
                 grid, position, heading, ball_position
             )
             return [*navigation, 4], "carrying_square"
-        if not empty:
-            raise ValueError("Unsupported object held in putdown task")
         location = locate_exact(grid, square)
         navigation, _ = shortest_route_to_face_object(
             grid, position, heading, location, WALKABLE
