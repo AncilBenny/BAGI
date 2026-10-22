@@ -69,3 +69,38 @@ def test_saved_source_native_trace_requires_grounded_learned_reward():
     document["independent_reference_layout"]["reward_success"] = 0
     with pytest.raises(ValueError, match="source"):
         parse_saved_reference(document)
+
+def test_archived_recovery_trace_frozen_and_train_only():
+    from bagi.experiments.xland_putdown_reward_validity import parse_saved_recovery
+
+    actions = [0, 0, 1, 3, 4, 2, 0, 0, 0, 0, 1, 0,
+               0, 0, 0, 3, 1, 0, 0, 0, 0, 1, 0, 4]
+    document = {
+        "policy_seed": 29,
+        "new_online_policy_training_steps": 0,
+        "heldout_composition_teacher_queries": 0,
+        "original_failed_layout": {"layout_seed": 9708, "reward_success": 0},
+        "recovery_probe": {
+            "actual_learner_failure_seed": 9708,
+            "checkpoint_wrong_red_held": True,
+            "learner_executed_prefix": actions[:4],
+            "manual_wrong_red_release_steps": 1,
+            "wrong_red_release_restored_empty_pocket": True,
+            "wrong_red_release_restored_red_tile": True,
+            "subsequent_train_only_correction_queries": 19,
+            "successful_goal_recovery": 1,
+            "recovered_in_40_step_cap": True,
+            "total_sequence_steps": 24,
+            "correction_actions": actions[5:],
+        },
+    }
+    assert parse_saved_recovery(document) == actions
+    document["recovery_probe"]["correction_actions"][-1] = 3
+    with pytest.raises(ValueError, match="changed"):
+        parse_saved_recovery(document)
+    document["recovery_probe"]["correction_actions"][-1] = 4
+    document["heldout_composition_teacher_queries"] = 1
+    with pytest.raises(ValueError, match="provenance"):
+        parse_saved_recovery(document)
+
+

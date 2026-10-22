@@ -1,4 +1,4 @@
-"""REUSE-26: audit whether the first learned putdown REWARD was vacuous.
+"""REUSE-26/28: audit reward vacuity and frozen teacher-assisted recovery.
 
 Replay the EXACT native actions archived by successful REUSE-25 at model seed
 29 / layout9604. Check initial BLUE-square and RED-ball adjacency, actual
@@ -70,6 +70,123 @@ def parse_saved_reference(document):
             or document["heldout_composition_teacher_queries"] != 0):
         raise ValueError("Unrecognized source learner rewarded putdown trace")
     return [int(a) for a in row["executed_actions"]]
+
+
+
+def parse_saved_recovery(document):
+    """Freeze the archived REUSE-25 real wrong-object intervention sequence."""
+    probe = document["recovery_probe"]
+    failed = document["original_failed_layout"]
+    if (document["policy_seed"] != 29
+            or document["new_online_policy_training_steps"] != 0
+            or document["heldout_composition_teacher_queries"] != 0
+            or failed["layout_seed"] != 9708
+            or failed["reward_success"] != 0
+            or probe["actual_learner_failure_seed"] != 9708
+            or not probe["checkpoint_wrong_red_held"]
+            or probe["learner_executed_prefix"] != [0, 0, 1, 3]
+            or probe["manual_wrong_red_release_steps"] != 1
+            or not probe["wrong_red_release_restored_empty_pocket"]
+            or not probe["wrong_red_release_restored_red_tile"]
+            or probe["subsequent_train_only_correction_queries"] != 19
+            or probe["successful_goal_recovery"] != 1
+            or not probe["recovered_in_40_step_cap"]
+            or probe["total_sequence_steps"] != 24):
+        raise ValueError("Unrecognized archived train-only recovery provenance")
+    actions = [*probe["learner_executed_prefix"], 4, *probe["correction_actions"]]
+    if len(actions) != 24 or any(type(a) is not int or a not in range(6)
+                                 for a in actions):
+        raise ValueError("Invalid archived recovery native action sequence")
+    digest = hashlib.sha256(np.asarray(actions, dtype="<i8").tobytes()).hexdigest()
+    if digest != "3b620a8c6090f756a0dcf4e9af276a1526c59f040c5708dcad77f8ba8a630d36":
+        raise ValueError("Archived recovery actions changed")
+    return actions
+
+
+def replay_archived_recovery(reset, step, params, actions, square, red, empty_type):
+    """Inspect native transitions AFTER fixed learner/privileged teacher actions."""
+    import jax
+
+    ts = reset(params, jax.random.key(9708))
+    initial_grid = np.asarray(ts.state.grid)
+    initial_blue = locate_exact(initial_grid, square)
+    initial_red = locate_exact(initial_grid, red)
+    initial_distance = sum(abs(int(a) - int(b))
+                           for a, b in zip(initial_blue, initial_red))
+    blue_pickups = blue_drops = 0
+    red_pickup_at_four = red_release_at_five = False
+    saw_blue = ordered_blue_drop = False
+    events = []
+    for i, action in enumerate(actions, start=1):
+        if bool(ts.last()):
+            raise AssertionError("Archived recovery actions continue after terminal")
+        pocket_before = np.asarray(ts.state.agent.pocket).copy()
+        grid_before = np.asarray(ts.state.grid).copy()
+        ts = step(params, ts, action)
+        pocket_after = np.asarray(ts.state.agent.pocket).copy()
+        grid_after = np.asarray(ts.state.grid).copy()
+        pickup, drop = blue_square_transition(
+            action, pocket_before, pocket_after, grid_before, grid_after,
+            square, empty_type
+        )
+        blue_pickups += int(pickup)
+        blue_drops += int(drop)
+        ordered_blue_drop |= bool(drop and saw_blue)
+        saw_blue |= pickup
+        red_before = int(np.count_nonzero(np.all(grid_before == red, axis=-1)))
+        red_after = int(np.count_nonzero(np.all(grid_after == red, axis=-1)))
+        red_pickup = (action == 3 and int(pocket_before[0]) == empty_type
+                      and np.array_equal(pocket_after, red)
+                      and red_before == 1 and red_after == 0)
+        red_release = (action == 4 and np.array_equal(pocket_before, red)
+                       and int(pocket_after[0]) == empty_type
+                       and red_before == 0 and red_after == 1)
+        if i == 4:
+            red_pickup_at_four = bool(red_pickup)
+        if i == 5:
+            red_release_at_five = bool(red_release)
+        events.append({
+            "step": i, "native_action": action,
+            "effective_red_pickup": bool(red_pickup),
+            "effective_red_release": bool(red_release),
+            "effective_blue_pickup": pickup,
+            "effective_blue_drop": drop,
+            "pocket_changed": not np.array_equal(pocket_before, pocket_after),
+            "grid_changed": not np.array_equal(grid_before, grid_after),
+            "native_reward": float(ts.reward),
+        })
+    if not red_pickup_at_four or not red_release_at_five:
+        raise AssertionError("Archived actual learner failure/manual rescue did not replay")
+    if not bool(ts.last()) or float(ts.reward) <= 0:
+        raise AssertionError("Archived REUSE-25 teacher-assisted reward did not reproduce")
+    final_adjacent = tiles_adjacent(np.asarray(ts.state.grid), square, red)
+    return {
+        "source_recovery_run_id": 39649325255,
+        "layout_seed": 9708,
+        "learner_prefix_actions": 4,
+        "privileged_manual_red_release_actions": 1,
+        "privileged_train_only_teacher_actions": len(actions) - 5,
+        "initial_blue_position": list(initial_blue),
+        "initial_red_position": list(initial_red),
+        "initial_manhattan_distance": initial_distance,
+        "initially_adjacent": initial_distance == 1,
+        "native_actions_replayed": actions,
+        "real_simulator_step_calls": len(actions),
+        "learner_red_pickup_step4": red_pickup_at_four,
+        "manual_red_release_step5": red_release_at_five,
+        "effective_blue_pickups": blue_pickups,
+        "effective_blue_drops": blue_drops,
+        "ordered_blue_pickup_then_drop": ordered_blue_drop,
+        "final_blue_next_to_red": final_adjacent,
+        "upstream_native_reward": float(ts.reward),
+        "physical_placement_by_teacher_assisted_trace": physically_nonvacuous(
+            float(ts.reward) > 0, initial_distance == 1, blue_pickups,
+            blue_drops, final_adjacent, ordered_blue_drop
+        ),
+        "native_transition_events": events,
+        "independent_learned_recovery": False,
+        "new_teacher_queries": 0,
+    }
 
 
 def run(config_path):
@@ -152,6 +269,10 @@ def run(config_path):
     if not rewarded or float(ts.reward) <= 0 or not bool(ts.last()):
         raise AssertionError("Frozen source BC positive reward failed to reproduce")
     final_adjacent = tiles_adjacent(np.asarray(ts.state.grid), square, red)
+    recovery_actions = parse_saved_recovery(parent)
+    recovery = replay_archived_recovery(
+        reset, step, params, recovery_actions, square, red, empty_type
+    )
     result = {
         "question": "Was REUSE-23 first learner rewarded TileNearGoal episode nonvacuous physical manipulation?",
         "source_recovery_run_id": 39649325255,
@@ -165,7 +286,9 @@ def run(config_path):
         "initial_manhattan_distance": initial_distance,
         "initial_tiles_adjacent": initial_adjacent,
         "learner_native_actions_replayed": actions,
-        "total_native_simulator_step_calls": len(actions),
+        "total_native_simulator_step_calls": len(actions) + recovery["real_simulator_step_calls"],
+        "original_reward_trace_simulator_step_calls": len(actions),
+        "teacher_assisted_recovery_native_replay": recovery,
         "actual_effective_pickups": effective_pickups,
         "actual_effective_putdowns": effective_putdowns,
         "actual_effective_blue_square_pickups": effective_blue_pickups,
@@ -192,6 +315,7 @@ def run(config_path):
             "One known positive layout from posthoc investigation; screen all future evaluation layouts for initial vacuity before scoring physical skill.",
             "A negative physical-competence conclusion for this case does not imply no future learner can learn real placement.",
             "No heldout composition examples, full grid learner features or teacher actions.",
+            "REUSE-25 fixed recovery replay uses privileged teacher actions, never an independently learned recovery.",
         ],
     }
     path = Path(cfg["output_dir"]) / "summary.json"
@@ -201,7 +325,8 @@ def run(config_path):
         "REUSE26 original_reward=",result["original_reward_valid_under_upstream"],
         "initial_adjacent=",initial_adjacent,
         "pickup=",effective_pickups,"drop=",effective_putdowns,
-        "nonvacuous=",result["physically_nonvacuous_placement_success"]
+        "nonvacuous=",result["physically_nonvacuous_placement_success"],
+        "teacher_assisted_physical=",recovery["physical_placement_by_teacher_assisted_trace"]
     )
     return result
 
