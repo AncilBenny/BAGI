@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from bagi.experiments.xland_action_coverage import execute_putdown_oracle
+from bagi.experiments.xland_action_coverage import execute_putdown_oracle, locate_exact
 from bagi.experiments.xland_bc_class_balance import balanced_indices
 from bagi.experiments.xland_dagger_teacher_feasibility import correction_plan
 from bagi.experiments.xland_existing_bc import TRAIN_TASKS, get_rules, visible_features
@@ -28,6 +28,11 @@ from bagi.experiments.xland_instruction_action_history import (
     WIDTH,
     assemble,
     check_true_history,
+)
+from bagi.experiments.xland_putdown_reward_validity import (
+    blue_square_transition,
+    physically_nonvacuous,
+    tiles_adjacent,
 )
 from bagi.experiments.xland_upstream_instruction_bc import (
     load_verified_source,
@@ -39,6 +44,10 @@ FAILED_LAYOUT = 9708
 REFERENCE_LAYOUT = 9604
 CONDITION = "real_executed_action_history"
 CAP = 40
+
+# REUSE-30: two already-tested TRAIN layouts, never replacement seeds.
+# Checkpoints are predetermined actual learner roll-ins, not selected post-hoc.
+REUSE30_PROBES = ((9701, 4), (9702, 10))
 
 
 def action_from_policy(policy, timestep, history):
@@ -177,6 +186,171 @@ def recover_from_actual_failure(policy, env, params):
         "blue_square_carried_at_finish": bool(np.array_equal(
             np.asarray(ts.state.agent.pocket), square
         )),
+    }
+
+
+
+def state_fingerprint(state):
+    """Privileged state signature for deduplicating evaluation checkpoints only."""
+    parts = [
+        np.asarray(state.grid),
+        np.asarray(state.agent.position, dtype=np.int32),
+        np.asarray(state.agent.direction, dtype=np.int32),
+        np.asarray(state.agent.pocket),
+    ]
+    return hashlib.sha256(b"".join(value.tobytes() for value in parts)).hexdigest()
+
+
+def probe_one_additional_state(policy, environment, params, seed, checkpoint):
+    """Test one precommitted learner-visited TRAIN putdown state, no policy retraining."""
+    import jax
+    from xminigrid.core.constants import TILES_REGISTRY, Colors, Tiles
+
+    if (seed, checkpoint) not in REUSE30_PROBES:
+        raise ValueError("Unregistered REUSE-30 diagnostic case")
+    blue = np.asarray(TILES_REGISTRY[Tiles.SQUARE, Colors.BLUE])
+    red = np.asarray(TILES_REGISTRY[Tiles.BALL, Colors.RED])
+    empty = int(Tiles.EMPTY)
+    reset, step = jax.jit(environment.reset), jax.jit(environment.step)
+    ts = reset(params, jax.random.key(seed))
+    grid = np.asarray(ts.state.grid)
+    blue_pos, red_pos = locate_exact(grid, blue), locate_exact(grid, red)
+    initial_distance = sum(abs(int(a) - int(b)) for a, b in zip(blue_pos, red_pos))
+    # No silent post-hoc replacement: report an invalid precommitted layout.
+    if initial_distance <= 1:
+        return {
+            "seed": seed, "checkpoint": checkpoint,
+            "excluded_initial_adjacency": True,
+            "initial_distance": initial_distance,
+            "native_simulator_step_calls": 0,
+            "teacher_label_queries": 0,
+            "learned_success": None,
+            "teacher_assisted_physical_placement": None,
+        }
+
+    learner = replay_learner(policy, environment, params, seed, limit=CAP)
+    if learner["reward_success"] or learner["real_steps"] < checkpoint:
+        raise AssertionError("Expected actual frozen REUSE-24 failed learner roll-in")
+    # Audit legal learner actions separately from privileged teacher actions.
+    history = [PAD_ACTION] * HISTORY_LENGTH
+    prefix, teacher_actions, stages, errors = [], [], Counter(), []
+    teacher_queries = 0
+    blue_pickups = blue_drops = 0
+    seen_blue = ordered_blue_drop = False
+    native_reward = 0.0
+
+    def advance(action):
+        nonlocal ts, blue_pickups, blue_drops, seen_blue, ordered_blue_drop, native_reward
+        pocket_before = np.asarray(ts.state.agent.pocket).copy()
+        grid_before = np.asarray(ts.state.grid).copy()
+        ts = step(params, ts, int(action))
+        pocket_after = np.asarray(ts.state.agent.pocket)
+        grid_after = np.asarray(ts.state.grid)
+        pickup, drop = blue_square_transition(
+            int(action), pocket_before, pocket_after, grid_before, grid_after,
+            blue, empty,
+        )
+        blue_pickups += int(pickup)
+        blue_drops += int(drop)
+        ordered_blue_drop |= bool(drop and seen_blue)
+        seen_blue |= pickup
+        native_reward = max(native_reward, float(ts.reward))
+
+    for _ in range(checkpoint):
+        if bool(ts.last()):
+            raise AssertionError("Learner roll-in terminated before registered checkpoint")
+        action = action_from_policy(policy, ts, history)
+        prefix.append(action)
+        advance(action)
+        history = [*history[1:], action]
+    if prefix != learner["executed_actions"][:checkpoint]:
+        raise AssertionError("Frozen policy diverged in observed prefix")
+
+    checkpoint_hash = state_fingerprint(ts.state)
+    checkpoint_pocket = np.asarray(ts.state.agent.pocket).tolist()
+    checkpoint_position = np.asarray(ts.state.agent.position).tolist()
+    while not bool(ts.last()) and len(prefix) + len(teacher_actions) < CAP:
+        teacher_queries += 1
+        try:
+            proposal, stage = correction_plan(ts, "putdown")
+            if not proposal or int(proposal[0]) not in range(6):
+                raise ValueError("No legal train-only corrective label")
+        except (ValueError, IndexError) as exc:
+            errors.append(str(exc))
+            break
+        action = int(proposal[0])
+        teacher_actions.append(action)
+        stages[stage] += 1
+        advance(action)
+
+    final_adjacent = tiles_adjacent(np.asarray(ts.state.grid), blue, red)
+    physical = physically_nonvacuous(
+        native_reward > 0, initial_distance == 1,
+        blue_pickups, blue_drops, final_adjacent, ordered_blue_drop,
+    )
+    return {
+        "seed": seed,
+        "checkpoint": checkpoint,
+        "excluded_initial_adjacency": False,
+        "initial_distance": initial_distance,
+        "checkpoint_privileged_state_sha256_diagnostic_only": checkpoint_hash,
+        "checkpoint_position_diagnostic_only": checkpoint_position,
+        "checkpoint_pocket_diagnostic_only": checkpoint_pocket,
+        "learner_only": learner,
+        "learner_prefix_actions": prefix,
+        "teacher_actions": teacher_actions,
+        "teacher_correction_stage_counts": dict(stages),
+        "teacher_errors": errors,
+        "teacher_label_queries": teacher_queries,
+        "native_simulator_step_calls": (
+            learner["real_steps"] + len(prefix) + len(teacher_actions)
+        ),
+        "native_game_reward_from_teacher_trace": native_reward,
+        "effective_blue_pickups_on_full_trace": blue_pickups,
+        "effective_blue_drops_on_full_trace": blue_drops,
+        "ordered_blue_pickup_then_drop": ordered_blue_drop,
+        "final_blue_adjacent_to_red": final_adjacent,
+        "teacher_assisted_physical_placement": physical,
+        "learned_success": bool(learner["reward_success"]),
+        "independent_learned_recovery": False,
+    }
+
+
+def probe_two_additional_states(policy, environment, params):
+    """Report exactly two predeclared cases, including negative/excluded outcomes."""
+    cases = [
+        probe_one_additional_state(policy, environment, params, seed, checkpoint)
+        for seed, checkpoint in REUSE30_PROBES
+    ]
+    hashes = [
+        item["checkpoint_privileged_state_sha256_diagnostic_only"]
+        for item in cases if not item["excluded_initial_adjacency"]
+    ]
+    return {
+        "study": "REUSE-30 / two additional real learner-visited TRAIN putdown states",
+        "registered_probes": [list(x) for x in REUSE30_PROBES],
+        "policy_model_seed": MODEL_SEED,
+        "fixed_model_training_labels_source": 39637067506,
+        "previous_recovery_control_run": 39733971331,
+        "native_action_cap": CAP,
+        "new_policy_training_steps": 0,
+        "heldout_composition_teacher_queries": 0,
+        "privileged_learner_policy_input": False,
+        "valid_distinct_checkpoints": len(hashes) == 2 and len(set(hashes)) == 2,
+        "cases": cases,
+        "total_native_simulator_step_calls": sum(
+            item["native_simulator_step_calls"] for item in cases
+        ),
+        "total_train_only_teacher_label_queries": sum(
+            item["teacher_label_queries"] for item in cases
+        ),
+        "limitations": [
+            "These layouts were already evaluated in REUSE-24: not fresh confirmation seeds.",
+            "Full-state labels, grid/pocket, and state hashes are teacher/evaluator only.",
+            "No learner was updated: teacher-controlled reward is not learned skill.",
+            "A failed or vacuous case is retained; no substitute seeds or extra attempts.",
+            "At most two new actual learner checkpoints, no heldout chain labels.",
+        ],
     }
 
 
@@ -323,6 +497,12 @@ def run(config_path):
     out = Path(cfg["output_dir"]) / "summary.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    reuse30 = probe_two_additional_states(bc.policy, instructed, params)
+    second = out.parent / "reuse30_summary.json"
+    second.write_text(json.dumps(reuse30, indent=2), encoding="utf-8")
+    print("REUSE30 outcomes=", [
+        c["teacher_assisted_physical_placement"] for c in reuse30["cases"]
+    ], "train_only_labels=", reuse30["total_train_only_teacher_label_queries"])
     print("REUSE-25 recovery success=",correction["successful_goal_recovery"],
           "native steps=",report["actual_native_simulator_step_calls"])
     return report

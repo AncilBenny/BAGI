@@ -10,6 +10,7 @@ from bagi.experiments.xland_wrong_object_recovery import (
     FAILED_LAYOUT,
     MODEL_SEED,
     REFERENCE_LAYOUT,
+    REUSE30_PROBES,
     action_from_policy,
     native_trace_sha256,
 )
@@ -92,3 +93,11 @@ def test_native_recovery_trace_hash_uses_executed_release_once():
         np.asarray(expected_actions, dtype="<i8").tobytes()
     ).hexdigest()
     assert native_trace_sha256(prefix, release, corrective_actions) == expected_digest
+
+
+def test_reuse30_is_bounded_to_two_distinct_predeclared_training_cases():
+    assert REUSE30_PROBES == ((9701, 4), (9702, 10))
+    assert len({seed for seed, _ in REUSE30_PROBES}) == 2
+    assert all(1 <= checkpoint < CAP for _, checkpoint in REUSE30_PROBES)
+    assert all(seed not in range(7500, 8500) for seed, _ in REUSE30_PROBES)
+    assert FAILED_LAYOUT not in {seed for seed, _ in REUSE30_PROBES}
