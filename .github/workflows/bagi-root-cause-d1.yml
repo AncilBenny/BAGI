@@ -1,4 +1,4 @@
-name: BAGI G2-D1 Root Cause: Frozen Policy History and Pickup Opportunities
+name: "BAGI G2-D1 Root Cause: Frozen Policy History and Pickup Opportunities"
 
 on:
   push:

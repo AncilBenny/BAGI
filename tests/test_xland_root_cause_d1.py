@@ -232,3 +232,19 @@ def test_strict_paired_provenance_and_eligibility():
     pair[2]["tasks"]["near"]["cases"][0]["layout"] = 11304
     with pytest.raises(ValueError, match="replaced"):
         validate_paired_runs(pair)
+
+
+def test_native_workflow_yaml_is_parseable_and_bounded():
+    from pathlib import Path
+
+    import yaml
+
+    workflow = Path(__file__).resolve().parents[1] / (
+        ".github/workflows/bagi-root-cause-d1.yml"
+    )
+    spec = yaml.safe_load(workflow.read_text(encoding="utf-8"))
+    assert spec["name"].startswith("BAGI G2-D1 Root Cause:")
+    job = spec["jobs"]["bounded-root-cause-diagnosis"]
+    assert job["timeout-minutes"] == 25
+    assert job["runs-on"] == "ubuntu-latest"
+    assert any("summary.json" in str(s) for s in job["steps"])
