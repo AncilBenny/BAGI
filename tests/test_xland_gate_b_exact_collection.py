@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from bagi.experiments.xland_gate_b_exact_collection import (
+    BALANCED_LAYOUT_QUOTAS,
     QUERY_BUDGET,
     SOURCE_LAYOUTS,
     collect_arm,
@@ -281,3 +282,73 @@ def test_persisted_pair_rejects_corrupt_numeric_provenance(tmp_path):
                 tmp_path, model_seed=17, source_checksum="trusted-sha",
                 model_record=record,
             )
+
+def test_balanced_10_each_collects_actual_steps_and_saves_quota_boundaries(tmp_path):
+    # These fake episodes last 12 actions; the cutoff at ten is preregistered.
+    @dataclass(frozen=True)
+    class LongStep:
+        seed: int
+        n: int
+        reward: float = 0.0
+
+        def last(self):
+            return self.n >= 12
+
+    def reset(seed):
+        return LongStep(seed, 0)
+
+    def step(ts, action):
+        assert action in range(6)
+        return LongStep(ts.seed, ts.n + 1)
+
+    kwargs = {
+        "reset": reset, "step": step,
+        "screen_nonadjacent": lambda ts: True,
+        "feature_fn": fake_features, "teacher": fake_teacher,
+        "learner": fake_learner,
+        "seeds": tuple(seed for seed, _ in BALANCED_LAYOUT_QUOTAS),
+        "per_layout_quota": tuple(count for _, count in BALANCED_LAYOUT_QUOTAS),
+    }
+    reset_arm = collect_arm(arm="reset_expert", **kwargs)
+    correction_arm = collect_arm(arm="learner_correction", **kwargs)
+    assert reset_arm.complete and correction_arm.complete
+    assert all(not row["done"] for row in reset_arm.rows[:10])
+    assert reset_arm.summary()["source_layout_label_counts"] == {9701: 10, 9702: 10}
+    assert correction_arm.summary()["source_layout_label_counts"] == {9701: 10, 9702: 10}
+    evidence = validate_pair(reset_arm, correction_arm, per_layout_quota=(10, 10))
+    assert evidence["fixed_source_layout_quotas"] == {"9701": 10, "9702": 10}
+    for arm in (reset_arm, correction_arm):
+        save_numeric(str(tmp_path / f"seed17_{arm.arm}.npz"), arm)
+    record = {
+        "model_seed": 17, "numeric_source_sha256": "trusted-sha",
+        "matched": True, "pair_accounting": evidence,
+        "arms": {arm.arm: arm.summary() for arm in (reset_arm, correction_arm)},
+    }
+    loaded = load_verified_collection_pair(
+        tmp_path, model_seed=17, source_checksum="trusted-sha",
+        model_record=record,
+    )
+    assert all(loaded[arm]["obs"].shape == (20, 115) for arm in loaded)
+
+
+def test_quota_unmet_fails_closed_and_never_substitutes_source_layout():
+    args = {
+        "reset": fake_reset, "step": fake_step,
+        "screen_nonadjacent": lambda ts: True,
+        "feature_fn": fake_features, "teacher": fake_teacher,
+        "learner": fake_learner,
+        "seeds": tuple(seed for seed, _ in BALANCED_LAYOUT_QUOTAS),
+        "per_layout_quota": (10, 10),
+    }
+    stopped = collect_arm(arm="reset_expert", **args)
+    other = collect_arm(arm="learner_correction", **args)
+    assert not stopped.complete
+    assert stopped.native_steps == stopped.teacher_queries == 7
+    assert stopped.screened_seeds == (9701,)
+    assert stopped.expert_failures[0]["reason"] == "source_layout_quota_unmet"
+    with pytest.raises(ValueError, match="Incomplete collection"):
+        validate_pair(stopped, other, per_layout_quota=(10, 10))
+    with pytest.raises(ValueError, match="Unregistered fixed"):
+        collect_arm(
+            arm="reset_expert", **{**args, "per_layout_quota": (11, 9)}
+        )

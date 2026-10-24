@@ -5,6 +5,8 @@ on:
     branches: ["setup/initial-platform"]
     paths:
       - "requirements/xland-reuse31.txt"
+      - "bagi/experiments/xland_gate_b_exact_collection.py"
+      - "bagi/experiments/xland_gate_b_native_collection.py"
       - "bagi/experiments/xland_gate_b_matched_learning.py"
       - ".github/workflows/bagi-reuse31-native-cpu.yml"
   workflow_dispatch:

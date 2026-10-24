@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from bagi.experiments.xland_gate_b_exact_collection import (
+    BALANCED_LAYOUT_QUOTAS,
     FRESH_EVAL_LAYOUTS,
     QUERY_BUDGET,
     SOURCE_LAYOUTS,
@@ -25,6 +26,9 @@ def metadata():
 def summary():
     return {"source_run":39637067506,"source_artifact":12362840074,
             "model_seeds":[17,29],"source_layouts":list(SOURCE_LAYOUTS),
+            "fixed_source_layout_quotas": {
+                str(seed): count for seed, count in BALANCED_LAYOUT_QUOTAS
+            },
             "future_evaluation_layouts_not_queried":list(FRESH_EVAL_LAYOUTS),
             "new_heldout_teacher_queries":0,
             "new_postintervention_policy_training_steps":0,
@@ -46,7 +50,8 @@ def test_valid_header_requires_both_policy_seeds(tmp_path):
     ('comparison_complete',False),('new_heldout_teacher_queries',1),
     ('real_teacher_query_attempts',79),('real_native_collection_steps',79),
     ('model_seeds',[29,17]),('source_artifact',0),
-    ('future_evaluation_layouts_not_queried',[9810])])
+    ('future_evaluation_layouts_not_queried',[9810]),
+    ('fixed_source_layout_quotas',{'9701': 11, '9702': 9})])
 def test_bad_summary_rejected_before_model_training(tmp_path,key,bad):
     d=summary();d[key]=bad
     (tmp_path/'summary.json').write_text(json.dumps(d))

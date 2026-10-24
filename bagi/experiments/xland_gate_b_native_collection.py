@@ -15,6 +15,7 @@ import numpy as np
 
 from bagi.experiments.xland_gate_b_exact_collection import (
     ARMS,
+    BALANCED_LAYOUT_QUOTAS,
     CAP,
     FRESH_EVAL_LAYOUTS,
     QUERY_BUDGET,
@@ -152,7 +153,8 @@ def collect_native(policy, room, defaults, blue: np.ndarray,
         "feature_fn": public_features,
         "teacher": teacher,
         "learner": learner,
-        "seeds": SOURCE_LAYOUTS,
+        "seeds": tuple(seed for seed, _ in BALANCED_LAYOUT_QUOTAS),
+        "per_layout_quota": tuple(count for _, count in BALANCED_LAYOUT_QUOTAS),
         "budget": QUERY_BUDGET,
         "cap": CAP,
     }
@@ -193,7 +195,8 @@ def run(source_dir: Path, output_dir: Path) -> dict:
                 save_numeric(str(output_dir / f"seed{seed}_{arm}.npz"), collection)
         try:
             row["pair_accounting"] = validate_pair(
-                pairs["reset_expert"], pairs["learner_correction"]
+                pairs["reset_expert"], pairs["learner_correction"],
+                per_layout_quota=tuple(count for _, count in BALANCED_LAYOUT_QUOTAS),
             )
             row["matched"] = True
         except ValueError as exc:
@@ -209,6 +212,9 @@ def run(source_dir: Path, output_dir: Path) -> dict:
         "source_artifact": 12362840074,
         "model_seeds": list(MODEL_SEEDS),
         "source_layouts": list(SOURCE_LAYOUTS),
+        "fixed_source_layout_quotas": {
+            str(seed): count for seed, count in BALANCED_LAYOUT_QUOTAS
+        },
         "future_evaluation_layouts_not_queried": list(FRESH_EVAL_LAYOUTS),
         "teacher_only_train_putdown": True,
         "new_heldout_teacher_queries": 0,

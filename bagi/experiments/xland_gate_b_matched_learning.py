@@ -14,6 +14,7 @@ import numpy as np
 
 from bagi.experiments.xland_gate_b_exact_collection import (
     ARMS,
+    BALANCED_LAYOUT_QUOTAS,
     CAP,
     FRESH_EVAL_LAYOUTS,
     INPUT_WIDTH,
@@ -52,6 +53,9 @@ def validate_collection_header(
             or report.get("source_artifact") != 12362840074
             or report.get("model_seeds") != list(MODEL_SEEDS)
             or report.get("source_layouts") != list(SOURCE_LAYOUTS)
+            or report.get("fixed_source_layout_quotas") != {
+                str(seed): count for seed, count in BALANCED_LAYOUT_QUOTAS
+            }
             or report.get("future_evaluation_layouts_not_queried")
             != list(FRESH_EVAL_LAYOUTS)
             or report.get("new_heldout_teacher_queries") != 0

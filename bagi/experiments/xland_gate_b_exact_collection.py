@@ -19,6 +19,8 @@ INPUT_WIDTH = 115
 TRAIN_TASK = "putdown"
 # TRAIN layouts, previously used in earlier diagnostics; NOT fresh evaluation.
 SOURCE_LAYOUTS = (9701, 9702, 9708, 9710, 9711, 9712, 9713, 9714)
+# REUSE-31b: prospectively fixed genuine native labels from two TRAIN layouts.
+BALANCED_LAYOUT_QUOTAS = ((9701, 10), (9702, 10))
 # Do not inspect or collect held-out expert labels on these untouched eval layouts.
 FRESH_EVAL_LAYOUTS = (9810, 9811, 9812, 9813, 9814)
 ARMS = ("reset_expert", "learner_correction")
@@ -115,6 +117,7 @@ def collect_arm(
     teacher: Callable[[object], tuple[int, str]],
     learner: Callable[[np.ndarray], object] | None,
     seeds: tuple[int, ...] = SOURCE_LAYOUTS,
+    per_layout_quota: tuple[int, ...] | None = None,
     budget: int = QUERY_BUDGET,
     cap: int = CAP,
 ) -> Collection:
@@ -139,13 +142,18 @@ def collect_arm(
         raise ValueError("Evaluation-layout contamination")
     if tuple(seeds) != SOURCE_LAYOUTS[:len(seeds)]:
         raise ValueError("Unregistered or out-of-order source layout")
+    if per_layout_quota is not None and (
+        tuple(zip(seeds, per_layout_quota)) != BALANCED_LAYOUT_QUOTAS
+        or sum(per_layout_quota) != budget
+    ):
+        raise ValueError("Unregistered fixed source-layout quota contract")
 
     rows: list[dict] = []
     errors: list[dict] = []
     screened: list[int] = []
     steps = queries = resets = 0
 
-    for seed in seeds:
+    for seed_index, seed in enumerate(seeds):
         if queries >= budget or errors:
             break
         ts = reset(seed)
@@ -159,7 +167,13 @@ def collect_arm(
             break
         history: tuple[int, ...] = (6, 6, 6, 6)
         episode_step = 0
-        while episode_step < cap and queries < budget and not bool(ts.last()):
+        layout_rows = 0
+        layout_target = (
+            per_layout_quota[seed_index]
+            if per_layout_quota is not None else budget
+        )
+        while (episode_step < cap and queries < budget
+               and layout_rows < layout_target and not bool(ts.last())):
             feature = np.asarray(feature_fn(ts, history), dtype=np.float32)
             if feature.shape != (INPUT_WIDTH,) or not np.isfinite(feature).all():
                 raise ValueError("Invalid 115-feature PUBLIC learner input")
@@ -181,6 +195,7 @@ def collect_arm(
             )
             nxt = step(ts, act)
             steps += 1
+            layout_rows += 1
             rows.append({
                 "source_seed": int(seed), "episode_step": episode_step,
                 "state_origin": origin, "expert_stage": stage,
@@ -192,6 +207,11 @@ def collect_arm(
             history = (*history[1:], act)
             ts = nxt
             episode_step += 1
+        if per_layout_quota is not None and not errors and layout_rows != layout_target:
+            errors.append({
+                "seed": seed, "reason": "source_layout_quota_unmet",
+                "expected_rows": layout_target, "collected_rows": layout_rows,
+            })
         if errors:
             break
     return Collection(
@@ -203,7 +223,10 @@ def collect_arm(
     )
 
 
-def validate_pair(reset: Collection, correction: Collection) -> dict:
+def validate_pair(
+    reset: Collection, correction: Collection, *,
+    per_layout_quota: tuple[int, ...] | None = None,
+) -> dict:
     """Do not train on partial/unmatched budgets or privileged observations."""
     if (reset.arm, correction.arm) != ARMS:
         raise ValueError("Wrong ordered comparison arms")
@@ -220,6 +243,11 @@ def validate_pair(reset: Collection, correction: Collection) -> dict:
     correction_seeds = Counter(int(row["source_seed"]) for row in correction.rows)
     if reset_seeds != correction_seeds:
         raise ValueError("Mismatched source-layout label allocation between arms")
+    if per_layout_quota is not None and (
+        per_layout_quota != tuple(count for _, count in BALANCED_LAYOUT_QUOTAS)
+        or reset_seeds != Counter(dict(BALANCED_LAYOUT_QUOTAS))
+    ):
+        raise ValueError("Preregistered fixed source-layout quota not met")
     for arm in (reset, correction):
         old_seed = None
         history: tuple[int, ...] = (6, 6, 6, 6)
@@ -253,7 +281,10 @@ def validate_pair(reset: Collection, correction: Collection) -> dict:
             "reset_arm": reset.summary(), "correction_arm": correction.summary(),
             "privileged_teacher_policy_input": False,
             "heldout_teacher_queries": 0,
-            "comparison_status": "collection_only_no_training_or_evaluation"}
+            "comparison_status": "collection_only_no_training_or_evaluation",
+            **({"fixed_source_layout_quotas": {
+                str(seed): count for seed, count in BALANCED_LAYOUT_QUOTAS
+            }} if per_layout_quota is not None else {})}
 
 
 def save_numeric(path: str, collection: Collection) -> None:
@@ -299,6 +330,10 @@ def load_verified_collection_pair(
             or accounting.get("native_steps_per_arm") != QUERY_BUDGET
             or accounting.get("heldout_teacher_queries") != 0):
         raise ValueError("Missing matched collection accounting")
+    quota = accounting.get("fixed_source_layout_quotas")
+    expected_quota = {str(seed): count for seed, count in BALANCED_LAYOUT_QUOTAS}
+    if quota is not None and quota != expected_quota:
+        raise ValueError("Unregistered source-layout quota in paired accounting")
     expected_fields = {
         "obs", "expert_label", "executed_action",
         "prior_executed_actions", "source_seed", "episode_step",
@@ -360,8 +395,13 @@ def load_verified_collection_pair(
             seed = int(data["source_seed"][i])
             step = int(data["episode_step"][i])
             if seed != previous_seed:
+                quota_boundary = (
+                    quota == expected_quota
+                    and previous_seed == BALANCED_LAYOUT_QUOTAS[0][0]
+                    and previous_step == BALANCED_LAYOUT_QUOTAS[0][1] - 1
+                )
                 if (previous_seed is not None and not previous_done
-                        and previous_step != CAP - 1):
+                        and previous_step != CAP - 1 and not quota_boundary):
                     raise ValueError("Unjustified episode boundary in saved labels")
                 if (len(seen) >= len(SOURCE_LAYOUTS)
                         or seed != SOURCE_LAYOUTS[len(seen)] or step != 0):
@@ -409,6 +449,8 @@ def load_verified_collection_pair(
             history = (*history[1:], action)
             previous_seed, previous_step = seed, step
             previous_done = bool(data["done"][i])
+        if quota == expected_quota and dict(layout_counts) != dict(BALANCED_LAYOUT_QUOTAS):
+            raise ValueError("Saved fixed source-layout quota is not met")
         if (meta.get("screened_source_layouts") != seen
                 or {int(k): v for k, v in meta.get(
                     "source_layout_label_counts", {}
