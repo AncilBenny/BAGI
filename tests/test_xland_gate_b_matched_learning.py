@@ -13,6 +13,7 @@ from bagi.experiments.xland_gate_b_exact_collection import (
 from bagi.experiments.xland_gate_b_matched_learning import (
     BASE_ROWS,
     INPUT_WIDTH,
+    diagnostic_tile_positions,
     train_matched_bc,
     validate_collection_header,
 )
@@ -78,3 +79,18 @@ def test_bc_rejects_missing_labels_without_native_libraries():
          'expert_label':np.zeros(19,dtype=np.int64),'done':np.zeros(19,dtype=bool)}
     with pytest.raises(ValueError,match='feature contract'):
         train_matched_bc(x,y,done,new,17)
+
+
+def test_eval_tile_position_diagnostic_tracks_grid_without_privileged_policy_input():
+    grid = np.zeros((5, 5, 2), dtype=np.int32)
+    blue = np.array([5, 2], dtype=np.int32)
+    red = np.array([4, 0], dtype=np.int32)
+    grid[1, 1] = blue
+    grid[3, 3] = red
+    assert diagnostic_tile_positions(grid, blue) == [[1, 1]]
+    assert diagnostic_tile_positions(grid, red) == [[3, 3]]
+    grid[1, 1] = [0, 0]
+    grid[3, 2] = blue
+    assert diagnostic_tile_positions(grid, blue) == [[3, 2]]
+    assert diagnostic_tile_positions(grid, red) == [[3, 3]]
+    assert diagnostic_tile_positions(grid, [8, 8]) == []

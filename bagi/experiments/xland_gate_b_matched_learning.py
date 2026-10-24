@@ -115,6 +115,13 @@ def train_matched_bc(base_x: np.ndarray, base_y: np.ndarray,
                        "sampled_original_base_rows_identical_between_arms": True}
 
 
+def diagnostic_tile_positions(grid: np.ndarray, tile: np.ndarray) -> list[list[int]]:
+    """Evaluator-only positions; never passed to the public learner policy."""
+    return [position.tolist() for position in np.argwhere(
+        np.all(np.asarray(grid) == np.asarray(tile), axis=-1)
+    )]
+
+
 def evaluate_native(policy, env, defaults) -> dict:
     """Closed-loop 40-step evaluation: true physical milestones, no oracle."""
     import jax
@@ -145,6 +152,11 @@ def evaluate_native(policy, env, defaults) -> dict:
                               "physical_placement": False})
                 continue  # No posthoc layout substitution.
             history = [6, 6, 6, 6]
+            native_action_counts = np.zeros(6, dtype=np.int64)
+            trace = []
+            if is_putdown:
+                initial_blue_positions = diagnostic_tile_positions(ts.state.grid, blue)
+                initial_red_positions = diagnostic_tile_positions(ts.state.grid, red)
             reward_seen = False
             blue_pickups = blue_drops = 0
             saw_blue = ordered_drop = False
@@ -161,6 +173,7 @@ def evaluate_native(policy, env, defaults) -> dict:
                     before_pocket = np.asarray(ts.state.agent.pocket).copy()
                     before_grid = np.asarray(ts.state.grid).copy()
                 nxt = step(params, ts, executed)
+                native_action_counts[executed] += 1
                 if is_putdown:
                     picked, dropped = blue_square_transition(
                         executed, before_pocket,
@@ -171,6 +184,27 @@ def evaluate_native(policy, env, defaults) -> dict:
                     blue_drops += int(dropped)
                     ordered_drop |= bool(dropped and saw_blue)
                     saw_blue |= bool(picked)
+                    after_grid = np.asarray(nxt.state.grid)
+                    after_pocket = np.asarray(nxt.state.agent.pocket)
+                    trace.append({
+                        "native_step": count + 1,
+                        "executed_action": executed,
+                        "native_reward": float(nxt.reward),
+                        "effective_blue_pickup": bool(picked),
+                        "effective_blue_drop": bool(dropped),
+                        "grid_changed": bool(not np.array_equal(
+                            before_grid, after_grid
+                        )),
+                        "pocket_changed": bool(not np.array_equal(
+                            before_pocket, after_pocket
+                        )),
+                        "blue_square_positions": diagnostic_tile_positions(
+                            after_grid, blue
+                        ),
+                        "red_ball_positions": diagnostic_tile_positions(
+                            after_grid, red
+                        ),
+                    })
                 ts = nxt
                 reward_seen |= float(ts.reward) > 0
                 history = [*history[1:], executed]
@@ -182,11 +216,35 @@ def evaluate_native(policy, env, defaults) -> dict:
                 reward_seen, initial_adjacent, blue_pickups, blue_drops,
                 final_adjacent, ordered_drop,
             ))
-            cases.append({"layout": layout, "eligible": True,
-                          "native_actions": count, "native_reward": bool(reward_seen),
-                          "blue_pickups": blue_pickups, "blue_drops": blue_drops,
-                          "final_adjacent": final_adjacent,
-                          "physical_placement": actual_skill})
+            case = {
+                "layout": layout,
+                "eligible": True,
+                "native_actions": count,
+                "native_reward": bool(reward_seen),
+                "action_counts": {
+                    str(i): int(n) for i, n in enumerate(native_action_counts) if n
+                },
+                "blue_pickups": blue_pickups,
+                "blue_drops": blue_drops,
+                "final_adjacent": final_adjacent,
+                "physical_placement": actual_skill,
+            }
+            if is_putdown:
+                case["initial_blue_square_positions"] = initial_blue_positions
+                case["initial_red_ball_positions"] = initial_red_positions
+                case["final_blue_square_positions"] = diagnostic_tile_positions(
+                    ts.state.grid, blue
+                )
+                case["final_red_ball_positions"] = diagnostic_tile_positions(
+                    ts.state.grid, red
+                )
+                case["native_reward_without_physical_placement"] = bool(
+                    reward_seen and not actual_skill
+                )
+                # Keep full traces only for *rewarded* putdown episodes;
+                # action counts and milestones still cover all other episodes.
+                case["rewarded_native_transition_trace"] = trace if reward_seen else []
+            cases.append(case)
         by_task[task] = {"cases": cases,
                          "eligible_layouts": sum(int(x["eligible"]) for x in cases),
                          "native_rewarded": sum(int(x["native_reward"]) for x in cases),
