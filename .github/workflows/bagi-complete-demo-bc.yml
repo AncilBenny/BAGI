@@ -1,0 +1,60 @@
+name: BAGI REUSE-33 Complete Physical Teacher BC Trial
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_complete_demo_bc.py"
+      - "tests/test_xland_complete_demo_bc.py"
+      - ".github/workflows/bagi-complete-demo-bc.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  complete-teacher-bc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+      OMP_NUM_THREADS: "1"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Restore SHA256-verified original TRAIN learner pool
+        run: |
+          mkdir -p runs/reuse33_source
+          gh run download 39637067506 --repo AncilBenny/BAGI --name bagi-dagger-action-provenance --dir runs/reuse33_source
+          test -f runs/reuse33_source/summary.json
+          test -f runs/reuse33_source/action_provenance_seed17.npz
+          test -f runs/reuse33_source/action_provenance_seed29.npz
+      - name: Install previously verified isolated CPU native research dependencies
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir -r requirements/xland-reuse31.txt
+          python -m pip check
+      - name: Validate stage-complete source and equal training budget contracts
+        run: |
+          ruff check bagi/experiments/xland_complete_demo_bc.py tests/test_xland_complete_demo_bc.py
+          python -m pytest -q tests/test_xland_complete_demo_bc.py
+      - name: Execute native full teacher trajectories and equal-exposure upstream BC control
+        run: |
+          python -m bagi.experiments.xland_complete_demo_bc --source-dir runs/reuse33_source --output-dir runs/reuse33_complete_demo_bc
+      - name: Save all collected evidence even after a failed gate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-reuse33-complete-demo-bc
+          path: |
+            runs/reuse33_complete_demo_bc/summary.json
+            runs/reuse33_complete_demo_bc/train_source_complete_demos.npz
+          retention-days: 30
+          if-no-files-found: warn
