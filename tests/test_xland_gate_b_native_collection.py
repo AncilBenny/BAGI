@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 
 from bagi.experiments.xland_gate_b_native_collection import (
-    source_record_checks,
     screen_source_layout,
+    source_record_checks,
 )
 
 

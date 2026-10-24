@@ -46,7 +46,7 @@ def screen_source_layout(timestep: object, blue: np.ndarray,
 def source_record_checks(summary: dict) -> None:
     if (summary.get("total_expert_queries") != 582
             or summary.get("heldout_teacher_labels") != 0
-            or set(x.get("model_seed") for x in summary.get("model_results", []))
+            or {x.get("model_seed") for x in summary.get("model_results", [])}
             != set(MODEL_SEEDS)):
         raise ValueError("Unrecognized REUSE-19 verified source metadata")
 
@@ -115,14 +115,14 @@ def collect_native(policy, room, defaults, blue: np.ndarray,
                    red: np.ndarray):
     """Use identical native params/source seeds and actual dynamics for arms."""
     import jax
-
-    from bagi.experiments.xland_dagger_teacher_feasibility import correction_plan
-    from bagi.experiments.xland_existing_bc import get_rules
-    from bagi.experiments.xland_gate_b_exact_collection import native_action
     from xminigrid.wrappers import (
         DirectionObservationWrapper,
         RulesAndGoalsObservationWrapper,
     )
+
+    from bagi.experiments.xland_dagger_teacher_feasibility import correction_plan
+    from bagi.experiments.xland_existing_bc import get_rules
+    from bagi.experiments.xland_gate_b_exact_collection import native_action
 
     env = RulesAndGoalsObservationWrapper(DirectionObservationWrapper(room))
     params = defaults.replace(ruleset=get_rules("putdown"), max_steps=CAP)
