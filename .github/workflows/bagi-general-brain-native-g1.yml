@@ -1,0 +1,67 @@
+name: BAGI G1 General Brain Workshop and XLand Native Adapters
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/agents/general_brain.py"
+      - "bagi/agents/public_evidence.py"
+      - "bagi/experiments/general_brain_native_g1.py"
+      - "tests/test_general_brain_native_g1.py"
+      - ".github/workflows/bagi-general-brain-native-g1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  two-real-worlds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+      OMP_NUM_THREADS: "1"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Restore frozen safe numeric original and physical TRAIN data
+        run: |
+          mkdir -p runs/g1_source runs/g1_original_teacher runs/g1_diverse_teacher
+          gh run download 39637067506 --repo AncilBenny/BAGI --name bagi-dagger-action-provenance --dir runs/g1_source
+          gh run download 40101923830 --repo AncilBenny/BAGI --name bagi-reuse33-complete-demo-bc --dir runs/g1_original_teacher
+          gh run download 40110945017 --repo AncilBenny/BAGI --name bagi-reuse36-diverse-physical-training --dir runs/g1_diverse_teacher
+          test -f runs/g1_source/action_provenance_seed17.npz
+          test -f runs/g1_source/action_provenance_seed29.npz
+          test -f runs/g1_original_teacher/train_source_complete_demos.npz
+          test -f runs/g1_diverse_teacher/diverse_train_physical.npz
+      - name: Install pinned native XLand and imitation.BC CPU runtime
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir -r requirements/xland-reuse31.txt
+          python -m pip check
+      - name: Check native Workshop and XLand public-only control contracts
+        run: |
+          ruff check bagi/agents/general_brain.py bagi/agents/public_evidence.py bagi/experiments/general_brain_native_g1.py tests/test_general_brain.py tests/test_general_brain_native_g1.py
+          python -m pytest -q tests/test_general_brain.py tests/test_general_brain_native_g1.py
+      - name: Execute SAME General Brain in two native environments
+        run: |
+          python -m bagi.experiments.general_brain_native_g1 \
+            --source-dir runs/g1_source \
+            --old-teacher-dir runs/g1_original_teacher \
+            --diverse-dir runs/g1_diverse_teacher \
+            --output-dir runs/g1_native
+      - name: Archive native Workshop and XLand outcomes even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-g1-native-general-brain
+          path: runs/g1_native/summary.json
+          retention-days: 30
+          if-no-files-found: warn

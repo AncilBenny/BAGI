@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import heapq
 import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 Action = int | str  # Simulator actions OR symbolic commands for app/tool adapters.
 
@@ -75,7 +76,7 @@ class Skill:
         if not math.isfinite(self.estimated_cost) or self.estimated_cost <= 0:
             raise ValueError("Expected cost must be positive and finite")
         if not callable(self.policy):
-            raise ValueError("Skill policy must be callable")
+            raise TypeError("Skill policy must be callable")
 
 
 @dataclass
