@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -267,3 +268,145 @@ def save_numeric(path: str, collection: Collection) -> None:
             STATE_ORIGIN_CODES[row["state_origin"]] for row in data
         ], dtype=np.int8),
     )
+def load_verified_collection_pair(
+    directory: Path, *, model_seed: int, source_checksum: str,
+    model_record: dict,
+) -> dict[str, dict[str, np.ndarray]]:
+    """Fail closed on persisted 20+20 native labels before matched BC training.
+
+    The original REUSE-19 source SHA must be verified independently by the
+    caller with load_verified_source. Diagnostic stage/origin codes are checked
+    but are never included in policy inputs.
+    """
+    if (model_seed not in (17, 29)
+            or model_record.get("model_seed") != model_seed
+            or model_record.get("numeric_source_sha256") != source_checksum
+            or model_record.get("matched") is not True
+            or set(model_record.get("arms", {})) != set(ARMS)):
+        raise ValueError("Unmatched or unverified native collection provenance")
+    accounting = model_record.get("pair_accounting", {})
+    if (accounting.get("matched") is not True
+            or accounting.get("labels_per_arm") != QUERY_BUDGET
+            or accounting.get("native_steps_per_arm") != QUERY_BUDGET
+            or accounting.get("heldout_teacher_queries") != 0):
+        raise ValueError("Missing matched collection accounting")
+    expected_fields = {
+        "obs", "expert_label", "executed_action",
+        "prior_executed_actions", "source_seed", "episode_step",
+        "done", "reward", "expert_stage_code", "state_origin_code",
+    }
+    result = {}
+    for arm in ARMS:
+        meta = model_record["arms"][arm]
+        if (meta.get("arm") != arm or meta.get("complete") is not True
+                or any(meta.get(key) != QUERY_BUDGET for key in (
+                    "native_steps", "teacher_queries",
+                    "accepted_teacher_labels", "label_rows"
+                ))
+                or meta.get("rejected_teacher_queries") != 0
+                or meta.get("expert_failures")
+                or meta.get("expert_stage_codebook") != EXPERT_STAGE_CODES
+                or meta.get("state_origin_codebook") != STATE_ORIGIN_CODES
+                or meta.get("public_input_width") != INPUT_WIDTH
+                or accounting.get(
+                    "reset_arm" if arm == "reset_expert" else "correction_arm"
+                ) != meta):
+            raise ValueError("Incomplete or inconsistent collection arm metadata")
+        path = Path(directory) / f"seed{model_seed}_{arm}.npz"
+        with np.load(path, allow_pickle=False) as archive:
+            if set(archive.files) != expected_fields:
+                raise ValueError("Unreviewed numeric collection fields")
+            data = {name: np.array(archive[name], copy=True)
+                    for name in expected_fields}
+        if (data["obs"].shape != (QUERY_BUDGET, INPUT_WIDTH)
+                or data["obs"].dtype != np.float32
+                or data["prior_executed_actions"].shape != (QUERY_BUDGET, 4)
+                or data["expert_stage_code"].dtype != np.int8
+                or data["state_origin_code"].dtype != np.int8
+                or data["done"].dtype != np.bool_
+                or any(data[name].shape != (QUERY_BUDGET,) for name in (
+                    "expert_label", "executed_action", "source_seed",
+                    "episode_step", "done", "reward",
+                    "expert_stage_code", "state_origin_code"
+                ))
+                or any(data[name].dtype.kind not in "iu" for name in (
+                    "expert_label", "executed_action", "source_seed",
+                    "episode_step", "prior_executed_actions"
+                ))
+                or data["reward"].dtype.kind != "f"
+                or not np.isfinite(data["obs"]).all()
+                or not np.isfinite(data["reward"]).all()):
+            raise ValueError("Unsafe or malformed native numeric collection")
+        stage_counts = Counter()
+        origin_counts = Counter()
+        label_counts = Counter()
+        action_counts = Counter()
+        seen: list[int] = []
+        previous_seed = None
+        previous_step = -1
+        previous_done = False
+        history = (6, 6, 6, 6)
+        for i in range(QUERY_BUDGET):
+            seed = int(data["source_seed"][i])
+            step = int(data["episode_step"][i])
+            if seed != previous_seed:
+                if (previous_seed is not None and not previous_done
+                        and previous_step != CAP - 1):
+                    raise ValueError("Unjustified episode boundary in saved labels")
+                if (len(seen) >= len(SOURCE_LAYOUTS)
+                        or seed != SOURCE_LAYOUTS[len(seen)] or step != 0):
+                    raise ValueError("Reordered or substituted source layout")
+                seen.append(seed)
+                history = (6, 6, 6, 6)
+            elif previous_done or step != previous_step + 1:
+                raise ValueError("Noncontiguous or postterminal saved episode")
+            if not 0 <= step < CAP:
+                raise ValueError("Episode exceeded native 40-action cap")
+            if not np.array_equal(data["prior_executed_actions"][i], history):
+                raise ValueError("Saved history differs from executed actions")
+            encoded = np.eye(7, dtype=np.float32)[
+                np.asarray(history, dtype=np.int64)
+            ].reshape(-1)
+            if not np.array_equal(data["obs"][i, -28:], encoded):
+                raise ValueError("Public feature history differs from execution")
+            label = int(data["expert_label"][i])
+            action = int(data["executed_action"][i])
+            if (label not in range(6) or action not in range(6)
+                    or (arm == "reset_expert" and label != action)):
+                raise ValueError("Invalid or falsely executed expert label")
+            stage_code = int(data["expert_stage_code"][i])
+            origin_code = int(data["state_origin_code"][i])
+            expected_origin = STATE_ORIGIN_CODES[
+                "reset" if step == 0 else (
+                    "teacher_continuation" if arm == "reset_expert"
+                    else "learner_continuation"
+                )
+            ]
+            if (stage_code not in EXPERT_STAGE_CODES.values()
+                    or origin_code != expected_origin):
+                raise ValueError("Untrusted teacher-stage or state-origin code")
+            stage_counts.update(
+                name for name, code in EXPERT_STAGE_CODES.items()
+                if code == stage_code
+            )
+            origin_counts.update(
+                name for name, code in STATE_ORIGIN_CODES.items()
+                if code == origin_code
+            )
+            label_counts[label] += 1
+            action_counts[action] += 1
+            history = (*history[1:], action)
+            previous_seed, previous_step = seed, step
+            previous_done = bool(data["done"][i])
+        if (meta.get("screened_source_layouts") != seen
+                or meta.get("expert_stage_label_counts") != dict(stage_counts)
+                or meta.get("state_origins") != dict(origin_counts)
+                or {int(k): v for k, v in meta.get(
+                    "sampled_label_counts", {}
+                ).items()} != dict(label_counts)
+                or {int(k): v for k, v in meta.get(
+                    "executed_action_counts", {}
+                ).items()} != dict(action_counts)):
+            raise ValueError("Saved labels disagree with provenance histograms")
+        result[arm] = data
+    return result

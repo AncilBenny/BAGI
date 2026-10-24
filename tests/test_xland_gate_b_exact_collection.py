@@ -7,6 +7,7 @@ import pytest
 from bagi.experiments.xland_gate_b_exact_collection import (
     QUERY_BUDGET,
     collect_arm,
+    load_verified_collection_pair,
     save_numeric,
     validate_pair,
 )
@@ -159,3 +160,67 @@ def test_numeric_artifact_without_pickle(tmp_path):
         assert np.array_equal(arrays["expert_stage_code"], np.zeros(20, dtype=np.int8))
         assert arrays["state_origin_code"][0] == 0
         assert arrays["state_origin_code"][1] == 2
+def test_persisted_pair_contract_rechecks_histories_stages_and_origin(tmp_path):
+    expert, correction = both()
+    for collection in (expert, correction):
+        save_numeric(
+            str(tmp_path / f"seed17_{collection.arm}.npz"), collection
+        )
+    record = {
+        "model_seed": 17, "numeric_source_sha256": "trusted-sha",
+        "matched": True, "pair_accounting": validate_pair(expert, correction),
+        "arms": {c.arm: c.summary() for c in (expert, correction)},
+    }
+    result = load_verified_collection_pair(
+        tmp_path, model_seed=17, source_checksum="trusted-sha",
+        model_record=record,
+    )
+    assert all(result[arm]["obs"].shape == (20, 115) for arm in result)
+    with pytest.raises(ValueError, match="provenance"):
+        load_verified_collection_pair(
+            tmp_path, model_seed=17, source_checksum="wrong",
+            model_record=record,
+        )
+    bad = {**record, "arms": {
+        **record["arms"],
+        "learner_correction": {
+            **record["arms"]["learner_correction"],
+            "expert_stage_label_counts": {"carrying_square": 20},
+        },
+    }}
+    with pytest.raises(ValueError, match="histograms"):
+        load_verified_collection_pair(
+            tmp_path, model_seed=17, source_checksum="trusted-sha",
+            model_record=bad,
+        )
+
+
+def test_persisted_pair_rejects_corrupt_numeric_provenance(tmp_path):
+    expert, correction = both()
+    for collection in (expert, correction):
+        save_numeric(
+            str(tmp_path / f"seed17_{collection.arm}.npz"), collection
+        )
+    record = {
+        "model_seed": 17, "numeric_source_sha256": "trusted-sha",
+        "matched": True, "pair_accounting": validate_pair(expert, correction),
+        "arms": {c.arm: c.summary() for c in (expert, correction)},
+    }
+    target = tmp_path / "seed17_learner_correction.npz"
+    with np.load(target, allow_pickle=False) as archive:
+        arrays = {key: np.array(archive[key], copy=True)
+                  for key in archive.files}
+    for name, row, value, error in (
+        ("expert_stage_code", 0, 9, "teacher-stage"),
+        ("state_origin_code", 1, 1, "state-origin"),
+        ("episode_step", 1, 39, "Noncontiguous"),
+    ):
+        modified = {key: np.array(arr, copy=True)
+                    for key, arr in arrays.items()}
+        modified[name][row] = value
+        np.savez_compressed(target, **modified)
+        with pytest.raises(ValueError, match=error):
+            load_verified_collection_pair(
+                tmp_path, model_seed=17, source_checksum="trusted-sha",
+                model_record=record,
+            )
