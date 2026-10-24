@@ -169,8 +169,8 @@ def workshop_native_one(mode: str, condition: str) -> dict:
         option_failures = sum(x.failures for x in brain.experience.values())
     # The evaluator-only native flags are read AFTER the episode. Never pass
     # hidden info, position, door_open or has_key into the acting controller.
-    actual_hidden = {"door_open": bool(world._door_open),  # noqa: SLF001
-                     "has_key": bool(world._has_key)}  # noqa: SLF001
+    actual_hidden = {"door_open": bool(world._door_open),
+                     "has_key": bool(world._has_key)}
     return {
         "layout_mode": mode, "condition": condition,
         "native_actions": len(moves), "goal_rewarded": reward_seen,
@@ -285,7 +285,8 @@ def source_policies(source_dir: Path, old_dir: Path, new_dir: Path):
     from bagi.experiments.xland_gate_b_native_collection import source_record_checks
     from bagi.experiments.xland_instruction_action_history import assemble, check_true_history
     from bagi.experiments.xland_upstream_instruction_bc import (
-        load_verified_source, task_instructions,
+        load_verified_source,
+        task_instructions,
     )
 
     old_meta, original = load_frozen_teacher(old_dir)

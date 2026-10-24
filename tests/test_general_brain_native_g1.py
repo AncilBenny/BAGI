@@ -7,7 +7,7 @@ from importlib.util import find_spec
 import numpy as np
 import pytest
 
-from bagi.agents.general_brain import GeneralBrain, Goal, NoPlanError, Skill
+from bagi.agents.general_brain import GeneralBrain, Goal, Skill
 from bagi.agents.public_evidence import PublicEvidenceSensor
 from bagi.experiments.general_brain_native_g1 import (
     MODEL_SEEDS,
