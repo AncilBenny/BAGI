@@ -205,7 +205,7 @@ def run(source_dir: Path, collection_dir: Path, output_dir: Path) -> dict:
     )
 
     source_summary = json.loads((source_dir / "summary.json").read_text(encoding="utf-8"))
-    collection_report, records = validate_collection_header(collection_dir, source_summary)
+    _, records = validate_collection_header(collection_dir, source_summary)
 
     # Validate BOTH source policies and BOTH matched arms before ANY retraining.
     # The authoritative REUSE-31 loader checks NPZ history, stages, source
