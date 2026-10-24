@@ -181,13 +181,19 @@ def test_persisted_pair_contract_rechecks_histories_stages_and_origin(tmp_path):
             tmp_path, model_seed=17, source_checksum="wrong",
             model_record=record,
         )
-    bad = {**record, "arms": {
-        **record["arms"],
-        "learner_correction": {
-            **record["arms"]["learner_correction"],
-            "expert_stage_label_counts": {"carrying_square": 20},
+    # Preserve agreement between arm metadata and paired accounting so the
+    # test isolates a corrupted histogram, not a stale duplicate summary.
+    bad_summary = {
+        **record["arms"]["learner_correction"],
+        "expert_stage_label_counts": {"carrying_square": 20},
+    }
+    bad = {
+        **record,
+        "arms": {**record["arms"], "learner_correction": bad_summary},
+        "pair_accounting": {
+            **record["pair_accounting"], "correction_arm": bad_summary,
         },
-    }}
+    }
     with pytest.raises(ValueError, match="histograms"):
         load_verified_collection_pair(
             tmp_path, model_seed=17, source_checksum="trusted-sha",
