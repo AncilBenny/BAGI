@@ -1,5 +1,5 @@
 """Deterministic local preregistration tests; no XLand simulation claimed."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 import pytest
@@ -35,7 +35,9 @@ def fake_features(ts, history):
     arr = np.zeros(115, dtype=np.float32)
     arr[0] = ts.n
     arr[1] = ts.seed % 13
-    arr[2:6] = history
+    arr[-28:] = np.eye(7, dtype=np.float32)[
+        np.asarray(history, dtype=np.int64)
+    ].reshape(-1)
     return arr
 
 
@@ -72,6 +74,9 @@ def test_exact_budget_true_history_and_distinct_execution():
     assert a.rows[7]["prior_executed_actions"] == (6, 6, 6, 6)
     assert a.rows[7]["state_origin"] == "reset"
     assert b.rows[1]["state_origin"] == "learner_continuation"
+    assert b.summary()["accepted_teacher_labels"] == QUERY_BUDGET
+    assert b.summary()["rejected_teacher_queries"] == 0
+    assert b.summary()["expert_stage_label_counts"] == {"seek_square": 20}
 
 
 def test_no_cherry_pick_when_adjacent_or_teacher_unsupported():
@@ -118,8 +123,27 @@ def test_rejects_bad_contract_and_out_of_scope_seed():
     assert invalid.teacher_queries == 1
     assert invalid.native_steps == 0
     assert invalid.expert_failures[0]["reason"] == "unsupported_teacher"
+    unknown = collect_arm(arm="learner_correction",
+        teacher=lambda ts: (1, "unregistered_stage"),
+        **{k: v for k, v in common.items() if k != "teacher"})
+    assert not unknown.complete
+    assert unknown.teacher_queries == 1
+    assert unknown.summary()["accepted_teacher_labels"] == 0
+    assert unknown.summary()["rejected_teacher_queries"] == 1
     with pytest.raises(ValueError, match="115-feature"):
         collect_arm(arm="learner_correction", feature_fn=lambda ts, h: np.zeros(54), **{k: v for k, v in common.items() if k != "feature_fn"})
+
+
+def test_pair_validator_rejects_corrupted_policy_history_bits():
+    expert, correction = both()
+    changed = list(correction.rows)
+    row = dict(changed[1])
+    obs = row["public_obs"].copy()
+    obs[-28:] = 0
+    row["public_obs"] = obs
+    changed[1] = row
+    with pytest.raises(ValueError, match="Encoded action history"):
+        validate_pair(expert, replace(correction, rows=tuple(changed)))
 
 
 def test_numeric_artifact_without_pickle(tmp_path):
@@ -130,3 +154,8 @@ def test_numeric_artifact_without_pickle(tmp_path):
         assert arrays["prior_executed_actions"].shape == (20, 4)
         assert np.all(arrays["executed_action"] == 0)
         assert np.all(arrays["expert_label"] != arrays["executed_action"])
+        assert arrays["expert_stage_code"].dtype == np.int8
+        assert arrays["state_origin_code"].dtype == np.int8
+        assert np.array_equal(arrays["expert_stage_code"], np.zeros(20, dtype=np.int8))
+        assert arrays["state_origin_code"][0] == 0
+        assert arrays["state_origin_code"][1] == 2

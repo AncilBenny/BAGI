@@ -21,6 +21,11 @@ SOURCE_LAYOUTS = (9701, 9702, 9708, 9710, 9711, 9712, 9713, 9714)
 # Do not inspect or collect held-out expert labels on these untouched eval layouts.
 FRESH_EVAL_LAYOUTS = (9810, 9811, 9812, 9813, 9814)
 ARMS = ("reset_expert", "learner_correction")
+# Diagnostic-only codes; never present the teacher stage or provenance to the policy.
+EXPERT_STAGE_CODES = {"seek_square": 0, "carrying_square": 1,
+                      "release_wrong_red": 2}
+STATE_ORIGIN_CODES = {"reset": 0, "teacher_continuation": 1,
+                      "learner_continuation": 2}
 
 
 @dataclass(frozen=True)
@@ -40,6 +45,13 @@ class Collection:
             "complete": self.complete,
             "native_steps": self.native_steps,
             "teacher_queries": self.teacher_queries,
+            "accepted_teacher_labels": len(self.rows),
+            "rejected_teacher_queries": self.teacher_queries - len(self.rows),
+            "expert_stage_label_counts": dict(sorted(Counter(
+                str(r["expert_stage"]) for r in self.rows
+            ).items())),
+            "expert_stage_codebook": dict(EXPERT_STAGE_CODES),
+            "state_origin_codebook": dict(STATE_ORIGIN_CODES),
             "reset_calls": self.reset_calls,
             "screened_source_layouts": list(self.screened_seeds),
             "expert_failures": list(self.expert_failures),
@@ -152,12 +164,12 @@ def collect_arm(
                 queries += 1
                 label, stage = teacher(ts)
                 y = native_action(label)
+                if not isinstance(stage, str) or stage not in EXPERT_STAGE_CODES:
+                    raise ValueError("Unsupported train-putdown expert stage")
             except (ValueError, IndexError, RuntimeError) as exc:
                 errors.append({"seed": seed, "step": episode_step,
                                "reason": "unsupported_teacher", "detail": str(exc)})
                 break
-            if not isinstance(stage, str) or not stage:
-                raise ValueError("Teacher stage is diagnostic provenance only")
             act = y if arm == "reset_expert" else native_action(learner(feature.copy()))
             origin = "reset" if episode_step == 0 else (
                 "teacher_continuation" if arm == "reset_expert"
@@ -209,6 +221,20 @@ def validate_pair(reset: Collection, correction: Collection) -> dict:
                 raise ValueError("Non-executed or leaked action history")
             if row["public_obs"].shape != (INPUT_WIDTH,):
                 raise ValueError("Non-public observation input width")
+            # Guard actual final 28 learner feature bits, not merely side metadata.
+            true_history_bits = np.eye(7, dtype=np.float32)[
+                np.asarray(history, dtype=np.int64)
+            ].reshape(-1)
+            if not np.array_equal(row["public_obs"][-28:], true_history_bits):
+                raise ValueError("Encoded action history differs from execution")
+            if row["expert_stage"] not in EXPERT_STAGE_CODES:
+                raise ValueError("Unexpected expert stage in supervised row")
+            expected_origin = "reset" if row["episode_step"] == 0 else (
+                "teacher_continuation" if arm.arm == "reset_expert"
+                else "learner_continuation"
+            )
+            if row["state_origin"] != expected_origin:
+                raise ValueError("False learner/teacher state provenance")
             if arm.arm == "reset_expert" and row["executed_action"] != row["expert_label"]:
                 raise ValueError("Reset-expert control must execute the expert label")
             history = (*history[1:], int(row["executed_action"]))
@@ -234,4 +260,10 @@ def save_numeric(path: str, collection: Collection) -> None:
         episode_step=np.array([row["episode_step"] for row in data], dtype=np.int64),
         done=np.array([row["done"] for row in data], dtype=np.bool_),
         reward=np.array([row["reward"] for row in data], dtype=np.float32),
+        expert_stage_code=np.asarray([
+            EXPERT_STAGE_CODES[row["expert_stage"]] for row in data
+        ], dtype=np.int8),
+        state_origin_code=np.asarray([
+            STATE_ORIGIN_CODES[row["state_origin"]] for row in data
+        ], dtype=np.int8),
     )

@@ -222,6 +222,8 @@ def run(source_dir: Path, output_dir: Path) -> dict:
         ),
         "baseline_bc_training_source_rows_per_seed": 291,
         "baseline_bc_epochs": 12,
+        "baseline_bc_nominal_sample_exposures_per_seed": 291 * 12,
+        "intervention_training_sample_exposures": 0,
         "comparison_complete": all(x["matched"] for x in results),
         "results": results,
         "limitations": [
