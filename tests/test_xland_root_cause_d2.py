@@ -77,8 +77,10 @@ def transition(before, after, action):
             False, False)
 
 
-def run(actions, start=Step((2, 2)), layout=NEW_LAYOUTS[0]):
+def run(actions, start: Step | None = None, layout=NEW_LAYOUTS[0]):
     # Stop early via a native terminal after exactly the actions in this test.
+    if start is None:
+        start = Step((2, 2))
     limit = len(actions)
     policy = Policy(actions)
 
