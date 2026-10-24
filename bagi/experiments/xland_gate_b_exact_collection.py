@@ -7,8 +7,8 @@ No XLand import at module import time, so deterministic synthetic tests can run.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import numpy as np
 
@@ -121,6 +121,8 @@ def collect_arm(
         raise ValueError("Predeclared unique native source seeds required")
     if any(seed in FRESH_EVAL_LAYOUTS for seed in seeds):
         raise ValueError("Evaluation-layout contamination")
+    if tuple(seeds) != SOURCE_LAYOUTS[:len(seeds)]:
+        raise ValueError("Unregistered or out-of-order source layout")
 
     rows: list[dict] = []
     errors: list[dict] = []

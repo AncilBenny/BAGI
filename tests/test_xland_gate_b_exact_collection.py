@@ -5,7 +5,10 @@ import numpy as np
 import pytest
 
 from bagi.experiments.xland_gate_b_exact_collection import (
-    QUERY_BUDGET, collect_arm, save_numeric, validate_pair,
+    QUERY_BUDGET,
+    collect_arm,
+    save_numeric,
+    validate_pair,
 )
 
 
@@ -46,10 +49,12 @@ def fake_learner(x):
 
 
 def both():
-    params = dict(reset=fake_reset, step=fake_step,
-                  screen_nonadjacent=lambda ts: True,
-                  feature_fn=fake_features, teacher=fake_teacher,
-                  learner=fake_learner, seeds=(9701, 9702, 9708, 9710))
+    params = {
+        "reset": fake_reset, "step": fake_step,
+        "screen_nonadjacent": lambda ts: True,
+        "feature_fn": fake_features, "teacher": fake_teacher,
+        "learner": fake_learner, "seeds": (9701, 9702, 9708, 9710),
+    }
     return (collect_arm(arm="reset_expert", **params),
             collect_arm(arm="learner_correction", **params))
 
@@ -94,13 +99,20 @@ def test_no_cherry_pick_when_adjacent_or_teacher_unsupported():
 
 
 def test_rejects_bad_contract_and_out_of_scope_seed():
-    common = dict(reset=fake_reset, step=fake_step,
-                  screen_nonadjacent=lambda ts: True,
-                  feature_fn=fake_features, teacher=fake_teacher, learner=fake_learner)
+    common = {
+        "reset": fake_reset, "step": fake_step,
+        "screen_nonadjacent": lambda ts: True,
+        "feature_fn": fake_features, "teacher": fake_teacher,
+        "learner": fake_learner,
+    }
     with pytest.raises(ValueError, match="Evaluation-layout contamination"):
         collect_arm(arm="learner_correction", seeds=(9810,), **common)
     with pytest.raises(ValueError, match="contract changed"):
         collect_arm(arm="learner_correction", budget=19, **common)
+    with pytest.raises(ValueError, match="Unregistered"):
+        collect_arm(arm="learner_correction", seeds=(9701, 9999), **common)
+    with pytest.raises(ValueError, match="Unregistered"):
+        collect_arm(arm="learner_correction", seeds=(9702, 9701), **common)
     invalid = collect_arm(arm="reset_expert", teacher=lambda ts: (6, "bad"),
         **{k: v for k, v in common.items() if k != "teacher"})
     assert invalid.teacher_queries == 1
