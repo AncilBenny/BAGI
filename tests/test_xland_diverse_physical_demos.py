@@ -95,3 +95,32 @@ def test_diverse_source_rejects_unregistered_source_layout():
              "attempted_teacher_queries": 144, "label_rows": len(rows)}
     with pytest.raises(ValueError, match="genuine|complete|enough|Insufficient"):
         verify_diverse_source(rows, audit)
+
+
+
+def test_successful_real_source_phase_gate_returns_numeric_mapping(monkeypatch):
+    """Catches accidental (audit, data) tuples before any BC training."""
+    from bagi.experiments.xland_diverse_physical_demos import verify_diverse_source
+
+    monkeypatch.setattr(original, "validate_demonstrations",
+                        lambda rows, audit: None)
+    cases = [{"layout": layout, "native_steps": 2, "queries": 2,
+              "physical": i < 66}
+             for i, layout in enumerate(DIVERSE_TRAIN_LAYOUTS)]
+    rows = [
+        {"layout": DIVERSE_TRAIN_LAYOUTS[0],
+         "public_obs": np.zeros(115, dtype=np.float32),
+         "expert_label": 3 if i < 66 else 4,
+         "stage": "seek_square" if i < 66 else "carrying_square"}
+        for i in range(132)
+    ]
+    report = {"predeclared_source_layouts": list(DIVERSE_TRAIN_LAYOUTS),
+              "cases": cases, "eligible_physical_episode_count": 66,
+              "native_teacher_actions": 144, "attempted_teacher_queries": 144,
+              "label_rows": 132}
+    saved = verify_diverse_source(rows, report)
+    assert isinstance(saved, dict)
+    assert set(saved) == {"obs", "expert_label", "done"}
+    assert saved["obs"].shape == (132, 115)
+    assert int(np.sum(saved["expert_label"] == 3)) == 66
+    assert int(np.sum(saved["expert_label"] == 4)) == 66

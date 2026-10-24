@@ -78,7 +78,7 @@ def verify_diverse_source(rows: list[dict], audit: dict) -> dict:
             or int(np.sum(extras["expert_label"] == 3)) < MIN_COMPLETE_SOURCE_EPISODES
             or int(np.sum(extras["expert_label"] == 4)) < MIN_COMPLETE_SOURCE_EPISODES):
         raise ValueError("No diverse real pickup/drop teacher stage coverage")
-    return audit, extras
+    return extras
 
 
 def sample_fixed_extra(base: dict, physical: dict, seed: int) -> dict:
