@@ -6,6 +6,7 @@ import pytest
 
 from bagi.experiments.xland_gate_b_exact_collection import (
     QUERY_BUDGET,
+    SOURCE_LAYOUTS,
     collect_arm,
     load_verified_collection_pair,
     save_numeric,
@@ -78,6 +79,56 @@ def test_exact_budget_true_history_and_distinct_execution():
     assert b.summary()["accepted_teacher_labels"] == QUERY_BUDGET
     assert b.summary()["rejected_teacher_queries"] == 0
     assert b.summary()["expert_stage_label_counts"] == {"seek_square": 20}
+
+
+def test_equal_20_step_budgets_do_not_hide_source_layout_drift(tmp_path):
+    def shortened_expert_episodes(ts, action):
+        # Reset expert ends each source episode at step 3; the learner does
+        # not. Total query/step budgets remain identical, but layouts differ.
+        if ts.n == 2 and action != 0:
+            return Step(ts.seed, 7)
+        return fake_step(ts, action)
+
+    params = {
+        "reset": fake_reset,
+        "step": shortened_expert_episodes,
+        "screen_nonadjacent": lambda ts: True,
+        "feature_fn": fake_features,
+        "teacher": fake_teacher,
+        "learner": fake_learner,
+        "seeds": SOURCE_LAYOUTS,
+    }
+    reset = collect_arm(arm="reset_expert", **params)
+    correction = collect_arm(arm="learner_correction", **params)
+    assert reset.complete and correction.complete
+    assert reset.teacher_queries == correction.teacher_queries == QUERY_BUDGET
+    assert reset.native_steps == correction.native_steps == QUERY_BUDGET
+    assert (reset.summary()["source_layout_label_counts"]
+            != correction.summary()["source_layout_label_counts"])
+    with pytest.raises(ValueError, match="Mismatched source-layout"):
+        validate_pair(reset, correction)
+
+    # Forged paired-accounting cannot bypass the same check after save/reload.
+    for arm in (reset, correction):
+        save_numeric(str(tmp_path / f"seed17_{arm.arm}.npz"), arm)
+    record = {
+        "model_seed": 17, "numeric_source_sha256": "trusted-sha",
+        "matched": True,
+        "arms": {c.arm: c.summary() for c in (reset, correction)},
+        "pair_accounting": {
+            "matched": True,
+            "labels_per_arm": QUERY_BUDGET,
+            "native_steps_per_arm": QUERY_BUDGET,
+            "heldout_teacher_queries": 0,
+            "reset_arm": reset.summary(),
+            "correction_arm": correction.summary(),
+        },
+    }
+    with pytest.raises(ValueError, match="Mismatched source-layout"):
+        load_verified_collection_pair(
+            tmp_path, model_seed=17, source_checksum="trusted-sha",
+            model_record=record,
+        )
 
 
 def test_no_cherry_pick_when_adjacent_or_teacher_unsupported():

@@ -55,6 +55,9 @@ class Collection:
             "state_origin_codebook": dict(STATE_ORIGIN_CODES),
             "reset_calls": self.reset_calls,
             "screened_source_layouts": list(self.screened_seeds),
+            "source_layout_label_counts": dict(sorted(Counter(
+                int(r["source_seed"]) for r in self.rows
+            ).items())),
             "expert_failures": list(self.expert_failures),
             "sampled_label_counts": dict(sorted(Counter(
                 int(r["expert_label"]) for r in self.rows
@@ -211,6 +214,12 @@ def validate_pair(reset: Collection, correction: Collection) -> dict:
             or len(reset.rows) != len(correction.rows)
             or len(reset.rows) != QUERY_BUDGET):
         raise ValueError("Mismatched native-step or teacher-query budgets")
+    # Fixed total labels do not ensure the arms came from the same layouts.
+    # A different layout mixture confounds the correction-vs-reset contrast.
+    reset_seeds = Counter(int(row["source_seed"]) for row in reset.rows)
+    correction_seeds = Counter(int(row["source_seed"]) for row in correction.rows)
+    if reset_seeds != correction_seeds:
+        raise ValueError("Mismatched source-layout label allocation between arms")
     for arm in (reset, correction):
         old_seed = None
         history: tuple[int, ...] = (6, 6, 6, 6)
@@ -341,6 +350,7 @@ def load_verified_collection_pair(
         origin_counts = Counter()
         label_counts = Counter()
         action_counts = Counter()
+        layout_counts = Counter()
         seen: list[int] = []
         previous_seed = None
         previous_step = -1
@@ -395,10 +405,14 @@ def load_verified_collection_pair(
             )
             label_counts[label] += 1
             action_counts[action] += 1
+            layout_counts[seed] += 1
             history = (*history[1:], action)
             previous_seed, previous_step = seed, step
             previous_done = bool(data["done"][i])
         if (meta.get("screened_source_layouts") != seen
+                or {int(k): v for k, v in meta.get(
+                    "source_layout_label_counts", {}
+                ).items()} != dict(layout_counts)
                 or meta.get("expert_stage_label_counts") != dict(stage_counts)
                 or meta.get("state_origins") != dict(origin_counts)
                 or {int(k): v for k, v in meta.get(
@@ -409,4 +423,9 @@ def load_verified_collection_pair(
                 ).items()} != dict(action_counts)):
             raise ValueError("Saved labels disagree with provenance histograms")
         result[arm] = data
+    if not np.array_equal(
+        result["reset_expert"]["source_seed"],
+        result["learner_correction"]["source_seed"],
+    ):
+        raise ValueError("Mismatched source-layout label allocation in numeric pair")
     return result
