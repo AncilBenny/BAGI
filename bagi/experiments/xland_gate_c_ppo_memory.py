@@ -13,6 +13,7 @@ import time
 from collections import Counter
 from importlib.metadata import version
 from pathlib import Path
+from typing import ClassVar
 
 import numpy as np
 import yaml
@@ -79,7 +80,7 @@ def make_train_env(seed_base: int, cap: int):
     from bagi.experiments.xland_existing_bc import get_rules
 
     class PublicXLandTraining(gym.Env):
-        metadata = {"render_modes": []}
+        metadata: ClassVar[dict[str, list[str]]] = {"render_modes": []}
 
         def __init__(self):
             super().__init__()
@@ -251,7 +252,7 @@ def evaluate_native(agent, config: dict) -> dict:
             ts = reset(params, jax.random.key(layout))
             eligible = (task != "putdown" or screen_source_layout(ts, blue, red))
 
-            def native_step(timestep, taken):
+            def native_step(timestep, taken, *, params=params):
                 return step(params, timestep, taken)
 
             def check_blue(before, after, action):
