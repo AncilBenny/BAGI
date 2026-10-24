@@ -94,3 +94,23 @@ def test_frozen_real_teacher_archive_when_present(tmp_path):
     assert report["source_teacher_provenance"]["eligible_physical_episode_count"] == 22
     assert rows["obs"].shape == (248, 115)
     assert np.count_nonzero(rows["expert_label"] == 4) == 22
+
+
+def test_original_json_key_format_normalized_without_bypassing_label_checks():
+    """Original JSON stringifies integer keys: this is not a sampling change."""
+    training = {
+        "original_source_rows": 291, "added_sampled_rows": 248,
+        "total_rows": 539, "epochs": 12,
+        "nominal_optimization_exposures": 6468,
+        "label_action_counts": {0: 31, 3: 22, 4: 22},
+    }
+    archival = {
+        "original_source_sha256": "verified",
+        "training": {**training, "label_action_counts": {"0": 31, "3": 22, "4": 22}},
+    }
+    validate_original_recipe(training, archival, "verified")
+    with pytest.raises(ValueError, match="sampling and training"):
+        validate_original_recipe(
+            {**training, "label_action_counts": {0: 31, 3: 22, 4: 23}},
+            archival, "verified",
+        )

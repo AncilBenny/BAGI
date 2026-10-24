@@ -96,7 +96,7 @@ def evaluate_original_on_confirm(policy) -> dict:
 
 def validate_original_recipe(actual: dict, former: dict, checksum: str) -> None:
     if (former["original_source_sha256"] != checksum
-            or actual != former["training"]
+            or json.loads(json.dumps(actual)) != former["training"]
             or actual["original_source_rows"] != 291
             or actual["added_sampled_rows"] != TEACHER_ROWS
             or actual["total_rows"] != 539
