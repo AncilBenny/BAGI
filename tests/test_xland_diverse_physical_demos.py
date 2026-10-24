@@ -111,6 +111,7 @@ def test_successful_real_source_phase_gate_returns_numeric_mapping(monkeypatch):
         {"layout": DIVERSE_TRAIN_LAYOUTS[0],
          "public_obs": np.zeros(115, dtype=np.float32),
          "expert_label": 3 if i < 66 else 4,
+         "done": i == 131,
          "stage": "seek_square" if i < 66 else "carrying_square"}
         for i in range(132)
     ]
