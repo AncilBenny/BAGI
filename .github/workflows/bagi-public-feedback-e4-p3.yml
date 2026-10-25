@@ -1,0 +1,64 @@
+name: "BAGI G2-E4-P3: One-Variable Public Feedback Ablation"
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/e4_p3_live_vs_stale_observation.py"
+      - ".github/workflows/bagi-public-feedback-e4-p3.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: bagi-e4-p3-one-public-feedback-study
+  cancel-in-progress: false
+
+jobs:
+  public-feedback-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install existing CPU Torch, Gymnasium, and pinned upstream PPO
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir -e '.[dev,rl]'
+          python -m pip check
+      - name: Fail closed on source style and simulator-free synthetic contracts
+        run: |
+          ruff check bagi/experiments/e4_p3_live_vs_stale_observation.py tests/test_e4_p3_live_vs_stale_observation.py
+          python -m pytest -q tests/test_e4_p3_live_vs_stale_observation.py
+      - name: Acquire immutable numeric P1 source artifact with verified digest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p runs
+          curl --fail --location --silent --show-error --retry 2 --max-time 120 \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/AncilBenny/BAGI/actions/artifacts/12606845219/zip" \
+            --output runs/g2_e4_p1_verified_source.zip
+          echo "b3cecce2f9cb15092490f893ba8b0df16a9424a6d1b010747b07094cdccfa712  runs/g2_e4_p1_verified_source.zip" | sha256sum --check --status
+      - name: Execute ONE frozen live-public versus stale-initial-public test
+        run: |
+          python -m bagi.experiments.e4_p3_live_vs_stale_observation \
+            --source-archive runs/g2_e4_p1_verified_source.zip \
+            --output-dir runs/g2_e4_p3_public_feedback
+      - name: Archive numeric public-only native actions and summary on success/failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-g2-e4-p3-public-feedback
+          path: runs/g2_e4_p3_public_feedback/
+          if-no-files-found: warn
+          retention-days: 30
