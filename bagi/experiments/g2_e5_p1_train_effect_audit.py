@@ -177,7 +177,7 @@ def crossfit(
                 errors[name]["covered"] += int(key in table)
     return {
         "train_only_rows": n,
-        "train_episodes": int(len(np.unique(episode))),
+        "train_episodes": len(np.unique(episode)),
         "distinct_public_views": len(set(current)),
         "distinct_public_next_views": len(set(target)),
         "distinct_public_view_action_pairs": len({
