@@ -110,7 +110,7 @@ def _evaluate_domain(
                               if group == name], dtype=np.int64)
         slices[name] = np.isin(groups, indices)
     result = {
-        "train_rows": int(len(train_y)), "test_rows": int(len(test_y)),
+        "train_rows": len(train_y), "test_rows": len(test_y),
         "train_public_change_positives": int(train_y.sum()),
         "test_public_change_positives": int(test_y.sum()),
         "train_duplicates": duplicate_trajectory_groups(train),
@@ -152,7 +152,7 @@ def _evaluate_domain(
                 for baseline in ("shuffled_action", "action_frequency", "constant")
             }
             model_result["slices"][name] = {
-                "episodes": int(len(np.unique(groups[mask]))),
+                "episodes": len(np.unique(groups[mask])),
                 "metrics": scored,
                 "actual_minus_baseline_brier": comparisons,
             }
