@@ -299,10 +299,10 @@ def run(output_dir: Path) -> dict:
             for model_index, seed in enumerate(MODEL_SEEDS):
                 train_env = _make_train_env(task, task_index, model_index, ledger)
                 try:
-                    kwargs = dict(seed=seed, device="cpu", n_steps=ROLLOUT_STEPS,
-                                  batch_size=64, n_epochs=2, gamma=0.99,
-                                  learning_rate=3e-4, ent_coef=0.01,
-                                  policy_kwargs=POLICY_KWARGS, verbose=0)
+                    kwargs = {"seed": seed, "device": "cpu", "n_steps": ROLLOUT_STEPS,
+                              "batch_size": 64, "n_epochs": 2, "gamma": 0.99,
+                              "learning_rate": 3e-4, "ent_coef": 0.01,
+                              "policy_kwargs": POLICY_KWARGS, "verbose": 0}
                     model = PPO("MlpPolicy", train_env, **kwargs)
                     initial = {key: value.detach().clone()
                                for key, value in model.policy.state_dict().items()}
