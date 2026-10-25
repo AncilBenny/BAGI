@@ -309,7 +309,6 @@ def _evaluate(model, world: NativePublicRecorder) -> NativePublicRecorder:
 def run(output_dir: Path) -> dict:
     verify_registration()
     import torch
-
     from stable_baselines3 import PPO
 
     torch.set_num_threads(1)
