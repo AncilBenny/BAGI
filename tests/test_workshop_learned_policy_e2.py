@@ -71,7 +71,7 @@ def test_invalid_action_rejected_without_native_call():
         world = SyntheticWorkshop()
         with pytest.raises(ValueError, match="invalid action"):
             pilot._episode(world, np.zeros((5, 5), dtype=np.int8),
-                           lambda _public: bad, 40, numeric(), (0, 0, 0, 0))
+                           lambda _public, invalid=bad: invalid, 40, numeric(), (0, 0, 0, 0))
         assert world.calls == 0
 
 

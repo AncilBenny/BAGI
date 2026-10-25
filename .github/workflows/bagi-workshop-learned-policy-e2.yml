@@ -36,7 +36,8 @@ jobs:
       - name: Fail closed on public-observation, budget and serialization contracts
         run: |
           ruff check bagi/experiments/workshop_learned_policy_e2.py tests/test_workshop_learned_policy_e2.py
-          python -m pytest -q tests/test_workshop_learned_policy_e2.py tests/test_start_diversity.py
+          # Only synthetic contract tests: start_diversity executes native steps.
+          python -m pytest -q tests/test_workshop_learned_policy_e2.py
       - name: Run exactly one preregistered bounded native Workshop pilot
         run: |
           python -m bagi.experiments.workshop_learned_policy_e2 --output-dir runs/g2_e2_p0_workshop_policy

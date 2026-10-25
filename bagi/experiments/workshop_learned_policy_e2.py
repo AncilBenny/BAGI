@@ -167,18 +167,19 @@ def run(output_dir: Path) -> dict:
                 reset_seed = 14000 + 100 * seed_index + len(training)
                 initial, _ = world.reset(seed=reset_seed)
 
-                def choose(public):
-                    epsilon = 1.0 - 0.9 * trained / TRAIN_ACTIONS
-                    return agent.select_action(public, epsilon)
+                def choose(public, model=agent):
+                    # Live executed-step count; callback runs synchronously in _episode.
+                    epsilon = 1.0 - 0.9 * trained / TRAIN_ACTIONS  # noqa: B023
+                    return model.select_action(public, epsilon)
 
-                def update(before, action, reward, after, done):
+                def update(before, action, reward, after, done, model=agent):
                     nonlocal trained, updates
-                    agent.buffer.add(Transition(before, action, reward, after, done))
-                    if agent.learn(batch_size=64) is not None:
+                    model.buffer.add(Transition(before, action, reward, after, done))
+                    if model.learn(batch_size=64) is not None:
                         updates += 1
                     trained += 1
                     if trained % 128 == 0:
-                        agent.sync_target()
+                        model.sync_target()
 
                 row = _episode(world, initial, choose, min(EPISODE_CAP, TRAIN_ACTIONS - trained),
                                numeric, (episode_index, seed_index, 0, 0), after_step=update)
@@ -214,8 +215,8 @@ def run(output_dir: Path) -> dict:
                         result["native_actions"] += row["steps"]
                         episode_index += 1
                     evaluation[layout][actor] = episodes
-            def successes(layout, actor):
-                return sum(int(row["goal_success"]) for row in evaluation[layout][actor])
+            def successes(layout, actor, records=evaluation):
+                return sum(int(row["goal_success"]) for row in records[layout][actor])
             paired = [
                 (int(a["goal_success"]), int(b["goal_success"]))
                 for a, b in zip(evaluation["mirror_x"]["learned_greedy"],
