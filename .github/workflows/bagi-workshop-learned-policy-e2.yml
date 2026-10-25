@@ -1,0 +1,52 @@
+name: "BAGI G2-E2-P0: Learned Workshop Policy Feasibility"
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/workshop_learned_policy_e2.py"
+      - ".github/workflows/bagi-workshop-learned-policy-e2.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bagi-workshop-learned-policy-e2
+  cancel-in-progress: false
+
+jobs:
+  learned-workshop-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      OMP_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install existing CPU DQN and project dependencies
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir -e '.[dev]'
+          python -m pip check
+      - name: Fail closed on public-observation, budget and serialization contracts
+        run: |
+          ruff check bagi/experiments/workshop_learned_policy_e2.py tests/test_workshop_learned_policy_e2.py
+          python -m pytest -q tests/test_workshop_learned_policy_e2.py tests/test_start_diversity.py
+      - name: Run exactly one preregistered bounded native Workshop pilot
+        run: |
+          python -m bagi.experiments.workshop_learned_policy_e2 --output-dir runs/g2_e2_p0_workshop_policy
+      - name: Preserve safe numeric evidence and summary, including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-g2-e2-p0-learned-workshop
+          path: |
+            runs/g2_e2_p0_workshop_policy/summary.json
+            runs/g2_e2_p0_workshop_policy/public_policy_numeric.npz
+          if-no-files-found: warn
+          retention-days: 30
