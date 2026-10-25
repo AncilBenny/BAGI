@@ -131,14 +131,14 @@ def audit(archive: Path) -> dict:
             "action_names": list(ACTION_NAMES),
             "records": observed,
             "limitations": [
-                "Offline diagnostic on TEST observations already visited by greedy "
-                "policies; never used for training or hyperparameter selection.",
-                "High probability entropy at these observations does NOT demonstrate "
-                "stochastic policy success on different, unobserved trajectories.",
-                "Raw TRAIN transitions were not preserved; training successes come "
-                "from the independently audited JSON/source ledger.",
-                "No simulator actions, sampling rollouts, new model training, or teacher "
-                "calls occur in this analysis.",
+                ("Offline diagnostic on TEST observations already visited by greedy "
+                 "policies; never used for training or hyperparameter selection."),
+                ("High probability entropy at these observations does NOT demonstrate "
+                 "stochastic policy success on different, unobserved trajectories."),
+                ("Raw TRAIN transitions were not preserved; training successes come "
+                 "from the independently audited JSON/source ledger."),
+                ("No simulator actions, sampling rollouts, new model training, or teacher "
+                 "calls occur in this analysis."),
             ],
         }
 

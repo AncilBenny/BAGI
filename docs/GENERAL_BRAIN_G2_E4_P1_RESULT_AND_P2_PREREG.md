@@ -41,3 +41,24 @@ An independent NumPy-only implementation of the standard two-layer `Tanh` actor 
 5. **Guard before native P2 run:** source-contract tests must confirm *exact E4-P1 numeric weight identity*, native reset/step budget, public-only actor inputs, deterministic/stochastic arm parity on the same weights, randomized sampling independence, trained/untrained controls and explicit TEST seed disjointness. The code used for this prospective gate is **not yet written or approved**; do not dispatch a native workflow until these prerequisites pass. Software CI is not scientific evidence.
 
 **G2-E4-P1 scientific decision:** FAIL/STOP. Preserve all numeric evidence, include negative results in append-only log and **do not** claim the General Brain can reliably learn, plan, retain knowledge or transfer across unrelated tasks. One later bounded, independently preregistered P2 trial may isolate test-time action-selection versus actual learned-policy competence without modifying training. No action-selector trick is being promoted into BAGI's general core by this note.
+
+## G2-E4-P2 preregistration refinement before any new simulator actions (2026-10-25)
+
+The separately committed read-only preflight module `bagi/experiments/e4_p2_frozen_contract.py`
+freezes independent action-sampling seeds as `27_000_000 + task_index*1_000_000 +
+model_index*100_000 + arm_index*10_000 + (reset_seed-27000)`, with task index in
+the published TASKS order, model index [17,29], arm index in the registered P2
+arm order and TEST reset seeds 27000..27009. This is fixed **before any P2
+native reset**. At the start of each stochastic policy episode, the eventual
+runner must seed upstream PyTorch categorical sampling with this exact seed;
+uniform random must use a separate NumPy generator initialized from the
+corresponding registered seed. Greedy selection does not sample. No
+heldout-driven tuning, reuse of 26000..26009, or extra trials are permitted.
+
+The preflight validates the pinned P1 ZIP SHA256, all 12 inner NPZ SHA256
+digests, original task/model/seed/action metadata, numeric-only dtype and
+finite values, required actor tensors, and exact state-dict names/shapes/dtypes
+against a freshly constructed upstream SB3 policy before any simulator
+reset. It does **not** load a pickle or run PPO. This step supplies only
+provenance and software checks, **not P2 performance evidence**. No native P2
+workflow or runner is included in this preparatory commit.
