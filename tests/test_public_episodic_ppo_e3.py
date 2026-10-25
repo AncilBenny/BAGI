@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
+import gymnasium as gym
 import numpy as np
 import pytest
-import gymnasium as gym
 from gymnasium import spaces
 
 from bagi.experiments import public_episodic_ppo_e3 as pilot
 
 
 class FakePublicWorld(gym.Env):
-    metadata = {"render_modes": []}
+    metadata: ClassVar[dict[str, list[str]]] = {"render_modes": []}
 
     def __init__(self, terminate_at: int = 3):
         super().__init__()
@@ -102,8 +104,11 @@ def test_budget_and_validation_reject_without_extra_native_actions():
     with pytest.raises(ValueError, match="No live"):
         env.step(0)
     env.reset()
-    for invalid in (-1, 2, "1", True):
+    for invalid in (-1, 2):
         with pytest.raises(ValueError):
+            env.step(invalid)
+    for invalid in ("1", True):
+        with pytest.raises(TypeError):
             env.step(invalid)
     assert native.native_calls == 0
     with pytest.raises(ValueError, match="Unexpected reset"):

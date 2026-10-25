@@ -76,8 +76,9 @@ def _public(observation: np.ndarray, shape: tuple[int, ...] | None = None) -> np
 def _new_native(task: str, *, evaluation: bool = False) -> gym.Env:
     """No reset/step is allowed here or in agent initialization."""
     if task == "workshop":
-        from bagi.worlds.workshop import WorkshopEnv
         from gymnasium.wrappers import FlattenObservation
+
+        from bagi.worlds.workshop import WorkshopEnv
 
         world = WorkshopEnv(
             size=9, view_size=5, max_steps=40,
@@ -166,7 +167,7 @@ class NativePublicRecorder(gym.Wrapper):
         if self.native_actions >= self.limit:
             raise ValueError("G2-E3-P1 real simulator step budget exceeded")
         if not isinstance(action, (int, np.integer)) or isinstance(action, (bool, np.bool_)):
-            raise ValueError("Non-discrete action received")
+            raise TypeError("Non-discrete action received")
         native_action = int(action)
         if not self.action_space.contains(native_action):
             raise ValueError("Action not in native registered action space")
@@ -307,8 +308,9 @@ def _evaluate(model, world: NativePublicRecorder) -> NativePublicRecorder:
 
 def run(output_dir: Path) -> dict:
     verify_registration()
-    from stable_baselines3 import PPO
     import torch
+
+    from stable_baselines3 import PPO
 
     torch.set_num_threads(1)
     output_dir.mkdir(parents=True, exist_ok=True)
