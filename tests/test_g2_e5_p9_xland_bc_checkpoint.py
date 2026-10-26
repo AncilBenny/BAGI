@@ -197,3 +197,17 @@ def test_reject_incompatible_fresh_model_schema(tmp_path):
     )
     with pytest.raises(ValueError, match="invalid|match"):
         load_reconstructed(path, expected_sha256=saved["sha256"], policies=wrong)
+
+
+def test_invalid_actor_distribution_contract_has_type_errors():
+    from bagi.experiments.g2_e5_p9_xland_bc_checkpoint import _policy_logits
+
+    with pytest.raises(TypeError, match="distribution API"):
+        _policy_logits(torch.nn.Linear(115, 6))
+
+    class MissingLogits(DummyActor):
+        def get_distribution(self, obs):
+            return SimpleNamespace(distribution=SimpleNamespace(logits=None))
+
+    with pytest.raises(TypeError, match="categorical logits"):
+        _policy_logits(MissingLogits(17))

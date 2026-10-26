@@ -51,14 +51,14 @@ def public_probe_inputs() -> np.ndarray:
 def _policy_logits(model: torch.nn.Module) -> np.ndarray:
     """Use documented SB3 get_distribution, not private actor/evaluator data."""
     if not callable(getattr(model, "get_distribution", None)):
-        raise ValueError("BC actor missing upstream policy distribution API")
+        raise TypeError("BC actor missing upstream policy distribution API")
     model.eval()
     with torch.no_grad():
         distribution = model.get_distribution(torch.from_numpy(public_probe_inputs()))
         categorical = getattr(distribution, "distribution", None)
         logits = getattr(categorical, "logits", None)
     if not isinstance(logits, torch.Tensor):
-        raise ValueError("BC actor did not return categorical logits")
+        raise TypeError("BC actor did not return categorical logits")
     result = logits.detach().to("cpu").numpy()
     if result.shape != (_PROBE_ROWS, 6) or not np.isfinite(result).all():
         raise ValueError("BC actor distribution shape or logits invalid")
