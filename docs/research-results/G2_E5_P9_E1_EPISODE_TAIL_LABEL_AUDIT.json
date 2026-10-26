@@ -1,0 +1,89 @@
+{
+  "study": "G2-E5-P9-E1-TRAIN-episode-tail-public-change-audit",
+  "source_run_id": 40165691302,
+  "source_artifact_id": 12588790887,
+  "source_zip_sha256": "aaf8eb011763bf47e1d196771e257eb13c4eb35294bbeed2b71757ade525f073",
+  "source_scope": "E1 XLand TRAIN keys only; TEST arrays never materialized",
+  "episodes": 180,
+  "layouts": 15,
+  "executed_actions": 3244,
+  "executed_public_changes": 2019,
+  "shifted_rows": 3064,
+  "shifted_public_changes": 1897,
+  "shifted_label_disagreements": 0,
+  "excluded_episode_tails": 180,
+  "excluded_tail_public_changes": 122,
+  "per_action": {
+    "0": {
+      "executed": 937,
+      "executed_positive": 766,
+      "shifted": 903,
+      "shifted_positive": 737,
+      "tail": 34,
+      "tail_positive": 29
+    },
+    "1": {
+      "executed": 640,
+      "executed_positive": 640,
+      "shifted": 603,
+      "shifted_positive": 603,
+      "tail": 37,
+      "tail_positive": 37
+    },
+    "2": {
+      "executed": 566,
+      "executed_positive": 566,
+      "shifted": 540,
+      "shifted_positive": 540,
+      "tail": 26,
+      "tail_positive": 26
+    },
+    "3": {
+      "executed": 358,
+      "executed_positive": 43,
+      "shifted": 317,
+      "shifted_positive": 17,
+      "tail": 41,
+      "tail_positive": 26
+    },
+    "4": {
+      "executed": 444,
+      "executed_positive": 4,
+      "shifted": 416,
+      "shifted_positive": 0,
+      "tail": 28,
+      "tail_positive": 4
+    },
+    "5": {
+      "executed": 299,
+      "executed_positive": 0,
+      "shifted": 285,
+      "shifted_positive": 0,
+      "tail": 14,
+      "tail_positive": 0
+    }
+  },
+  "shifted_public_components": {
+    "image_change": 1870,
+    "heading_change": 1143,
+    "instruction_change": 0,
+    "image_and_heading": 1116,
+    "image_only": 754,
+    "heading_only": 27,
+    "unchanged": 1167
+  },
+  "hidden_without_public_change_all_executed": {
+    "count": 117,
+    "episodes_with_any": 62,
+    "bc": 84,
+    "random": 33
+  },
+  "resource_accounting": {
+    "new_native_actions": 0,
+    "new_native_resets": 0,
+    "model_fits": 0,
+    "optimizer_steps": 0,
+    "teacher_queries": 0,
+    "original_test_eval_array_materializations": 0
+  }
+}
