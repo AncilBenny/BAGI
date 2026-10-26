@@ -8,6 +8,7 @@ native evaluation without separate true weight provenance and seed audit.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import io
 import json
@@ -257,18 +258,24 @@ def load_reconstructed(path: Path, *, expected_sha256: str,
                 or not np.isfinite(expected_logits).all()):
             raise ValueError("Invalid independent BC logits manifest")
         new_states[seed] = (state, expected_logits)
-    # No module is modified before all archive members and schemas are checked.
+    # Probe ALL candidates on detached modules before changing either live actor.
+    # A well-formed archive can contain false logits even with valid inner/outer
+    # hashes; parity failure must not silently replace a previously live policy.
     for seed in MODEL_SEEDS:
         states, expected_logits = new_states[seed]
-        policies[seed].load_state_dict(states, strict=True)
-        policies[seed].eval()
-        for param in policies[seed].parameters():
-            param.requires_grad_(False)
-        fresh_logits = _policy_logits(policies[seed])
+        candidate = copy.deepcopy(policies[seed])
+        candidate.load_state_dict(states, strict=True)
+        fresh_logits = _policy_logits(candidate)
         if (not np.allclose(fresh_logits, expected_logits, rtol=0, atol=1e-6)
                 or not np.array_equal(fresh_logits.argmax(axis=1),
                                       expected_logits.argmax(axis=1))):
             raise ValueError("BC exported/restored probe distribution/action mismatch")
+    # Commit the validated states only after both seeds passed the probe gate.
+    for seed in MODEL_SEEDS:
+        policies[seed].load_state_dict(new_states[seed][0], strict=True)
+        policies[seed].eval()
+        for param in policies[seed].parameters():
+            param.requires_grad_(False)
     return {"status": "RECONSTRUCTED_WEIGHTS_NOT_HISTORICALLY_VERIFIED",
             "sha256": expected_sha256,
             "probe_rows_per_seed": _PROBE_ROWS,

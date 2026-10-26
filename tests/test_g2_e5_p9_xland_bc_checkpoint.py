@@ -211,3 +211,35 @@ def test_invalid_actor_distribution_contract_has_type_errors():
 
     with pytest.raises(TypeError, match="categorical logits"):
         _policy_logits(MissingLogits(17))
+
+
+def test_probe_parity_failure_does_not_mutate_either_live_actor(tmp_path):
+    """A self-hashed, well-formed but false probe must reject before live writes."""
+    payload = encode_reconstructed(_models())
+    with zipfile.ZipFile(io.BytesIO(payload)) as source:
+        bodies = {name: source.read(name) for name in source.namelist()}
+    logits = np.load(io.BytesIO(bodies["seed29/probe_logits.npy"]), allow_pickle=False)
+    logits[0, 0] += np.float32(0.125)
+    buf = io.BytesIO()
+    np.save(buf, logits, allow_pickle=False)
+    bodies["seed29/probe_logits.npy"] = buf.getvalue()
+    manifest = json.loads(bodies["manifest.json"])
+    manifest["models"]["29"]["probe_logits_sha256"] = _sha(buf.getvalue())
+    bodies["manifest.json"] = (json.dumps(manifest, sort_keys=True) + "\n").encode()
+    path = tmp_path / "false_probe.zip"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, body in bodies.items():
+            archive.writestr(name, body)
+    live = _models()
+    with torch.no_grad():
+        for actor in live.values():
+            actor.actor[0].weight.add_(0.25)
+    originals = {seed: {key: value.clone() for key, value in actor.state_dict().items()}
+                 for seed, actor in live.items()}
+    with pytest.raises(ValueError, match="probe distribution/action mismatch"):
+        load_reconstructed(path, expected_sha256=_sha(path.read_bytes()), policies=live)
+    for seed, actor in live.items():
+        assert actor.training
+        assert all(p.requires_grad for p in actor.parameters())
+        for key, value in actor.state_dict().items():
+            assert torch.equal(value, originals[seed][key])
