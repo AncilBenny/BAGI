@@ -27,7 +27,7 @@ SOURCE_ROWS = 7296
 TRAIN_ROWS = 4096
 SOURCE_ACTOR_COUNTS = {"0": 4096, "1": 1600, "2": 1600}
 TRAIN_SEED_COUNTS = {"0": 2048, "1": 2048}
-EXPECTED_EPISODES = {0: tuple(range(0, 52)), 1: tuple(range(92, 144))}
+EXPECTED_EPISODES = {0: tuple(range(52)), 1: tuple(range(92, 144))}
 ZIP_MEMBERS = {"manifest.json", "train_numeric.npz"}
 
 

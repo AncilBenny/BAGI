@@ -60,9 +60,11 @@ def _synthetic_derived(tmp_path: Path, monkeypatch) -> Path:
 
 def _modified_npz_archive(path: Path, *, inject_actor: bool = False,
                           inject_extra: bool = False) -> tuple[Path, str]:
-    with zipfile.ZipFile(path) as archive:
-        with np.load(io.BytesIO(archive.read("train_numeric.npz")), allow_pickle=False) as data:
-            fields = {name: data[name].copy() for name in study.FIELDS}
+    with (
+        zipfile.ZipFile(path) as archive,
+        np.load(io.BytesIO(archive.read("train_numeric.npz")), allow_pickle=False) as data,
+    ):
+        fields = {name: data[name].copy() for name in study.FIELDS}
     if inject_actor:
         fields["actor_index"][0] = 2
     if inject_extra:
