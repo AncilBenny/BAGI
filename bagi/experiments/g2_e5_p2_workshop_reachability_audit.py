@@ -18,7 +18,6 @@ from typing import Any
 
 import numpy as np
 
-
 SOURCE_GIT_BLOB_SHA1 = "3a91b058d3461ce4ecb489e93939c88f624557f4"
 LAYOUTS = ("default", "mirror_x")
 SIZE = 9
