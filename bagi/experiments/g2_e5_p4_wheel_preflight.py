@@ -19,7 +19,7 @@ PACKAGE = "rllte-core"
 VERSION = "1.0.1"
 # SHA256 published by PyPI; verify before inspecting *any* untrusted archive.
 WHEEL_SHA256 = "3a0ec99c27eae05def49fee79cf868bca298fbf2f7db9c3b90f9be3fd467d6b3"
-MATPLOTLIB = re.compile(r"^matplotlib\s*(?:\(([^)]+)\)|([<>=!~].*))?$", re.I)
+MATPLOTLIB = re.compile(r"^matplotlib\s*(?:\(([^)]+)\)|([<>=!~].*))?$", re.IGNORECASE)
 SIMPLE_VERSION = re.compile(r"^\s*(==|>=)\s*(\d+(?:\.\d+)*)\s*$")
 
 
