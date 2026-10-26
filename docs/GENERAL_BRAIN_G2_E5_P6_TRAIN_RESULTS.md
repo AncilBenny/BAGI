@@ -1,5 +1,7 @@
 # G2-E5-P6 — Completed matched learned next-public-view TRAIN crossfit
 
+> **DATA-ACCESS ERRATUM (2026-10-26):** E2's archived numeric arrays intermix TRAIN actor0 and EVAL actor1/2 rows; the shared loader materialized all 7,296 rows before filtering. Only actor0 rows entered these published statistics, but the historical **zero original EVAL-array reads** claim is false. See [the source-verified access-boundary erratum](GENERAL_BRAIN_G2_E5_P0_P5_P6_E2_ACCESS_ERRATUM.md). The frozen numeric results and decision are unchanged.
+
 **Decision (2026-10-26): STOP; preregistered memory-prediction gate FAILS on every dataset.** This is a bounded retrospective **supervised learning** result on strictly TRAIN-only archived *public* transitions, not an online learner, native policy test, independent original TEST evaluation, native goal attainment, learned belief, causal effect identification or cross-domain parameter transfer. The complete preregistration and frozen algorithm are in [G2-E5-P6 preregistration](GENERAL_BRAIN_G2_E5_P6_TRAIN_NEXT_PUBLIC_PREREG.md) and source `bagi/experiments/g2_e5_p6_train_next_public.py`; neither was modified after looking at outcomes.
 
 ## Input and execution provenance

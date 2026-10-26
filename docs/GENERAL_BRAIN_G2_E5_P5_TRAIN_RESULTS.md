@@ -1,5 +1,7 @@
 # G2-E5-P5 — Completed TRAIN-only public-transition identifiability result
 
+> **DATA-ACCESS ERRATUM (2026-10-26):** E2's archived numeric arrays intermix TRAIN actor0 and EVAL actor1/2 rows; the shared loader materialized all 7,296 rows before filtering. Only actor0 rows entered these published statistics, but the historical **zero original EVAL-array reads** claim is false. See [the source-verified access-boundary erratum](GENERAL_BRAIN_G2_E5_P0_P5_P6_E2_ACCESS_ERRATUM.md). The frozen numeric results and decision are unchanged.
+
 **Result date:** 2026-10-26. **Status:** archived retrospective TRAIN-only diagnostic COMPLETED, source-hash verified and independently reproduced; **not** a native policy trial, model-fitting experiment, causal identification, held-out evaluation, proof of belief, or evidence of transfer. The [prospective preregistration](GENERAL_BRAIN_G2_E5_P5_PUBLIC_TRANSITION_PREREG.md) and frozen experiment code remain unchanged. This report logs results only after the successful preregistration and synthetic CI, never retroactively changes the gate.
 
 ## Immutable source and reproduction evidence
