@@ -59,7 +59,8 @@ def _synthetic_derived(tmp_path: Path, monkeypatch) -> Path:
 
 
 def _modified_npz_archive(path: Path, *, inject_actor: bool = False,
-                          inject_extra: bool = False) -> tuple[Path, str]:
+                          inject_extra: bool = False,
+                          break_chain: bool = False) -> tuple[Path, str]:
     with (
         zipfile.ZipFile(path) as archive,
         np.load(io.BytesIO(archive.read("train_numeric.npz")), allow_pickle=False) as data,
@@ -69,6 +70,8 @@ def _modified_npz_archive(path: Path, *, inject_actor: bool = False,
         fields["actor_index"][0] = 2
     if inject_extra:
         fields["private_eval_metadata"] = np.zeros(1, dtype=np.int8)
+    if break_chain:
+        fields["next_observation"][0, 0, 0] = 2
     payload = io.BytesIO()
     np.savez_compressed(payload, **fields)
     malicious = path.parent / "spoofed.zip"
@@ -126,6 +129,13 @@ def test_extra_private_array_rejected_even_if_hash_is_updated(tmp_path, monkeypa
     derived = _synthetic_derived(tmp_path, monkeypatch)
     malicious, digest = _modified_npz_archive(derived, inject_extra=True)
     with pytest.raises(ValueError, match="unexpected fields"):
+        study.load_isolated_train(malicious, expected_sha256=digest)
+
+
+def test_temporal_chain_corruption_rejected_with_recomputed_test_hash(tmp_path, monkeypatch):
+    derived = _synthetic_derived(tmp_path, monkeypatch)
+    malicious, digest = _modified_npz_archive(derived, break_chain=True)
+    with pytest.raises(ValueError, match="Temporal public transition chain mismatch"):
         study.load_isolated_train(malicious, expected_sha256=digest)
 
 

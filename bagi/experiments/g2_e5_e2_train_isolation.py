@@ -72,6 +72,12 @@ def _validate_train(data: dict[str, np.ndarray]) -> None:
             raise ValueError("TRAIN episode rows interleaved or out of order")
     if not np.isin(data["seed_index"], (0, 1)).all():
         raise ValueError("Unregistered policy seed index")
+    # A next view must equal the next recorded current view within each episode.
+    # This checks temporal integrity, not whether hidden physical state changed.
+    within = data["episode_index"][1:] == data["episode_index"][:-1]
+    if not np.array_equal(data["next_observation"][:-1][within],
+                          data["observation"][1:][within]):
+        raise ValueError("Temporal public transition chain mismatch")
 
 
 def _manifest(npz: bytes) -> dict:
