@@ -115,7 +115,8 @@ def encode_reconstructed(policies: dict[int, torch.nn.Module]) -> bytes:
     models: dict[str, dict[str, Any]] = {}
     for seed in MODEL_SEEDS:
         state = _validated_state(policies[seed])
-        probes = _policy_logits(policies[seed])
+        # Probe a detached actor: export must not switch live TRAIN actors to eval.
+        probes = _policy_logits(copy.deepcopy(policies[seed]))
         record: dict[str, Any] = {"tensors": []}
         for i, (key, arr) in enumerate(state.items()):
             name = f"seed{seed}/{i:03d}.npy"

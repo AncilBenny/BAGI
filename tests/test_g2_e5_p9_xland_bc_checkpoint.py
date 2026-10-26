@@ -92,6 +92,42 @@ def test_strict_hash_snapshot_parity_freezes_restored_params(tmp_path):
         save_reconstructed(path, models)
 
 
+
+def test_snapshot_export_never_mutates_source_actors_even_on_probe_error():
+    """Successful or rejected snapshot probes must leave both live actors intact."""
+    def snapshot(actors):
+        return {
+            seed: {
+                "training": actor.training,
+                "grad": [p.requires_grad for p in actor.parameters()],
+                "state": {name: tensor.clone() for name, tensor in actor.state_dict().items()},
+            }
+            for seed, actor in actors.items()
+        }
+
+    def assert_unchanged(actors, before):
+        for seed, actor in actors.items():
+            assert actor.training == before[seed]["training"]
+            assert [p.requires_grad for p in actor.parameters()] == before[seed]["grad"]
+            for name, tensor in actor.state_dict().items():
+                assert torch.equal(tensor, before[seed]["state"][name])
+
+    good = _models()
+    good_before = snapshot(good)
+    assert encode_reconstructed(good)
+    assert_unchanged(good, good_before)
+
+    class MissingLogits(DummyActor):
+        def get_distribution(self, obs):
+            return SimpleNamespace(distribution=SimpleNamespace(logits=None))
+
+    broken = {17: DummyActor(17), 29: MissingLogits(29)}
+    broken_before = snapshot(broken)
+    with pytest.raises(TypeError, match="categorical logits"):
+        encode_reconstructed(broken)
+    assert_unchanged(broken, broken_before)
+
+
 def test_refuse_wrong_checkpoint_bytes_and_missing_seed(tmp_path):
     with pytest.raises(ValueError, match="both registered"):
         encode_reconstructed(_models((17,)))
