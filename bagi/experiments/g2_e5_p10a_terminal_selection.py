@@ -137,7 +137,7 @@ def _selection(data: TerminalDataset, held_fold: int) -> dict:
         if len(eligible) < n:
             raise ValueError("Infeasible TRAIN-only action-stratified tail swap")
 
-        def rank(i: int) -> tuple[str, int]:
+        def rank(i: int, action: int = action) -> tuple[str, int]:
             message = (f"P10a|{data.name}|{held_fold}|{action}|"
                        f"{data.episode_id[i]}|{int(data.original_row[i])}")
             return hashlib.sha256(message.encode("utf-8")).hexdigest(), int(data.original_row[i])
