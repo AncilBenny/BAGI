@@ -5,10 +5,10 @@ from __future__ import annotations
 import importlib.util
 
 import pytest
+from test_g2_e5_p2_workshop_reachability_audit import SyntheticWorkshop
 
 from bagi.experiments import g2_e5_p2_workshop_reachability_audit as graph
 from bagi.experiments import g2_e5_p3_workshop_sparse_reward_audit as audit
-from test_g2_e5_p2_workshop_reachability_audit import SyntheticWorkshop
 
 
 class ContractSyntheticWorkshop(SyntheticWorkshop):
