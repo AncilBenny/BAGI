@@ -1,0 +1,93 @@
+name: "BAGI G2-E5-P10a: Frozen TRAIN-only terminal-label comparison"
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - ".github/workflows/bagi-g2-e5-p10a-offline.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  p10a-frozen-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verify frozen P8/P10a source and archive provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code eda7d73601692009d21786e2a62be7ce736d179d HEAD -- \
+            bagi/experiments/g2_e5_p8_public_effect.py \
+            bagi/experiments/g2_e5_p10a_terminal_selection.py \
+            bagi/experiments/g2_e5_p10a_offline_scoring.py \
+            bagi/experiments/g2_e5_train_history_audit.py \
+            bagi/experiments/g2_e5_e2_train_isolation.py \
+            bagi/experiments/g2_e5_p5_public_transition_identifiability.py \
+            bagi/models/world_model.py
+          mkdir -p runs/g2_e5_p10a
+          curl --fail --silent --show-error --location \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/AncilBenny/BAGI/actions/artifacts/12588790887/zip" \
+            --output runs/g2_e5_p10a/e1_source.zip
+          printf '%s  %s\n' \
+            'aaf8eb011763bf47e1d196771e257eb13c4eb35294bbeed2b71757ade525f073' \
+            runs/g2_e5_p10a/e1_source.zip | sha256sum --check --status
+      - name: Install pinned offline CPU-only numerical runtime
+        run: |
+          python -m pip install --no-cache-dir "numpy==1.26.4"
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" \
+            --index-url https://download.pytorch.org/whl/cpu
+          python -m pip check
+      - name: Run strict TRAIN-only public-label and action-matched preflight
+        run: |
+          python -m bagi.experiments.g2_e5_p10a_terminal_selection \
+            --e1-zip runs/g2_e5_p10a/e1_source.zip \
+            --output runs/g2_e5_p10a/preflight.json
+      - name: Execute exactly one preregistered 48-fit CPU comparison
+        run: |
+          python -m bagi.experiments.g2_e5_p10a_offline_scoring \
+            --e1-zip runs/g2_e5_p10a/e1_source.zip \
+            --output runs/g2_e5_p10a/registered_result.json \
+            --execute-registered-fits
+      - name: Verify model-fit and native-step accounting
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r = json.loads(Path('runs/g2_e5_p10a/registered_result.json').read_text())
+          assert r['completed_fits'] == 48 and len(r['records']) == 96
+          assert r['supervised_optimizer_steps'] == 3888
+          for key in ('native_actions', 'native_resets', 'teacher_queries',
+                      'policy_updates', 'original_test_eval_array_reads'):
+              assert r[key] == 0, (key, r[key])
+          assert r['gate']['decision'] in ('STOP', 'PASS_OFFLINE_LABEL_COVERAGE_ONLY')
+          print(json.dumps({'decision': r['gate']['decision'],
+                            'fits': r['completed_fits'],
+                            'optimizer_steps': r['supervised_optimizer_steps'],
+                            'native_actions': 0}))
+          PY
+      - name: Archive numeric TRAIN-only result or fail-closed preflight
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-g2-e5-p10a-frozen-train-only
+          path: |
+            runs/g2_e5_p10a/preflight.json
+            runs/g2_e5_p10a/registered_result.json
+          if-no-files-found: warn
+          retention-days: 30
