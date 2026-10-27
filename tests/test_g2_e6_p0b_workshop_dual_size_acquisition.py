@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from typing import ClassVar
 
 import numpy as np
 import pytest
@@ -11,7 +12,7 @@ from bagi.experiments import g2_e6_p0b_workshop_dual_size_acquisition as p0b
 
 
 class FakeWorld:
-    calls = []
+    calls: ClassVar[list[tuple[int, str, int]]] = []
 
     def __init__(self, *, size, view_size, max_steps, start_mode, layout_mode):
         assert size in (9, 11) and view_size == 5 and max_steps > 0

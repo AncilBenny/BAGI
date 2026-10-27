@@ -263,7 +263,7 @@ def _train_seed(seed_index: int, numeric: dict[str, list],
                 epsilon = 1.0 - 0.9 * trained / TRAIN_PER_SEED
                 return agent.select_action(public, epsilon)
 
-            def update(before, action, reward, after, done):
+            def update(before, action, reward, after, done, size=size):
                 nonlocal trained, updates
                 agent.buffer.add(Transition(before, action, reward, after, done))
                 if agent.learn(batch_size=64) is not None:
@@ -307,7 +307,7 @@ def _diagnose(seed_index: int, untrained, trained, numeric: dict[str, list],
                     try:
                         initial, _ = world.reset(seed=reset_seed)
 
-                        def choose(public):
+                        def choose(public, arm=arm, rng=rng):
                             if arm == "uniform_random":
                                 return int(rng.integers(ACTIONS))
                             return _greedy(trained if arm == "trained_greedy" else untrained,
