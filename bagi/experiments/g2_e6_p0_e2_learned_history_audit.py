@@ -8,8 +8,8 @@ This is an identifiability diagnostic, not a heldout prediction score.
 from __future__ import annotations
 
 import argparse
-from collections import Counter, defaultdict
 import json
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
