@@ -34,6 +34,104 @@ def _digest(path: Path) -> str:
     return h.hexdigest()
 
 
+
+def _registered_episode(
+    row: object, *, seed: int, size: int, layout: int,
+    actor: int, phase: int, reset: int,
+) -> tuple[int, int] | None:
+    """Validate summary-only public-run metadata; never deserialize NPZ."""
+    if not isinstance(row, dict):
+        return None
+    expected = {
+        "policy_seed": seed, "size": size, "layout_index": layout,
+        "actor_index": actor, "phase_index": phase, "reset_seed": reset,
+    }
+    if any(type(row.get(name)) is not int or row[name] != value
+           for name, value in expected.items()):
+        return None
+    steps, episode_id = row.get("steps"), row.get("episode_id")
+    if (type(steps) is not int or not 1 <= steps <= 40
+            or type(episode_id) is not int or episode_id < 0):
+        return None
+    return steps, episode_id
+
+
+def _complete_registered_coverage(summary: dict) -> bool:
+    """No full-run label without BOTH learned seeds and 288 diagnostic episodes."""
+    records = summary.get("seed_results")
+    if not isinstance(records, dict) or set(records) != {"17", "29"}:
+        return False
+    seen_ids: set[int] = set()
+    total_train = total_diagnostic = total_updates = 0
+    for seed_index, seed in enumerate((17, 29)):
+        data = records[str(seed)]
+        if not isinstance(data, dict):
+            return False
+        if data.get("train_actions_by_size") != {"9": 2048, "11": 2048}:
+            return False
+        if type(data.get("optimizer_updates")) is not int:
+            return False
+        if data["optimizer_updates"] != 4033:
+            return False
+        total_updates += data["optimizer_updates"]
+        training = data.get("training")
+        if not isinstance(training, list) or not training or len(training) > 1000:
+            return False
+        sizes = {9: 0, 11: 0}
+        for index, row in enumerate(training):
+            if not isinstance(row, dict) or row.get("size") not in sizes:
+                return False
+            size = row["size"]
+            checked = _registered_episode(
+                row, seed=seed, size=size, layout=0, actor=0, phase=0,
+                reset=20000 + 1000 * seed_index + index,
+            )
+            if checked is None or checked[1] in seen_ids:
+                return False
+            steps, episode_id = checked
+            seen_ids.add(episode_id)
+            sizes[size] += steps
+        if sizes != {9: 2048, 11: 2048}:
+            return False
+        total_train += sum(sizes.values())
+
+        diagnostic = data.get("diagnostic")
+        if not isinstance(diagnostic, dict) or set(diagnostic) != {"9", "11"}:
+            return False
+        for size in (9, 11):
+            layouts = diagnostic[str(size)]
+            if not isinstance(layouts, dict) or set(layouts) != {"default", "mirror_x"}:
+                return False
+            for layout_index, layout in enumerate(("default", "mirror_x")):
+                arms = layouts[layout]
+                expected_arms = ("trained_greedy", "untrained_greedy", "uniform_random")
+                if not isinstance(arms, dict) or set(arms) != set(expected_arms):
+                    return False
+                for actor_index, actor in enumerate(expected_arms, 1):
+                    rows = arms[actor]
+                    if not isinstance(rows, list) or len(rows) != 12:
+                        return False
+                    for index, row in enumerate(rows):
+                        checked = _registered_episode(
+                            row, seed=seed, size=size, layout=layout_index,
+                            actor=actor_index, phase=1, reset=19000 + index,
+                        )
+                        if checked is None or checked[1] in seen_ids:
+                            return False
+                        steps, episode_id = checked
+                        seen_ids.add(episode_id)
+                        total_diagnostic += steps
+    return (
+        total_train == 8192
+        and total_updates == 8066
+        and total_diagnostic == summary.get("native_diagnostic_actions")
+        and total_train == summary.get("native_train_actions")
+        and total_train + total_diagnostic == summary.get("native_actions")
+        and len(seen_ids) == summary.get("native_resets")
+    )
+
+
+
 def package(run_dir: Path, bundle_dir: Path) -> dict:
     """Package one completed/failed acquisition, fail closed on any mismatch."""
     if bundle_dir.exists():
@@ -78,6 +176,8 @@ def package(run_dir: Path, bundle_dir: Path) -> dict:
             != summary["native_actions"]
         ):
             raise ValueError("Complete run lacks exact native accounting")
+        if summary["status"] == "complete" and not _complete_registered_coverage(summary):
+            raise ValueError("Complete run lacks registered per-seed diagnostic coverage")
         expected = summary.get("numeric_file_sha256")
         if not isinstance(expected, dict) or set(expected) != set(NUMERIC_MEMBERS):
             raise ValueError("Missing numeric member SHA-256 manifest")

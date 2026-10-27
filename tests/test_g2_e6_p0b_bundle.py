@@ -17,23 +17,76 @@ import yaml
 from bagi.experiments import g2_e6_p0b_bundle as bundle
 
 
+def _registered_complete_results() -> tuple[dict, int]:
+    """SYNTHETIC summary: two seeds, 8,192 TRAIN and 288 diagnostic episodes."""
+    results = {}
+    episode_id = 0
+    for seed_index, seed in enumerate((17, 29)):
+        by_size = {9: 0, 11: 0}
+        training = []
+        while min(by_size.values()) < 2048:
+            size = min((9, 11), key=lambda item: (by_size[item], item))
+            steps = min(40, 2048 - by_size[size])
+            training.append({
+                "episode_id": episode_id, "policy_seed": seed, "size": size,
+                "layout_index": 0, "actor_index": 0, "phase_index": 0,
+                "reset_seed": 20000 + 1000 * seed_index + len(training),
+                "steps": steps,
+            })
+            by_size[size] += steps
+            episode_id += 1
+        diagnostic = {}
+        for size in (9, 11):
+            layouts = {}
+            for layout_index, layout in enumerate(("default", "mirror_x")):
+                arms = {}
+                for actor_index, arm in enumerate(
+                    ("trained_greedy", "untrained_greedy", "uniform_random"), 1
+                ):
+                    rows = []
+                    for index in range(12):
+                        rows.append({
+                            "episode_id": episode_id, "policy_seed": seed,
+                            "size": size, "layout_index": layout_index,
+                            "actor_index": actor_index, "phase_index": 1,
+                            "reset_seed": 19000 + index, "steps": 40,
+                        })
+                        episode_id += 1
+                    arms[arm] = rows
+                layouts[layout] = arms
+            diagnostic[str(size)] = layouts
+        results[str(seed)] = {
+            "training": training, "train_actions_by_size": {"9": 2048, "11": 2048},
+            "optimizer_updates": 4033, "diagnostic": diagnostic,
+        }
+    return results, episode_id
+
+
 def _source_fixture(tmp_path: Path, *, status: str = "complete") -> Path:
     root = tmp_path / "numeric"
     root.mkdir()
     digests = {}
     for name in bundle.NUMERIC_MEMBERS:
         file = root / name
+        # Bundler deliberately does not materialize these synthetic NPZ arrays.
         np.savez_compressed(file, executed_action=np.asarray([1, 2], dtype=np.int8))
         digests[name] = hashlib.sha256(file.read_bytes()).hexdigest()
+    if status == "complete":
+        results, resets = _registered_complete_results()
+        actions, train_actions, diagnostic_actions, updates = 19712, 8192, 11520, 8066
+    else:
+        results, resets = {}, 0
+        actions = train_actions = diagnostic_actions = updates = 0
     summary = {
         "study": "G2-E6-P0B", "status": status,
         "workshop_git_blob_sha1": bundle.WORKSHOP_SHA,
         "dqn_git_blob_sha1": bundle.DQN_SHA,
         "promotion": False, "size13_native_calls": 0,
-        "native_actions": 8192, "native_train_actions": 8192,
-        "native_diagnostic_actions": 0, "optimizer_updates": 8066,
+        "native_actions": actions, "native_train_actions": train_actions,
+        "native_diagnostic_actions": diagnostic_actions, "optimizer_updates": updates,
         "native_action_count_exact": True, "native_step_exceptions": 0,
-        "recorded_actions": 8192, "numeric_file_sha256": digests,
+        "recorded_actions": actions, "native_resets": resets,
+        "seed_results": results, "numeric_file_sha256": digests,
     }
     (root / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
     return root
@@ -112,6 +165,42 @@ def test_bundle_rejects_incorrect_complete_run_and_missing_output(tmp_path):
     with pytest.raises(ValueError, match="Missing or unsafe"):
         bundle.package(missing, tmp_path / "missing")
     assert (tmp_path / "missing" / "packaging_status.json").is_file()
+
+
+
+def test_bundle_rejects_mislabeled_complete_without_diagnostic_actions(tmp_path):
+    """A TRAIN-only pseudo-complete archive is not source-eligible."""
+    source = _source_fixture(tmp_path)
+    path = source / "summary.json"
+    summary = json.loads(path.read_text())
+    summary["native_actions"] = summary["native_train_actions"]
+    summary["native_diagnostic_actions"] = 0
+    summary["recorded_actions"] = summary["native_actions"]
+    path.write_text(json.dumps(summary), encoding="utf-8")
+    with pytest.raises(ValueError, match="registered per-seed diagnostic coverage"):
+        bundle.package(source, tmp_path / "reject_no_diagnostic")
+
+
+@pytest.mark.parametrize("corruption", [
+    "missing_arm", "changed_reset_seed", "hidden_size13", "wrong_reset_count",
+])
+def test_bundle_rejects_incomplete_diagnostic_coverage(tmp_path, corruption):
+    """Require every seed×size×layout×arm and 12 frozen reset seeds."""
+    source = _source_fixture(tmp_path)
+    path = source / "summary.json"
+    summary = json.loads(path.read_text())
+    rows = summary["seed_results"]["17"]["diagnostic"]["9"]["default"]
+    if corruption == "missing_arm":
+        rows.pop("trained_greedy")
+    elif corruption == "changed_reset_seed":
+        rows["trained_greedy"][0]["reset_seed"] = 19023
+    elif corruption == "hidden_size13":
+        rows["trained_greedy"][0]["size"] = 13
+    else:
+        summary["native_resets"] -= 1
+    path.write_text(json.dumps(summary), encoding="utf-8")
+    with pytest.raises(ValueError, match="registered per-seed diagnostic coverage"):
+        bundle.package(source, tmp_path / "reject_incomplete")
 
 
 def test_bundle_never_overwrites_existing_output(tmp_path):
