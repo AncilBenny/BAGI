@@ -1,0 +1,109 @@
+{
+  "study": "G2-E5-P10a TRAIN-only action-only Laplace negative-control decomposition",
+  "source_commit": "1ffd006280f8a1d150c6070e9ef1be263a4de215",
+  "source_artifact_id": 12588790887,
+  "source_zip_sha256": "aaf8eb011763bf47e1d196771e257eb13c4eb35294bbeed2b71757ade525f073",
+  "input_scope": "Only E1 xland_train/workshop_train observations, actions, labels, groups, episode_ids, behaviors; allow_pickle=False; no TEST/EVAL array reads",
+  "selection_removed_source_index_sha256": {
+    "xland": [
+      "c6c7626f7d84cb318b770be61cd1373efdd07a3e2eb5f51e492e929a81599c53",
+      "70fd03d25a9044b5c234736e9ea15e448b669be62b4e41e1afe506e7b2652d25"
+    ],
+    "workshop": [
+      "899cb6da844f5d09e64cb7e22da1bdd2ad639675701f0b6ba6e96437a9bfee00",
+      "54e310d26420b86e68eb5dd1a5c797a8aa419b7ae0b8cf4d3a46a3ab6e1d6481"
+    ]
+  },
+  "method": "Exactly frozen TRAIN-only action-matched SHA256 swap; Laplace (positives+1)/(count+2); held folds grouped equally by independent source layout/episode. Action contribution averages per-group fraction-weighted squared-error differences. Leave-action-out is descriptive held-subset analysis, not a new P10a gate.",
+  "xland": {
+    "n_layouts": 15,
+    "tail_rows": 180,
+    "tail_positives": 122,
+    "shifted_tail_brier": 0.17452603091099342,
+    "tail_swap_tail_brier": 0.1553288970744887,
+    "relative_tail_change": -0.10999581974275852,
+    "group_equal_delta": -0.01919713383650472,
+    "by_action": [
+      {
+        "action": 0,
+        "rows": 34,
+        "positives": 29,
+        "delta": 0.000203253
+      },
+      {
+        "action": 1,
+        "rows": 37,
+        "positives": 37,
+        "delta": 0
+      },
+      {
+        "action": 2,
+        "rows": 26,
+        "positives": 26,
+        "delta": 0
+      },
+      {
+        "action": 3,
+        "rows": 41,
+        "positives": 26,
+        "delta": -0.019114057
+      },
+      {
+        "action": 4,
+        "rows": 28,
+        "positives": 4,
+        "delta": -0.00028633
+      },
+      {
+        "action": 5,
+        "rows": 14,
+        "positives": 0,
+        "delta": 0
+      }
+    ],
+    "action3_share_of_net_improvement": 0.995672426936229,
+    "without_action3_relative_tail_change": -0.00351456,
+    "early_terminal": {
+      "rows": 30,
+      "positives": 30,
+      "source_groups": 11,
+      "shifted_brier": 0.9007238164423383,
+      "tail_swap_brier": 0.7727756437958611,
+      "relative_change": -0.14205039359550242
+    },
+    "cap20_tail": {
+      "rows": 150,
+      "positives": 92,
+      "source_groups": 15,
+      "shifted_brier": 0.03291390483434378,
+      "tail_swap_brier": 0.03482894303702443,
+      "relative_change": 0.05818325757211329
+    }
+  },
+  "workshop": {
+    "n_random_episodes": 10,
+    "n_distinct_geometries": 1,
+    "tail_rows": 10,
+    "tail_positives": 7,
+    "shifted_tail_brier": 0.15886271127177878,
+    "tail_swap_tail_brier": 0.14780090982536195,
+    "relative_tail_change": -0.06963120141826451,
+    "by_action_delta": [
+      0,
+      0,
+      -0.006771861,
+      -0.004289941
+    ]
+  },
+  "resources": {
+    "neural_fits": 0,
+    "optimizer_steps": 0,
+    "native_actions": 0,
+    "native_resets": 0,
+    "teacher_queries": 0,
+    "heldout_expert_label_reads": 0,
+    "original_test_eval_array_reads": 0,
+    "new_workflows": 0
+  },
+  "interpretation": "Action-only XLand tail gain is dominated by early-terminal action3 labels; cap20 tails regress. No learned observation-conditioned effects, native physical pickup/drop, generality or transfer is established. Frozen P10a preregistration and thresholds unchanged; P9 native HARD STOP."
+}
