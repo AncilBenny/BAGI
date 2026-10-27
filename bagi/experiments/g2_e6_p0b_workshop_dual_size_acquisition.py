@@ -174,7 +174,8 @@ def _arrays(numeric: dict[str, list], phase: int) -> dict[str, np.ndarray]:
 
 
 def _episode(env, initial, choose, cap: int, numeric: dict[str, list],
-             meta: tuple[int, int, int, int, int, int, int], after_step=None) -> dict:
+             meta: tuple[int, int, int, int, int, int, int], after_step=None,
+             ledger: dict | None = None) -> dict:
     """Meta: episode ID, reset seed, policy seed, size, layout, actor, phase.
 
     choose() and after_step() receive ONLY public views/action/reward/done.
@@ -195,7 +196,19 @@ def _episode(env, initial, choose, cap: int, numeric: dict[str, list],
         action = choose(observation.copy())
         if type(action) is not int or not 0 <= action < ACTIONS:
             raise ValueError("Invalid actor action")
-        next_view, reward, terminated, truncated, info = env.step(action)
+        try:
+            next_view, reward, terminated, truncated, info = env.step(action)
+        except Exception:
+            if ledger is not None:
+                ledger["native_step_exceptions"] += 1
+            raise
+        # A returned native action must be counted even if its output is invalid.
+        if ledger is not None:
+            ledger["native_step_returns"] += 1
+            if phase == 0:
+                ledger["native_train_step_returns"] += 1
+            else:
+                ledger["native_diagnostic_step_returns"] += 1
         after = _public(next_view)
         reward = float(reward)
         if reward not in (0.0, 1.0):
@@ -279,7 +292,8 @@ def _train_seed(seed_index: int, numeric: dict[str, list],
                     agent.sync_target()
 
             row = _episode(world, initial, choose, cap, numeric,
-                           (episode_id, reset_seed, seed, size, 0, 0, 0), update)
+                           (episode_id, reset_seed, seed, size, 0, 0, 0), update,
+                           ledger=ledger)
         finally:
             world.close()
         training.append(row)
@@ -322,7 +336,7 @@ def _diagnose(seed_index: int, untrained, trained, numeric: dict[str, list],
 
                         row = _episode(world, initial, choose, EPISODE_CAP, numeric,
                                        (episode_id, reset_seed, seed, size, layout_index,
-                                        actor_index, 1))
+                                        actor_index, 1), ledger=ledger)
                     finally:
                         world.close()
                     rows.append(row)
@@ -351,6 +365,10 @@ def run(output_dir: Path) -> dict:
         "optimizer_updates": 0, "teacher_queries": 0, "seed_results": {},
         "promotion": False, "size13_native_calls": 0,
         "native_resets": 0, "numeric_weight_sha256": {},
+        "native_step_returns": 0, "native_train_step_returns": 0,
+        "native_diagnostic_step_returns": 0, "native_step_exceptions": 0,
+        "recorded_actions": 0, "unrecorded_native_step_returns": 0,
+        "native_action_count_exact": True,
     }
     episode_id = 0
     try:
@@ -381,15 +399,27 @@ def run(output_dir: Path) -> dict:
             raise ValueError("Native action ceiling or TRAIN allocation mismatch")
         if summary["native_resets"] != len(set(numeric["episode_id"])):
             raise ValueError("Completed reset/episode ledger mismatch")
+        if (summary["native_step_returns"] != len(numeric["executed_action"])
+                or summary["native_train_step_returns"] != summary["native_train_actions"]
+                or summary["native_diagnostic_step_returns"]
+                != summary["native_diagnostic_actions"]
+                or summary["native_step_exceptions"]):
+            raise ValueError("Native step-return/trace accounting mismatch")
         summary["status"] = "complete"
     except Exception as exc:
         summary["status"] = "failed"
         summary["error"] = f"{type(exc).__name__}: {exc}"
         raise
     finally:
-        summary["native_actions"] = len(numeric["executed_action"])
-        summary["native_train_actions"] = sum(v == 0 for v in numeric["phase_index"])
-        summary["native_diagnostic_actions"] = sum(v == 1 for v in numeric["phase_index"])
+        summary["native_actions"] = summary["native_step_returns"]
+        summary["native_train_actions"] = summary["native_train_step_returns"]
+        summary["native_diagnostic_actions"] = summary["native_diagnostic_step_returns"]
+        summary["recorded_actions"] = len(numeric["executed_action"])
+        summary["unrecorded_native_step_returns"] = (
+            summary["native_step_returns"] - summary["recorded_actions"]
+        )
+        # A native step that raised might have mutated the world before raising.
+        summary["native_action_count_exact"] = summary["native_step_exceptions"] == 0
         files = {
             "train_public_numeric.npz": _arrays(numeric, 0),
             "diagnostic_public_numeric.npz": _arrays(numeric, 1),

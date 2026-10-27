@@ -131,11 +131,17 @@ def test_small_synthetic_train_budget_and_size_allocation(monkeypatch):
     monkeypatch.setattr(p0b, "EPISODE_CAP", 8)
     FakeWorld.calls.clear()
     numeric = p0b._empty_numeric()
-    ledger = {"native_resets": 0, "optimizer_updates": 0}
+    ledger = {"native_resets": 0, "optimizer_updates": 0,
+              "native_step_returns": 0, "native_train_step_returns": 0,
+              "native_diagnostic_step_returns": 0, "native_step_exceptions": 0}
     training, untrained, trained, weights, next_id = p0b._train_seed(
         0, numeric, 0, ledger=ledger
     )
-    assert ledger == {"native_resets": 8, "optimizer_updates": 1}
+    assert ledger == {**{"native_resets": 0, "optimizer_updates": 0,
+              "native_step_returns": 0, "native_train_step_returns": 0,
+              "native_diagnostic_step_returns": 0, "native_step_exceptions": 0},
+                      "native_resets": 8, "optimizer_updates": 1,
+                      "native_step_returns": 64, "native_train_step_returns": 64}
     assert training["train_actions_by_size"] == {9: 32, 11: 32}
     assert training["optimizer_updates"] == 1
     assert next_id == 8
@@ -157,9 +163,15 @@ def test_small_synthetic_matched_diagnostics_no_size13(monkeypatch):
     FakeWorld.calls.clear()
     numeric = p0b._empty_numeric()
     net = p0b.DQNAgent(observation_shape=(5, 5), actions=4).online
-    ledger = {"native_resets": 0, "optimizer_updates": 0}
+    ledger = {"native_resets": 0, "optimizer_updates": 0,
+              "native_step_returns": 0, "native_train_step_returns": 0,
+              "native_diagnostic_step_returns": 0, "native_step_exceptions": 0}
     result, next_id = p0b._diagnose(0, net, net, numeric, 0, ledger=ledger)
-    assert ledger == {"native_resets": 24, "optimizer_updates": 0}
+    assert ledger == {**{"native_resets": 0, "optimizer_updates": 0,
+              "native_step_returns": 0, "native_train_step_returns": 0,
+              "native_diagnostic_step_returns": 0, "native_step_exceptions": 0},
+                      "native_resets": 24, "native_step_returns": 48,
+                      "native_diagnostic_step_returns": 48}
     assert next_id == 2 * 2 * 3 * 2
     assert len(numeric["executed_action"]) == next_id * 2
     assert set(numeric["size"]) == {9, 11}
@@ -188,11 +200,17 @@ def test_failed_train_preserves_completed_resets_and_updates(monkeypatch):
 
     monkeypatch.setattr(p0b.DQNAgent, "learn", synthetic_learn)
     numeric = p0b._empty_numeric()
-    ledger = {"native_resets": 0, "optimizer_updates": 0}
+    ledger = {"native_resets": 0, "optimizer_updates": 0,
+              "native_step_returns": 0, "native_train_step_returns": 0,
+              "native_diagnostic_step_returns": 0, "native_step_exceptions": 0}
     with pytest.raises(RuntimeError, match="synthetic learn crash"):
         p0b._train_seed(0, numeric, 0, ledger=ledger)
     assert len(FakeWorld.calls) == 9
-    assert ledger == {"native_resets": 9, "optimizer_updates": 1}
+    assert ledger == {**{"native_resets": 0, "optimizer_updates": 0,
+              "native_step_returns": 0, "native_train_step_returns": 0,
+              "native_diagnostic_step_returns": 0, "native_step_exceptions": 0},
+                      "native_resets": 9, "optimizer_updates": 1,
+                      "native_step_returns": 65, "native_train_step_returns": 65}
     assert len(numeric["executed_action"]) == 65
     assert all(phase == 0 for phase in numeric["phase_index"])
 
@@ -232,3 +250,42 @@ def test_numeric_phase_isolation_and_strict_weight_shapes():
     bad = {**weights, "seed17_trained_net_0_weight": np.zeros((127, 25), dtype=np.float32)}
     with pytest.raises(ValueError, match="names or shapes"):
         p0b._weight_digest(bad, 17, "trained")
+
+def test_returned_native_step_is_counted_before_invalid_public_post_view():
+    """A failed post-step validator must not erase an executed native action."""
+    class MalformedAfter:
+        def __init__(self):
+            self.calls = 0
+
+        def step(self, action):
+            self.calls += 1
+            return np.zeros((4, 4), dtype=np.int8), 0.0, False, False, {"events": []}
+
+    world = MalformedAfter()
+    numeric = p0b._empty_numeric()
+    ledger = {"native_step_returns": 0, "native_train_step_returns": 0,
+              "native_diagnostic_step_returns": 0, "native_step_exceptions": 0}
+    with pytest.raises(ValueError, match="public observation"):
+        p0b._episode(world, np.zeros((5, 5), dtype=np.int8), lambda _: 1,
+                     40, numeric, (0, 20000, 17, 9, 0, 0, 0), ledger=ledger)
+    assert world.calls == ledger["native_step_returns"] == 1
+    assert ledger["native_train_step_returns"] == 1
+    assert ledger["native_diagnostic_step_returns"] == 0
+    assert ledger["native_step_exceptions"] == 0
+    assert not numeric["executed_action"]  # returned action is not a valid trace row
+
+
+def test_native_step_exception_marks_count_uncertain():
+    """An env.step exception may occur after internal mutation; never infer zero."""
+    class RaisingStep:
+        def step(self, action):
+            raise RuntimeError("synthetic step exception")
+
+    ledger = {"native_step_returns": 0, "native_train_step_returns": 0,
+              "native_diagnostic_step_returns": 0, "native_step_exceptions": 0}
+    with pytest.raises(RuntimeError, match="synthetic step exception"):
+        p0b._episode(RaisingStep(), np.zeros((5, 5), dtype=np.int8), lambda _: 2,
+                     40, p0b._empty_numeric(),
+                     (0, 20000, 17, 9, 0, 0, 0), ledger=ledger)
+    assert ledger["native_step_returns"] == 0
+    assert ledger["native_step_exceptions"] == 1
