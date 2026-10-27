@@ -4,9 +4,9 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
+from bagi.experiments import g2_e5_p8_public_effect as p8
 from bagi.experiments import g2_e5_p10a_offline_scoring as score
 from bagi.experiments import g2_e5_p10a_terminal_selection as select
-from bagi.experiments import g2_e5_p8_public_effect as p8
 
 
 def _archive(domain):
