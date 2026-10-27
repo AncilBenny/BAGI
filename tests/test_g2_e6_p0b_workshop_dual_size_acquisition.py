@@ -137,11 +137,11 @@ def test_small_synthetic_train_budget_and_size_allocation(monkeypatch):
     training, untrained, trained, weights, next_id = p0b._train_seed(
         0, numeric, 0, ledger=ledger
     )
-    assert ledger == {**{"native_resets": 0, "optimizer_updates": 0,
-              "native_step_returns": 0, "native_train_step_returns": 0,
-              "native_diagnostic_step_returns": 0, "native_step_exceptions": 0},
-                      "native_resets": 8, "optimizer_updates": 1,
-                      "native_step_returns": 64, "native_train_step_returns": 64}
+    assert ledger == {
+        "native_resets": 8, "optimizer_updates": 1,
+        "native_step_returns": 64, "native_train_step_returns": 64,
+        "native_diagnostic_step_returns": 0, "native_step_exceptions": 0,
+    }
     assert training["train_actions_by_size"] == {9: 32, 11: 32}
     assert training["optimizer_updates"] == 1
     assert next_id == 8
@@ -167,11 +167,11 @@ def test_small_synthetic_matched_diagnostics_no_size13(monkeypatch):
               "native_step_returns": 0, "native_train_step_returns": 0,
               "native_diagnostic_step_returns": 0, "native_step_exceptions": 0}
     result, next_id = p0b._diagnose(0, net, net, numeric, 0, ledger=ledger)
-    assert ledger == {**{"native_resets": 0, "optimizer_updates": 0,
-              "native_step_returns": 0, "native_train_step_returns": 0,
-              "native_diagnostic_step_returns": 0, "native_step_exceptions": 0},
-                      "native_resets": 24, "native_step_returns": 48,
-                      "native_diagnostic_step_returns": 48}
+    assert ledger == {
+        "native_resets": 24, "optimizer_updates": 0,
+        "native_step_returns": 48, "native_train_step_returns": 0,
+        "native_diagnostic_step_returns": 48, "native_step_exceptions": 0,
+    }
     assert next_id == 2 * 2 * 3 * 2
     assert len(numeric["executed_action"]) == next_id * 2
     assert set(numeric["size"]) == {9, 11}
@@ -206,11 +206,11 @@ def test_failed_train_preserves_completed_resets_and_updates(monkeypatch):
     with pytest.raises(RuntimeError, match="synthetic learn crash"):
         p0b._train_seed(0, numeric, 0, ledger=ledger)
     assert len(FakeWorld.calls) == 9
-    assert ledger == {**{"native_resets": 0, "optimizer_updates": 0,
-              "native_step_returns": 0, "native_train_step_returns": 0,
-              "native_diagnostic_step_returns": 0, "native_step_exceptions": 0},
-                      "native_resets": 9, "optimizer_updates": 1,
-                      "native_step_returns": 65, "native_train_step_returns": 65}
+    assert ledger == {
+        "native_resets": 9, "optimizer_updates": 1,
+        "native_step_returns": 65, "native_train_step_returns": 65,
+        "native_diagnostic_step_returns": 0, "native_step_exceptions": 0,
+    }
     assert len(numeric["executed_action"]) == 65
     assert all(phase == 0 for phase in numeric["phase_index"])
 
