@@ -1,0 +1,177 @@
+name: "BAGI G2-E6-P0B: One-shot public Workshop acquisition"
+
+# This workflow is inert on its own commit. Its ONLY trigger is a future,
+# separately reviewed research-branch commit ADDING the exact launch marker.
+# workflow_dispatch is intentionally absent: GitHub requires the new workflow
+# on default main for manual dispatch, and main is out of bounds for BAGI.
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "docs/research-launches/G2_E6_P0B_ONE_SHOT_AUTHORIZATION.txt"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: bagi-g2-e6-p0b-native-exclusive
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify immutable first-addition authorization and frozen native sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/setup/initial-platform'
+          marker='docs/research-launches/G2_E6_P0B_ONE_SHOT_AUTHORIZATION.txt'
+          test -f "$marker" && ! test -L "$marker"
+          actual="$(git diff --name-status "$GITHUB_SHA^" "$GITHUB_SHA" -- "$marker")"
+          test "$actual" = $'A\tdocs/research-launches/G2_E6_P0B_ONE_SHOT_AUTHORIZATION.txt'
+          git diff --exit-code eac1bf84d7448c3057531fb5e1f009963a66b8de HEAD -- \
+            bagi/agents/dqn.py bagi/worlds/workshop.py \
+            bagi/experiments/g2_e6_p0b_workshop_dual_size_acquisition.py
+          python - <<'PY'
+          from pathlib import Path
+
+          marker = Path('docs/research-launches/G2_E6_P0B_ONE_SHOT_AUTHORIZATION.txt')
+          expected = (
+              'study=G2-E6-P0B\n'
+              'decision=AUTHORIZE_SINGLE_NATIVE_ACQUISITION\n'
+              'native_action_ceiling=19712\n'
+              'max_wall_seconds=2700\n'
+          )
+          if marker.read_text(encoding='utf-8') != expected:
+              raise SystemExit('Invalid or modified one-shot launch authorization')
+          PY
+      - name: Reject previous runs, competing native work and failed head CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.parse
+          import urllib.request
+
+          repo = os.environ['GITHUB_REPOSITORY']
+          sha = os.environ['GITHUB_SHA']
+          current = int(os.environ['GITHUB_RUN_ID'])
+          headers = {
+              'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+          }
+
+          def get(path):
+              url = 'https://api.github.com/repos/' + repo + path
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  return json.load(response)
+
+          history = get('/actions/workflows/bagi-g2-e6-p0b-one-shot.yml/runs?per_page=100')
+          previous = [run['id'] for run in history['workflow_runs']
+                      if run['id'] != current]
+          if previous:
+              raise SystemExit('One-shot P0B already attempted; refuse retry')
+
+          ref = get('/git/ref/heads/setup/initial-platform')
+          if ref['object']['sha'] != sha:
+              raise SystemExit('Research branch moved after launch commit')
+
+          deadline = time.monotonic() + 600
+          while True:
+              runs = get('/actions/runs?branch=setup%2Finitial-platform&per_page=100')
+              matching = [run for run in runs['workflow_runs']
+                          if run['name'] == 'CI' and run['event'] == 'push'
+                          and run['head_sha'] == sha]
+              other_active = [run['id'] for run in runs['workflow_runs']
+                              if run['id'] != current
+                              and run['name'] != 'CI'
+                              and run['status'] != 'completed']
+              if other_active:
+                  raise SystemExit('Concurrent research workflow present')
+              if any(run['conclusion'] == 'failure' for run in matching):
+                  raise SystemExit('Launch-commit CI failed')
+              if any(run['status'] == 'completed'
+                     and run['conclusion'] == 'success' for run in matching):
+                  break
+              if time.monotonic() >= deadline:
+                  raise SystemExit('No green source-commit CI within 10 minutes')
+              time.sleep(15)
+          print('First-authorization, branch HEAD, concurrency and CI gates passed')
+          PY
+
+  native-acquisition:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install existing pinned CPU-only DQN and project dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --no-cache-dir 'torch==2.5.1+cpu' \
+            --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir -e '.[dev]'
+          python -m pip check
+      - name: Reverify scientific source and synthetic contracts, no simulator run
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruff check bagi/experiments/g2_e6_p0b_workshop_dual_size_acquisition.py \
+            bagi/experiments/g2_e6_p0b_bundle.py \
+            tests/test_g2_e6_p0b_workshop_dual_size_acquisition.py \
+            tests/test_g2_e6_p0b_bundle.py
+          python -m pytest -q tests/test_g2_e6_p0b_workshop_dual_size_acquisition.py \
+            tests/test_g2_e6_p0b_bundle.py
+          python - <<'PY'
+          from bagi.experiments.g2_e6_p0b_workshop_dual_size_acquisition import (
+              verify_registration,
+          )
+
+          verify_registration()  # PINNED environment + DQN; no native reset/step
+          PY
+      - name: Execute one frozen 8,192-TRAIN-step Workshop acquisition
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m bagi.experiments.g2_e6_p0b_workshop_dual_size_acquisition \
+            --output-dir runs/g2_e6_p0b_native
+      - name: Package allowlisted numeric-only evidence, including failed-run summaries
+        if: always()
+        shell: bash
+        run: |
+          python -m bagi.experiments.g2_e6_p0b_bundle \
+            --run-dir runs/g2_e6_p0b_native \
+            --bundle-dir runs/g2_e6_p0b_artifact
+      - name: Retain bundle or explicit incomplete-evidence packaging status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-g2-e6-p0b-first-and-only-native-acquisition
+          path: runs/g2_e6_p0b_artifact/
+          if-no-files-found: error
+          retention-days: 30

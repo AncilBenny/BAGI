@@ -78,3 +78,22 @@ The fixed 8,192 TRAIN actions, 11,520 diagnostic ceiling, 8,066 expected
 updates, seeds, frozen policies, native source hashes, public-input boundary,
 eligibility thresholds and untouched size13 remain unchanged. A timeout is
 **INVALID / STOP**, not a license for a new seed, sweep or increased budget.
+
+## Prospective research-branch one-shot launch and numeric-artifact preservation — 2026-10-28 UTC
+
+**Authorization remains withheld in this commit.** GitHub's new `workflow_dispatch` workflows require the workflow to exist on the repository's default branch (`main`). Since `main` must remain untouched, BAGI instead registers a **distinct, branch-scoped launch-marker workflow**. The workflow reacts only to a **future** push that **first adds** `docs/research-launches/G2_E6_P0B_ONE_SHOT_AUTHORIZATION.txt` on `setup/initial-platform`; committing the workflow, runner, artifact packager, tests or this amendment does **not** launch the native experiment. The marker must be committed as an immutable new file, with exactly these UTF-8 lines and a terminal newline:
+
+```text
+study=G2-E6-P0B
+decision=AUTHORIZE_SINGLE_NATIVE_ACQUISITION
+native_action_ceiling=19712
+max_wall_seconds=2700
+```
+
+The future authorization commit is a **separate scientific-go/no-go decision**, contingent on green source-commit CI, a stable branch HEAD, no competing native research, source pins, resource limits and an independent audit of this workflow. No append/revert/re-add of the launch marker is a valid retry. If any previous P0B workflow run exists, abort further P0B launches. A failed or timed-out run is archival negative/incomplete evidence, not permission to repeat/tune.
+
+The preregistered P0B design, two independent seed models and all observation-only goals/gates are untouched. The source runner's 2,700-second monotonic **cooperative** ceiling is additionally enclosed in a **55-minute external GitHub job timeout**; setup/preflight is a separate capped job. This outer limit can stop a stuck call, but **cannot promise** graceful Python-finally cleanup when force-killed. Never invent action counts or claim complete numeric evidence after such a hard kill.
+
+Artifact packaging must accept only four source files: `summary.json`, `train_public_numeric.npz`, `diagnostic_public_numeric.npz`, `frozen_dqn_weights.npz`. It checks allowlisted filenames, regular files, per-file SHA-256 from the summary, native-accounting constraints for successful runs, and ZIP integrity **without deserializing any NPZ data**. It writes one ZIP containing exactly those four members, a separately named ZIP SHA-256 manifest, and a packaging-status JSON under a single GitHub artifact. A failed source run that successfully writes honest partial numeric files may also be archived, preserving `summary.status=failed`; it is **not** source-eligible. If the worker is killed before any summary or numeric files exist, archive the explicit `packaging_status.json` failure marker **only**; do not label missing traces as zero executed actions. A later independent auditor must verify the ZIP digest and open only the TRAIN numeric member with `np.load(allow_pickle=False)` for future TRAIN analysis; never open the diagnostic NPZ alongside TRAIN just to process source data.
+
+The new workflow requires no new API secrets, depends only on the built-in read-scoped GitHub Actions token, is not scheduled or automatically triggered by routine research commits, does not alter `main`, and must not be executed merely because tests pass. Future native acquisition remains **HOLD** until the authorizing marker is separately and explicitly justified in the append-only log. These safeguards control experiment provenance/cost, not learned intelligence or scientific validity.
