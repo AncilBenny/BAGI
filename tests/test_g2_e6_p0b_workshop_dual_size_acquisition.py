@@ -131,7 +131,11 @@ def test_small_synthetic_train_budget_and_size_allocation(monkeypatch):
     monkeypatch.setattr(p0b, "EPISODE_CAP", 8)
     FakeWorld.calls.clear()
     numeric = p0b._empty_numeric()
-    training, untrained, trained, weights, next_id = p0b._train_seed(0, numeric, 0)
+    ledger = {"native_resets": 0, "optimizer_updates": 0}
+    training, untrained, trained, weights, next_id = p0b._train_seed(
+        0, numeric, 0, ledger=ledger
+    )
+    assert ledger == {"native_resets": 8, "optimizer_updates": 1}
     assert training["train_actions_by_size"] == {9: 32, 11: 32}
     assert training["optimizer_updates"] == 1
     assert next_id == 8
@@ -153,7 +157,9 @@ def test_small_synthetic_matched_diagnostics_no_size13(monkeypatch):
     FakeWorld.calls.clear()
     numeric = p0b._empty_numeric()
     net = p0b.DQNAgent(observation_shape=(5, 5), actions=4).online
-    result, next_id = p0b._diagnose(0, net, net, numeric, 0)
+    ledger = {"native_resets": 0, "optimizer_updates": 0}
+    result, next_id = p0b._diagnose(0, net, net, numeric, 0, ledger=ledger)
+    assert ledger == {"native_resets": 24, "optimizer_updates": 0}
     assert next_id == 2 * 2 * 3 * 2
     assert len(numeric["executed_action"]) == next_id * 2
     assert set(numeric["size"]) == {9, 11}
@@ -164,6 +170,31 @@ def test_small_synthetic_matched_diagnostics_no_size13(monkeypatch):
     assert len(counts) == 2 * 2 * 2
     assert set(counts.values()) == {3}
 
+
+
+def test_failed_train_preserves_completed_resets_and_updates(monkeypatch):
+    """An aborted native run must not erase earlier successful optimizer updates."""
+    monkeypatch.setattr(p0b, "WorkshopEnv", FakeWorld)
+    monkeypatch.setattr(p0b, "TRAIN_PER_SIZE", 40)
+    monkeypatch.setattr(p0b, "TRAIN_PER_SEED", 80)
+    monkeypatch.setattr(p0b, "EPISODE_CAP", 8)
+    FakeWorld.calls.clear()
+
+    def synthetic_learn(self, batch_size=64):
+        assert batch_size == 64
+        if len(self.buffer) == 65:
+            raise RuntimeError("synthetic learn crash")
+        return 0.5 if len(self.buffer) >= 64 else None
+
+    monkeypatch.setattr(p0b.DQNAgent, "learn", synthetic_learn)
+    numeric = p0b._empty_numeric()
+    ledger = {"native_resets": 0, "optimizer_updates": 0}
+    with pytest.raises(RuntimeError, match="synthetic learn crash"):
+        p0b._train_seed(0, numeric, 0, ledger=ledger)
+    assert len(FakeWorld.calls) == 9
+    assert ledger == {"native_resets": 9, "optimizer_updates": 1}
+    assert len(numeric["executed_action"]) == 65
+    assert all(phase == 0 for phase in numeric["phase_index"])
 
 def test_training_reset_collision_aborts_before_native_reset(monkeypatch):
     monkeypatch.setattr(p0b, "WorkshopEnv", FakeWorld)

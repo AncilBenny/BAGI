@@ -234,7 +234,8 @@ def _episode(env, initial, choose, cap: int, numeric: dict[str, list],
 
 
 def _train_seed(seed_index: int, numeric: dict[str, list],
-                episode_id: int) -> tuple[dict, object, object, dict, int]:
+                episode_id: int, ledger: dict | None = None
+                ) -> tuple[dict, object, object, dict, int]:
     """Exactly 4,096 true actions; each seed's replay and RNG are isolated."""
     seed = SEEDS[seed_index]
     random.seed(seed)
@@ -258,6 +259,8 @@ def _train_seed(seed_index: int, numeric: dict[str, list],
                             start_mode="seeded_start_chamber", layout_mode="default")
         try:
             initial, _ = world.reset(seed=reset_seed)
+            if ledger is not None:
+                ledger["native_resets"] += 1
 
             def choose(public):
                 epsilon = 1.0 - 0.9 * trained / TRAIN_PER_SEED
@@ -268,6 +271,8 @@ def _train_seed(seed_index: int, numeric: dict[str, list],
                 agent.buffer.add(Transition(before, action, reward, after, done))
                 if agent.learn(batch_size=64) is not None:
                     updates += 1
+                    if ledger is not None:
+                        ledger["optimizer_updates"] += 1
                 trained += 1
                 counts[size] += 1
                 if trained % 128 == 0:
@@ -289,7 +294,7 @@ def _train_seed(seed_index: int, numeric: dict[str, list],
 
 
 def _diagnose(seed_index: int, untrained, trained, numeric: dict[str, list],
-              episode_id: int) -> tuple[dict, int]:
+              episode_id: int, ledger: dict | None = None) -> tuple[dict, int]:
     seed = SEEDS[seed_index]
     evaluations = {}
     for size_index, size in enumerate(SIZES):
@@ -306,6 +311,8 @@ def _diagnose(seed_index: int, untrained, trained, numeric: dict[str, list],
                                                 + 100 * layout_index + index)
                     try:
                         initial, _ = world.reset(seed=reset_seed)
+                        if ledger is not None:
+                            ledger["native_resets"] += 1
 
                         def choose(public, arm=arm, rng=rng):
                             if arm == "uniform_random":
@@ -349,7 +356,7 @@ def run(output_dir: Path) -> dict:
     try:
         for seed_index, seed in enumerate(SEEDS):
             training, untrained, trained, snapshot, episode_id = _train_seed(
-                seed_index, numeric, episode_id
+                seed_index, numeric, episode_id, ledger=summary
             )
             weights.update(snapshot)
             summary["numeric_weight_sha256"][str(seed)] = {
@@ -357,10 +364,9 @@ def run(output_dir: Path) -> dict:
                 for stage in ("untrained", "trained")
             }
             evaluation, episode_id = _diagnose(
-                seed_index, untrained, trained, numeric, episode_id
+                seed_index, untrained, trained, numeric, episode_id, ledger=summary
             )
             summary["seed_results"][str(seed)] = {**training, "diagnostic": evaluation}
-            summary["optimizer_updates"] += training["optimizer_updates"]
         if summary["optimizer_updates"] != EXPECTED_UPDATES:
             raise ValueError("Optimizer update count mismatch")
         summary["native_train_actions"] = sum(
@@ -373,6 +379,8 @@ def run(output_dir: Path) -> dict:
                 or summary["native_diagnostic_actions"] > MAX_DIAGNOSTIC
                 or len(numeric["executed_action"]) > MAX_NATIVE):
             raise ValueError("Native action ceiling or TRAIN allocation mismatch")
+        if summary["native_resets"] != len(set(numeric["episode_id"])):
+            raise ValueError("Completed reset/episode ledger mismatch")
         summary["status"] = "complete"
     except Exception as exc:
         summary["status"] = "failed"
@@ -380,7 +388,6 @@ def run(output_dir: Path) -> dict:
         raise
     finally:
         summary["native_actions"] = len(numeric["executed_action"])
-        summary["native_resets"] = len(set(numeric["episode_id"]))
         summary["native_train_actions"] = sum(v == 0 for v in numeric["phase_index"])
         summary["native_diagnostic_actions"] = sum(v == 1 for v in numeric["phase_index"])
         files = {
