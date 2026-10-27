@@ -145,7 +145,8 @@ def test_one_shot_workflow_statically_does_not_launch_on_source_commit():
     steps = preflight["steps"] + native["steps"]
     text = "\n".join(step.get("run", "") for step in steps)
     assert "A\\t" in text
-    assert "github.sha" in workflow.read_text(encoding="utf-8")
+    assert "sha = os.environ['GITHUB_SHA']" in text
+    assert "if ref['object']['sha'] != sha:" in text
     assert "pytest" in text and "ruff check" in text
     assert "g2_e6_p0b_workshop_dual_size_acquisition" in text
     assert "g2_e6_p0b_bundle" in text
