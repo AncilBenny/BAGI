@@ -13,6 +13,7 @@ import inspect
 import json
 import os
 import random
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -35,6 +36,7 @@ EPISODE_CAP = 40
 MAX_DIAGNOSTIC = 11520
 MAX_NATIVE = 19712
 EXPECTED_UPDATES = 8066
+MAX_WALL_SECONDS = 2700  # 45-minute cooperative fail-closed ceiling
 OBS_SHAPE = (5, 5)
 ACTIONS = 4
 DQN_SOURCE_GIT_BLOB_SHA1 = "4c5fac098e53e9c81884d36e14b894679b40513d"
@@ -61,6 +63,7 @@ def verify_registration() -> None:
         or TRAIN_PER_SEED != 4096
         or EPISODE_CAP != 40 or MAX_DIAGNOSTIC != 11520
         or MAX_NATIVE != 19712 or EXPECTED_UPDATES != 8066
+        or MAX_WALL_SECONDS != 2700
         or OBS_SHAPE != (5, 5) or ACTIONS != 4
     ):
         raise ValueError("G2-E6-P0B preregistration changed")
@@ -78,6 +81,12 @@ def verify_registration() -> None:
     blob = hashlib.sha1(f"blob {len(raw)}\0".encode("ascii") + raw).hexdigest()
     if blob != DQN_SOURCE_GIT_BLOB_SHA1:
         raise ValueError("DQN source changed; refuse native execution")
+
+
+def _check_wall_clock(deadline: float | None) -> None:
+    """Abort before starting further native operations once time expires."""
+    if deadline is not None and time.monotonic() >= deadline:
+        raise TimeoutError("G2-E6-P0B wall-clock ceiling exceeded")
 
 
 def _public(view: np.ndarray) -> np.ndarray:
@@ -175,7 +184,7 @@ def _arrays(numeric: dict[str, list], phase: int) -> dict[str, np.ndarray]:
 
 def _episode(env, initial, choose, cap: int, numeric: dict[str, list],
              meta: tuple[int, int, int, int, int, int, int], after_step=None,
-             ledger: dict | None = None) -> dict:
+             ledger: dict | None = None, deadline: float | None = None) -> dict:
     """Meta: episode ID, reset seed, policy seed, size, layout, actor, phase.
 
     choose() and after_step() receive ONLY public views/action/reward/done.
@@ -193,9 +202,11 @@ def _episode(env, initial, choose, cap: int, numeric: dict[str, list],
     total_reward = 0.0
     terminated = truncated = False
     for step in range(cap):
+        _check_wall_clock(deadline)
         action = choose(observation.copy())
         if type(action) is not int or not 0 <= action < ACTIONS:
             raise ValueError("Invalid actor action")
+        _check_wall_clock(deadline)
         try:
             next_view, reward, terminated, truncated, info = env.step(action)
         except Exception:
@@ -228,6 +239,7 @@ def _episode(env, initial, choose, cap: int, numeric: dict[str, list],
         # Log the actual native action BEFORE a possible optimizer exception.
         if after_step is not None:
             after_step(observation.copy(), action, reward, after.copy(), done)
+        _check_wall_clock(deadline)
         total_reward += reward
         observation = after
         if done:
@@ -247,7 +259,8 @@ def _episode(env, initial, choose, cap: int, numeric: dict[str, list],
 
 
 def _train_seed(seed_index: int, numeric: dict[str, list],
-                episode_id: int, ledger: dict | None = None
+                episode_id: int, ledger: dict | None = None,
+                deadline: float | None = None
                 ) -> tuple[dict, object, object, dict, int]:
     """Exactly 4,096 true actions; each seed's replay and RNG are isolated."""
     seed = SEEDS[seed_index]
@@ -261,6 +274,7 @@ def _train_seed(seed_index: int, numeric: dict[str, list],
     training = []
     trained = updates = 0
     while trained < TRAIN_PER_SEED:
+        _check_wall_clock(deadline)
         size = min(SIZES, key=lambda value: (counts[value], value))
         cap = min(EPISODE_CAP, TRAIN_PER_SIZE - counts[size])
         if cap < 1:
@@ -281,6 +295,7 @@ def _train_seed(seed_index: int, numeric: dict[str, list],
 
             def update(before, action, reward, after, done, size=size):
                 nonlocal trained, updates
+                _check_wall_clock(deadline)
                 agent.buffer.add(Transition(before, action, reward, after, done))
                 if agent.learn(batch_size=64) is not None:
                     updates += 1
@@ -293,7 +308,7 @@ def _train_seed(seed_index: int, numeric: dict[str, list],
 
             row = _episode(world, initial, choose, cap, numeric,
                            (episode_id, reset_seed, seed, size, 0, 0, 0), update,
-                           ledger=ledger)
+                           ledger=ledger, deadline=deadline)
         finally:
             world.close()
         training.append(row)
@@ -308,7 +323,8 @@ def _train_seed(seed_index: int, numeric: dict[str, list],
 
 
 def _diagnose(seed_index: int, untrained, trained, numeric: dict[str, list],
-              episode_id: int, ledger: dict | None = None) -> tuple[dict, int]:
+              episode_id: int, ledger: dict | None = None,
+              deadline: float | None = None) -> tuple[dict, int]:
     seed = SEEDS[seed_index]
     evaluations = {}
     for size_index, size in enumerate(SIZES):
@@ -318,6 +334,7 @@ def _diagnose(seed_index: int, untrained, trained, numeric: dict[str, list],
             for actor_index, arm in enumerate(ARMS, 1):
                 rows = []
                 for index, reset_seed in enumerate(RESET_SEEDS):
+                    _check_wall_clock(deadline)
                     world = WorkshopEnv(size=size, view_size=5, max_steps=EPISODE_CAP,
                                         start_mode="seeded_start_chamber", layout_mode=layout)
                     rng = np.random.default_rng(29000 + 10000 * seed_index
@@ -336,7 +353,8 @@ def _diagnose(seed_index: int, untrained, trained, numeric: dict[str, list],
 
                         row = _episode(world, initial, choose, EPISODE_CAP, numeric,
                                        (episode_id, reset_seed, seed, size, layout_index,
-                                        actor_index, 1), ledger=ledger)
+                                        actor_index, 1), ledger=ledger,
+                                       deadline=deadline)
                     finally:
                         world.close()
                     rows.append(row)
@@ -347,6 +365,8 @@ def _diagnose(seed_index: int, untrained, trained, numeric: dict[str, list],
 
 def run(output_dir: Path) -> dict:
     """One-shot native acquisition; NEVER called by tests or on import."""
+    started_wall = time.monotonic()
+    deadline = started_wall + MAX_WALL_SECONDS
     verify_registration()
     if output_dir.exists():
         raise FileExistsError("Refusing to overwrite existing acquisition")
@@ -361,6 +381,7 @@ def run(output_dir: Path) -> dict:
         "dqn_git_blob_sha1": DQN_SOURCE_GIT_BLOB_SHA1,
         "versions": {"numpy": np.__version__, "torch": torch.__version__},
         "max_native_actions": MAX_NATIVE, "native_actions": 0,
+        "max_wall_seconds": MAX_WALL_SECONDS, "elapsed_wall_seconds": 0.0,
         "native_train_actions": 0, "native_diagnostic_actions": 0,
         "optimizer_updates": 0, "teacher_queries": 0, "seed_results": {},
         "promotion": False, "size13_native_calls": 0,
@@ -373,8 +394,9 @@ def run(output_dir: Path) -> dict:
     episode_id = 0
     try:
         for seed_index, seed in enumerate(SEEDS):
+            _check_wall_clock(deadline)
             training, untrained, trained, snapshot, episode_id = _train_seed(
-                seed_index, numeric, episode_id, ledger=summary
+                seed_index, numeric, episode_id, ledger=summary, deadline=deadline
             )
             weights.update(snapshot)
             summary["numeric_weight_sha256"][str(seed)] = {
@@ -382,7 +404,8 @@ def run(output_dir: Path) -> dict:
                 for stage in ("untrained", "trained")
             }
             evaluation, episode_id = _diagnose(
-                seed_index, untrained, trained, numeric, episode_id, ledger=summary
+                seed_index, untrained, trained, numeric, episode_id,
+                ledger=summary, deadline=deadline
             )
             summary["seed_results"][str(seed)] = {**training, "diagnostic": evaluation}
         if summary["optimizer_updates"] != EXPECTED_UPDATES:
@@ -405,12 +428,14 @@ def run(output_dir: Path) -> dict:
                 != summary["native_diagnostic_actions"]
                 or summary["native_step_exceptions"]):
             raise ValueError("Native step-return/trace accounting mismatch")
+        _check_wall_clock(deadline)
         summary["status"] = "complete"
     except Exception as exc:
         summary["status"] = "failed"
         summary["error"] = f"{type(exc).__name__}: {exc}"
         raise
     finally:
+        summary["elapsed_wall_seconds"] = max(0.0, time.monotonic() - started_wall)
         summary["native_actions"] = summary["native_step_returns"]
         summary["native_train_actions"] = summary["native_train_step_returns"]
         summary["native_diagnostic_actions"] = summary["native_diagnostic_step_returns"]

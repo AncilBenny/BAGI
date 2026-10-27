@@ -56,3 +56,25 @@ Audit ZIP member whitelist, ZIP SHA256, NPZ field names/shapes/dtypes, no object
 ## Prospective numeric artifact isolation clarification — 2026-10-27 UTC (BEFORE native P0B execution)
 
 The frozen design above specifies **one immutable numeric-only workflow artifact**. The implementation places **separate** allowlisted numeric NPZ members within that one artifact: `train_public_numeric.npz` (phase0 executed TRAIN transitions only), `diagnostic_public_numeric.npz` (phase1 frozen diagnostic transitions only), and `frozen_dqn_weights.npz` (only the two seeds' initialized-untrained and trained float32 network weights), plus `summary.json` with individual NPZ SHA256 digests. Each transition NPZ contains the exact registered per-step fields and no hidden evaluator state. The split is deliberately **before serialization**: a later TRAIN-only reader must open **only** the TRAIN NPZ, never eagerly materialize the diagnostic NPZ. This prevents repetition of the E2 mixed-TRAIN/EVAL archive-access error and does not change any source episodes, trained weights, labels, gate thresholds, reset seeds, architectures, budgets or evaluation conditions. A future one-shot workflow must package these four files in one ZIP, verify its complete SHA256 and refuse missing/extra files. The runner and synthetic tests added in this commit are **not** a native experiment or authorization to run it; full repository CI and separate concurrency/source/runtime clearance are still required.
+
+## Prospective cooperative wall-clock budget — 2026-10-27 UTC (NO native P0B execution)
+
+The action and optimizer ceilings above do not by themselves bound **CPU elapsed
+time**. Before any one-shot native run, fix a single **2,700-second (45-minute)
+cooperative monotonic wall-clock ceiling** for the entire TRAIN plus diagnostic
+acquisition, measured from runner entry. Abort rather than initiate another
+native reset, action or optimizer update once the deadline expires; check again
+after each completed action/update and before marking success. On timeout,
+persist the existing numeric-only partial/failure evidence, completed-reset
+and confirmed native-step/optimizer ledgers, and measured elapsed seconds.
+Never label a timed-out partial run as source-eligible or auto-retry it.
+
+This is a **runner-side cooperative** limit, not a hard operating-system
+timeout: an individual blocked native call or optimizer update cannot be
+preempted from inside Python. A separately reviewed one-shot CPU workflow
+would additionally need a bounded job timeout and safe failure artifact
+retention; no workflow is introduced or dispatched by this preflight.
+The fixed 8,192 TRAIN actions, 11,520 diagnostic ceiling, 8,066 expected
+updates, seeds, frozen policies, native source hashes, public-input boundary,
+eligibility thresholds and untouched size13 remain unchanged. A timeout is
+**INVALID / STOP**, not a license for a new seed, sweep or increased budget.

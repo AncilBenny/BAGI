@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 from typing import ClassVar
 
@@ -51,6 +52,7 @@ def test_frozen_constants_and_disjoint_reset_seed_contract(monkeypatch):
     p0b.verify_registration()
     assert p0b.MAX_NATIVE == 8192 + 11520
     assert p0b.EXPECTED_UPDATES == 2 * (4096 - 63)
+    assert p0b.MAX_WALL_SECONDS == 2700
     assert p0b.TRAIN_RESET_BASE == 20000
     assert set(p0b.RESET_SEEDS).isdisjoint(
         {p0b.TRAIN_RESET_BASE + 1000 * i + j for i in range(2) for j in range(300)}
@@ -289,3 +291,86 @@ def test_native_step_exception_marks_count_uncertain():
                      (0, 20000, 17, 9, 0, 0, 0), ledger=ledger)
     assert ledger["native_step_returns"] == 0
     assert ledger["native_step_exceptions"] == 1
+
+def test_cooperative_wall_deadline_blocks_actions_and_resets(monkeypatch):
+    """Expiry is checked before any future native action or diagnostic reset."""
+    expired = p0b.time.monotonic() - 1.0
+    with pytest.raises(TimeoutError, match="wall-clock"):
+        p0b._check_wall_clock(expired)
+    p0b._check_wall_clock(p0b.time.monotonic() + 100.0)
+    world = FakeEpisode()
+    numeric = p0b._empty_numeric()
+    with pytest.raises(TimeoutError, match="wall-clock"):
+        p0b._episode(
+            world, np.zeros((5, 5), dtype=np.int8), lambda _: 0, 40,
+            numeric, (0, 20000, 17, 9, 0, 0, 0), deadline=expired,
+        )
+    assert world.calls == 0
+    assert not numeric["executed_action"]
+    monkeypatch.setattr(p0b, "WorkshopEnv", FakeWorld)
+    FakeWorld.calls.clear()
+    with pytest.raises(TimeoutError, match="wall-clock"):
+        p0b._diagnose(0, None, None, numeric, 0, deadline=expired)
+    assert not FakeWorld.calls
+
+
+def test_training_wall_timeout_after_real_step_preserves_native_ledger(monkeypatch):
+    """Timed-out optimizer must not erase the preceding returned action."""
+    state = {"expired": False}
+
+    class ExpiringFakeWorld(FakeWorld):
+        def step(self, action):
+            result = super().step(action)
+            state["expired"] = True
+            return result
+
+    def synthetic_deadline(deadline):
+        assert deadline == 123.0
+        if state["expired"]:
+            raise TimeoutError("synthetic wall deadline reached")
+
+    monkeypatch.setattr(p0b, "WorkshopEnv", ExpiringFakeWorld)
+    monkeypatch.setattr(p0b, "_check_wall_clock", synthetic_deadline)
+    FakeWorld.calls.clear()
+    numeric = p0b._empty_numeric()
+    ledger = {
+        "native_resets": 0, "optimizer_updates": 0,
+        "native_step_returns": 0, "native_train_step_returns": 0,
+        "native_diagnostic_step_returns": 0, "native_step_exceptions": 0,
+    }
+    with pytest.raises(TimeoutError, match="synthetic wall deadline"):
+        p0b._train_seed(0, numeric, 0, ledger=ledger, deadline=123.0)
+    assert len(FakeWorld.calls) == ledger["native_resets"] == 1
+    assert ledger["native_step_returns"] == ledger["native_train_step_returns"] == 1
+    assert ledger["native_diagnostic_step_returns"] == 0
+    assert ledger["native_step_exceptions"] == ledger["optimizer_updates"] == 0
+    assert numeric["executed_action"] and len(numeric["executed_action"]) == 1
+
+
+def test_run_timeout_writes_failed_numeric_only_evidence(monkeypatch, tmp_path):
+    """A wall-clock failure persists source-isolated safe output, not success."""
+    monkeypatch.setattr(p0b, "verify_registration", lambda: None)
+
+    def abort_before_acquisition(*_args, **_kwargs):
+        raise TimeoutError("synthetic wall deadline reached")
+
+    monkeypatch.setattr(p0b, "_train_seed", abort_before_acquisition)
+    destination = tmp_path / "p0b_expired"
+    with pytest.raises(TimeoutError, match="synthetic wall deadline"):
+        p0b.run(destination)
+    summary = json.loads((destination / "summary.json").read_text())
+    assert summary["status"] == "failed"
+    assert summary["max_wall_seconds"] == 2700
+    assert summary["elapsed_wall_seconds"] >= 0
+    assert summary["native_actions"] == summary["optimizer_updates"] == 0
+    assert summary["native_action_count_exact"]
+    assert summary["promotion"] is False
+    assert "TimeoutError" in summary["error"]
+    assert set(summary["numeric_file_sha256"]) == {
+        "train_public_numeric.npz", "diagnostic_public_numeric.npz",
+        "frozen_dqn_weights.npz",
+    }
+    with np.load(destination / "train_public_numeric.npz", allow_pickle=False) as data:
+        assert len(data["executed_action"]) == 0
+        assert all(data[name].dtype.kind != "O" for name in data.files)
+
