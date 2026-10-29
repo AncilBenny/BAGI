@@ -2,7 +2,7 @@
 
 BAGI is an experimental research project exploring **sample-efficient, continually learning agents**.
 
-The goal is not to claim AGI. The goal is to build a small learning organism that can:
+The goal is to build a small learning organism that can:
 
 1. observe a partially observable world,
 2. remember useful information,
