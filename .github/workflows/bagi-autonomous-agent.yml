@@ -32,45 +32,22 @@ jobs:
     outputs:
       eligible: ${{ steps.decide.outputs.eligible }}
       cache_key: ${{ steps.fingerprint.outputs.cache_key }}
+      research_sha: ${{ steps.fingerprint.outputs.research_sha }}
+      evidence_run_id: ${{ steps.fingerprint.outputs.evidence_run_id }}
+      evidence_artifact_name: ${{ steps.fingerprint.outputs.evidence_artifact_name }}
     steps:
-      - name: Examine current research state and newest real evidence
+      - name: Check out trusted default-branch preflight only
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Require successful exact-HEAD CI and matching artifact provenance
         id: fingerprint
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          branch_sha=$(gh api "repos/$GITHUB_REPOSITORY/branches/setup/initial-platform" --jq .commit.sha)
-          echo "research_sha=$branch_sha" >> "$GITHUB_OUTPUT"
-          active=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=40" \
-            --jq ".workflow_runs[] | select(.head_sha == \"$branch_sha\" and .status != \"completed\" and (.name == \"CI\" or .name == \"BAGI E6 Imagination Gap\")) | .id")
-          if [ -n "$active" ]; then
-            echo "Pending CI for $branch_sha; Copilot will wait." >> "$GITHUB_STEP_SUMMARY"
-            echo "has_evidence=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          evidence_id=""
-          run_ids=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?per_page=60" \
-            --jq '[.workflow_runs[] | select(.conclusion=="success" and (.name=="BAGI Research Loop" or .name=="BAGI E6 Imagination Gap"))][:30][] | .id')
-          for run_id in $run_ids; do
-            artifact=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts" \
-              --jq '[.artifacts[] | select(.expired==false)][0].id // empty' || true)
-            if [ -n "$artifact" ]; then
-              evidence_id="$artifact"
-              break
-            fi
-          done
-          if [ -z "$evidence_id" ]; then
-            echo "No research artifact found. No Copilot credits spent." >> "$GITHUB_STEP_SUMMARY"
-            echo "has_evidence=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          utc_day=$(date -u +%Y%m%d)
-          key="bagi-agent-reviewed-${utc_day}-${branch_sha}-${evidence_id}"
-          echo "cache_key=$key" >> "$GITHUB_OUTPUT"
-          echo "has_evidence=true" >> "$GITHUB_OUTPUT"
-          echo "Evidence artifact: $evidence_id; research HEAD: $branch_sha" >> "$GITHUB_STEP_SUMMARY"
+        run: python3 scripts/bagi_evidence_gate.py
 
-      - name: See whether this evidence has been reviewed today
+      - name: Check whether this exact artifact was already reviewed
         if: steps.fingerprint.outputs.has_evidence == 'true'
         id: dedup
         uses: actions/cache/restore@v4
@@ -123,26 +100,26 @@ jobs:
           ref: setup/initial-platform
           persist-credentials: false
 
-      - name: Collect evidence from latest successful runs
+      - name: Download only the previously verified same-commit artifact
         if: steps.auth.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          RESEARCH_SHA: ${{ needs.gate.outputs.research_sha }}
+          RUN_ID: ${{ needs.gate.outputs.evidence_run_id }}
+          ARTIFACT_NAME: ${{ needs.gate.outputs.evidence_artifact_name }}
         run: |
-          mkdir -p evidence
-          for workflow in "BAGI E6 Imagination Gap" "BAGI Research Loop"; do
-            folder=$(echo "$workflow" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
-            mkdir -p "evidence/$folder"
-            # Find the newest successful run that actually has an artifact.
-            # Repeated cached hourly runs intentionally have no new output.
-            candidates=$(gh run list -R "$GITHUB_REPOSITORY" --workflow "$workflow" --limit 40 --json databaseId,conclusion,status --jq '.[] | select(.conclusion=="success" and .status=="completed") | .databaseId' || true)
-            for run_id in $candidates; do
-              if gh run download "$run_id" -R "$GITHUB_REPOSITORY" -D "evidence/$folder" 2>/dev/null; then
-                echo "$run_id" > "evidence/$folder/workflow_run_id.txt"
-                break
-              fi
-            done
-          done
-          printf 'Research branch HEAD: %s\n' "$(git rev-parse HEAD)" > evidence/branch-head.txt
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$RESEARCH_SHA"
+          mkdir -p evidence/verified
+          gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n "$ARTIFACT_NAME" -D evidence/verified
+          marker=evidence/verified/research_branch_commit.txt
+          if [ ! -f "$marker" ]; then
+            marker=evidence/verified/research-loop/research_branch_commit.txt
+          fi
+          test -f "$marker"
+          test "$(tr -d '\r\n' < "$marker")" = "$RESEARCH_SHA"
+          printf '%s\n' "$RUN_ID" > evidence/verified/workflow_run_id.txt
+          printf 'Research branch HEAD: %s\n' "$RESEARCH_SHA" > evidence/branch-head.txt
 
       - uses: actions/setup-node@v4
         if: steps.auth.outputs.ready == 'true'
@@ -303,7 +280,6 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
-      actions: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -329,9 +305,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "research: autonomous evidence-led experiment (validated)"
           git push origin HEAD:setup/initial-platform
-          # GITHUB_TOKEN pushes don't initiate push workflows automatically.
-          # workflow_dispatch is an allowed exception.
-          GH_TOKEN="${{ github.token }}" gh workflow run bagi-research-loop.yml --ref main
+          # Do not dispatch research while post-commit CI is unverified.
           {
             echo "BAGI's agent committed one tested research iteration."
             echo "Branch: setup/initial-platform"
