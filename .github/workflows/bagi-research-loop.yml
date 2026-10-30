@@ -1,9 +1,11 @@
 name: BAGI Research Loop
 
-# Automatic research is paused during CI/provenance repair.
-# Manual dispatch remains available; this repair does not dispatch it.
+# Scheduled runs audit engineering health only. Scientific HOLD/STOP remains binding.
+# Experiment and autonomous-edit jobs require a separately reviewed policy change.
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
 
 permissions:
   contents: read
@@ -13,7 +15,52 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  audit:
+    name: Verify CI provenance; scientific progression remains HOLD
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check both CI events and the current PR merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+          import sys
+          sys.path.insert(0, "scripts")
+          from bagi_evidence_gate import BRANCH, GateError, Github, ci_snapshot
+          api = Github(os.environ["GITHUB_REPOSITORY"], os.environ["GH_TOKEN"])
+          endpoint = "branches/" + BRANCH.replace("/", "%2F")
+          summary = os.environ["GITHUB_STEP_SUMMARY"]
+          try:
+              sha = api.request(endpoint)["commit"]["sha"]
+              snapshot = ci_snapshot(api, sha)
+              if api.request(endpoint)["commit"]["sha"] != sha:
+                  raise GateError("research HEAD changed during audit")
+              if ci_snapshot(api, sha) != snapshot:
+                  raise GateError("CI or PR provenance changed during audit")
+          except (GateError, KeyError, TypeError, ValueError) as exc:
+              with open(summary, "a", encoding="utf-8") as output:
+                  output.write(f"CI audit HOLD: {exc}\n")
+                  output.write("Scientific progression remains HOLD; no experiment or AI ran.\n")
+              raise SystemExit(2) from exc
+          with open(summary, "a", encoding="utf-8") as output:
+              output.write("CI provenance verified: " + json.dumps(snapshot) + "\n")
+              output.write("Scientific progression remains HOLD. P0B HOLD, P6/P10a STOP, "
+                           "and P9 native HARD STOP remain binding. No experiment, "
+                           "acquisition, training, AI session, or research commit ran.\n")
+          PYTHON
+
   research:
+    # Binding scientific HOLD: never enable this from a green CI result alone.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
