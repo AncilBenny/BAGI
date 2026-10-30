@@ -1,0 +1,119 @@
+name: BAGI Research Loop
+
+# Automatic research is paused during CI/provenance repair.
+# Manual dispatch remains available; this repair does not dispatch it.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bagi-research-loop
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out research branch
+        uses: actions/checkout@v4
+        with:
+          ref: setup/initial-platform
+
+      - name: Identify branch revision and UTC research date
+        id: revision
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Check if this revision has already been evaluated today
+        id: evaluated
+        uses: actions/cache/restore@v4
+        with:
+          path: .bagi-evaluated
+          key: bagi-evaluated-${{ steps.revision.outputs.sha }}-${{ steps.revision.outputs.day }}
+
+      - name: Note cached evaluation
+        if: steps.evaluated.outputs.cache-hit == 'true'
+        run: echo "Same revision has already been evaluated today; skipping repeated compute." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Python
+        if: steps.evaluated.outputs.cache-hit != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install BAGI
+        if: steps.evaluated.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Verify research platform
+        if: steps.evaluated.outputs.cache-hit != 'true'
+        run: make check
+
+      - name: Restore causal-v2 checkpoint cache
+        if: steps.evaluated.outputs.cache-hit != 'true'
+        id: causal-cache
+        uses: actions/cache@v4
+        with:
+          path: runs/sample_efficiency_causal_v2
+          key: bagi-causal-v2-${{ hashFiles('configs/sample_efficiency_causal_v2.yaml', 'bagi/models/world_model.py', 'bagi/experiments/train_world_model.py', 'bagi/experiments/collect_guided.py', 'bagi/worlds/workshop.py') }}
+
+      - name: Build causal-v2 checkpoint on cache miss
+        if: steps.evaluated.outputs.cache-hit != 'true' && steps.causal-cache.outputs.cache-hit != 'true'
+        run: make sample-efficiency-causal-v2
+
+      - name: Run oracle search ceiling
+        if: steps.evaluated.outputs.cache-hit != 'true'
+        run: make oracle-search-ceiling
+
+      - name: Run learned planner candidate sweep
+        if: steps.evaluated.outputs.cache-hit != 'true'
+        run: make causal-candidate-sweep
+
+      - name: Run grounded imagination-gap diagnostic
+        if: steps.evaluated.outputs.cache-hit != 'true'
+        run: python -m bagi.experiments.imagination_gap --config configs/imagination_gap.yaml
+
+      - name: Capture research metadata
+        if: always() && steps.evaluated.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p artifacts/research-loop
+          git rev-parse HEAD > artifacts/research-loop/research_branch_commit.txt
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > artifacts/research-loop/run_utc.txt
+          for path in \
+            runs/sample_efficiency_causal_v2/summary.json \
+            runs/sample_efficiency_causal_v2/summary.csv \
+            runs/oracle_search_ceiling/summary.json \
+            runs/causal_candidate_sweep/summary.json \
+            runs/imagination_gap/summary.json; do
+            if [ -f "$path" ]; then
+              cp "$path" "artifacts/research-loop/$(basename "$(dirname "$path")")-$(basename "$path")"
+            fi
+          done
+
+      - name: Upload research results
+        if: always() && steps.evaluated.outputs.cache-hit != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-research-${{ github.run_number }}
+          path: artifacts/research-loop
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Save successful revision evaluation marker
+        if: steps.evaluated.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p .bagi-evaluated
+          printf 'Evaluated %s on %s\n' "${{ steps.revision.outputs.sha }}" "${{ steps.revision.outputs.day }}" > .bagi-evaluated/marker.txt
+
+      - uses: actions/cache/save@v4
+        if: steps.evaluated.outputs.cache-hit != 'true'
+        with:
+          path: .bagi-evaluated
+          key: bagi-evaluated-${{ steps.revision.outputs.sha }}-${{ steps.revision.outputs.day }}

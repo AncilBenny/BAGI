@@ -21,6 +21,8 @@ import zipfile
 BRANCH = "setup/initial-platform"
 SHA = re.compile(r"^[0-9a-f]{40}$")
 ALLOWED_WORKFLOWS = frozenset({"BAGI Research Loop", "BAGI E6 Imagination Gap"})
+PR_NUMBER = 1
+CI_PATH = ".github/workflows/ci.yml"
 MAX_ZIP_BYTES = 12 * 1024 * 1024
 
 
@@ -28,13 +30,64 @@ class GateError(RuntimeError):
     pass
 
 
-def latest_ci_success(runs: list[dict], sha: str) -> bool:
-    """Latest CI run for this exact commit must be completed and successful."""
-    ci = [r for r in runs if r.get("name") == "CI" and r.get("head_sha") == sha]
-    if not ci:
+def latest_ci_success(runs: list[dict], sha: str, *, event: str,
+                      merge_sha: str | None = None) -> bool:
+    """Require the latest run of one event; never let events mask each other."""
+    if event not in {"push", "pull_request"} or not SHA.fullmatch(sha):
         return False
-    latest = max(ci, key=lambda r: (r.get("created_at", ""), r.get("id", 0)))
-    return latest.get("status") == "completed" and latest.get("conclusion") == "success"
+    if event == "pull_request" and (not merge_sha or not SHA.fullmatch(merge_sha)):
+        return False
+    relevant = [r for r in runs if r.get("name") == "CI"
+                and r.get("path") == CI_PATH and r.get("event") == event
+                and r.get("head_branch") == BRANCH]
+    if not relevant or any(r.get("status") != "completed" for r in relevant):
+        return False
+    latest = max(relevant, key=lambda r: (r.get("created_at", ""), r.get("id", 0)))
+    allowed = {sha} if event == "push" else {sha, merge_sha}
+    return (latest.get("head_sha") in allowed
+            and latest.get("status") == "completed" and latest.get("conclusion") == "success")
+
+
+def ci_snapshot(api: Github, sha: str) -> dict:
+    """Require one current same-repository PR and its exact synthetic merge."""
+    pr = api.request(f"pulls/{PR_NUMBER}")
+    base = api.request("branches/main")["commit"]["sha"]
+    if (pr.get("state") != "open" or pr.get("merged") is not False
+            or pr.get("number") != PR_NUMBER or pr.get("mergeable") is not True
+            or pr["head"]["ref"] != BRANCH or pr["head"]["sha"] != sha
+            or pr["head"]["repo"]["full_name"] != api.repo
+            or pr["base"]["ref"] != "main" or pr["base"]["sha"] != base
+            or pr["base"]["repo"]["full_name"] != api.repo):
+        raise GateError("ambiguous or stale PR source/base provenance")
+    merge = api.request(f"git/ref/pull/{PR_NUMBER}/merge")["object"]["sha"]
+    if not SHA.fullmatch(merge) or pr.get("merge_commit_sha") != merge:
+        raise GateError("stale PR merge ref")
+    commit = api.request(f"git/commits/{merge}")
+    if commit.get("sha") != merge or [p["sha"] for p in commit["parents"]] != [base, sha]:
+        raise GateError("PR merge parents do not match current base and source")
+    selected = {}
+    for event in ("push", "pull_request"):
+        query = urllib.parse.urlencode({"event": event, "branch": BRANCH, "per_page": 100})
+        runs = api.request("actions/workflows/ci.yml/runs?" + query)["workflow_runs"]
+        if not latest_ci_success(runs, sha, event=event, merge_sha=merge):
+            raise GateError(f"latest {event} CI is not successful for current provenance")
+        selected[event] = max(
+            (r for r in runs if r.get("name") == "CI" and r.get("path") == CI_PATH
+             and r.get("event") == event and r.get("head_branch") == BRANCH),
+            key=lambda r: (r.get("created_at", ""), r.get("id", 0)))
+    run = selected["pull_request"]
+    associations = run.get("pull_requests", [])
+    if len(associations) != 1 or associations[0].get("number") != PR_NUMBER:
+        raise GateError("ambiguous PR run association")
+    manifest = api.ci_provenance(run)
+    expected = {"repository": api.repo, "event": "pull_request", "pr_number": PR_NUMBER,
+                "source_sha": sha, "base_sha": base, "merge_sha": merge,
+                "run_id": run["id"], "run_attempt": run["run_attempt"]}
+    if manifest != expected:
+        raise GateError("CI artifact does not prove current PR-merge provenance")
+    return {"source_sha": sha, "base_sha": base, "merge_sha": merge,
+            "push_run_id": selected["push"]["id"], "pr_run_id": run["id"],
+            "push_attempt": selected["push"]["run_attempt"], "pr_attempt": run["run_attempt"]}
 
 
 def first_valid_artifact(artifacts: list[dict], sha: str, zip_reader) -> dict | None:
@@ -102,6 +155,25 @@ class Github:
             time.sleep(2**attempt)
         raise GateError("unreachable retry state")
 
+    def ci_provenance(self, run: dict) -> dict:
+        name = f"bagi-ci-provenance-{run['id']}-{run['run_attempt']}"
+        items = self.request(f"actions/runs/{run['id']}/artifacts?per_page=100")
+        if items.get("total_count", 0) > 100:
+            raise GateError("ambiguous CI artifact pagination")
+        artifacts = [a for a in items["artifacts"] if a.get("name") == name]
+        if len(artifacts) != 1 or artifacts[0].get("expired") is not False:
+            raise GateError("missing unique current CI provenance artifact")
+        raw = self.request(f"actions/artifacts/{artifacts[0]['id']}/zip", binary=True)
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                if archive.namelist() != ["ci_provenance.json"]:
+                    raise GateError("ambiguous CI provenance archive")
+                if archive.getinfo("ci_provenance.json").file_size > 4096:
+                    raise GateError("CI provenance manifest too large")
+                return json.loads(archive.read("ci_provenance.json"))
+        except (zipfile.BadZipFile, UnicodeError) as exc:
+            raise GateError("invalid CI provenance archive") from exc
+
     def marker(self, artifact_id: int) -> str:
         data = self.request(f"actions/artifacts/{artifact_id}/zip", binary=True)
         assert isinstance(data, bytes)
@@ -124,16 +196,13 @@ def inspect(api: Github) -> dict:
     sha = branch["commit"]["sha"]
     if not SHA.fullmatch(sha):
         raise GateError("invalid protected branch HEAD")
-    query = urllib.parse.urlencode({"head_sha": sha, "per_page": 100})
-    runs = api.request("actions/runs?" + query)["workflow_runs"]
-    if not latest_ci_success(runs, sha):
-        raise GateError("latest exact-commit CI is not successful")
-    if any(r.get("status") != "completed" and r.get("head_sha") == sha
-           and r.get("name") in {"CI", "BAGI E6 Imagination Gap"} for r in runs):
-        raise GateError("active CI or E6 run for current commit")
+    snapshot = ci_snapshot(api, sha)
     # Scheduled research workflows have main as their workflow head; their
     # internal research_branch_commit.txt establishes the executed source.
     records = api.request("actions/runs?per_page=100")["workflow_runs"]
+    if any(r.get("name") in ALLOWED_WORKFLOWS and r.get("status") != "completed"
+           for r in records):
+        raise GateError("active research workflow")
     candidates = [r for r in records if r.get("name") in ALLOWED_WORKFLOWS
                   and r.get("status") == "completed" and r.get("conclusion") == "success"]
     candidates.sort(key=lambda r: (r.get("created_at", ""), r.get("id", 0)), reverse=True)
@@ -143,7 +212,7 @@ def inspect(api: Github) -> dict:
         if artifact is not None:
             # Recheck source HEAD in case another writer moved the branch.
             again = api.request("branches/" + urllib.parse.quote(BRANCH, safe=""))["commit"]["sha"]
-            if again != sha:
+            if again != sha or ci_snapshot(api, sha) != snapshot:
                 raise GateError("research branch changed during preflight")
             return {"research_sha": sha, "evidence_run_id": run["id"],
                     "evidence_artifact_id": artifact["id"],
