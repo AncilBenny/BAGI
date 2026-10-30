@@ -26,7 +26,9 @@
   milestone. Preserve append-only logs and existing scientific results. Branch
   synchronization alone is not a scientific milestone.
 - Before closing a milestone PR, ensure provenance monitoring supports the next
-  active milestone PR; the current evidence gate explicitly targets PR #1.
+  active milestone PR. The evidence gate must discover exactly one open
+  same-repository PR from `setup/initial-platform` to `main`; no match or
+  multiple matches means HOLD.
   Do not weaken provenance checks to hide a closed/stale PR or missing evidence.
 
 Operational workflow-safety or repository-governance maintenance explicitly
@@ -34,15 +36,25 @@ authorized on main may use a narrowly scoped direct commit after validation and
 expected-HEAD checks. This exception does not permit direct research/feature
 changes or bypassing milestone PR validation.
 
-## Scheduled automation and scientific evidence
+## Research autonomy and damage prevention
 
-- Scheduled jobs may audit CI and provenance while scientific HOLD/STOP is active.
-  Green CI does not authorize an experiment, acquisition, training, AI session,
-  scientific claim, or autonomous research commit.
-- Keep P0B HOLD, P6/P10a STOP, P9 native HARD STOP, the failed frozen
-  history-identifiability gate, and the size-13 heldout-label restriction binding.
-- Do not re-enable blocked scientific jobs merely to make a scheduled run green.
-  Changing a scientific stop requires a separately reviewed, explicitly authorized
-  research decision with supporting evidence.
-- Never modify/delete append-only research history. Do not rerun workflows or
-  launch scientific compute without task-specific authorization.
+- The user's revised policy authorizes routine code/config edits, lint, tests,
+  literature review, diagnostics, and bounded research without repeated approval.
+  Use docs/RESEARCH_SAFETY_POLICY.md and .github/research-policy.json.
+- Historical P0B/P6/P9/P10a HOLD/STOP decisions and failed identifiability results
+  remain immutable evidence, not blanket prohibitions on new work. A follow-up
+  must record a new hypothesis or changed condition; never erase or relabel the
+  old result, or claim a failed gate passed without new supporting measurements.
+- Scheduled work requires current independently successful push/PR CI and exact
+  source/merge provenance, daily compute admission, timeouts, concurrency, and
+  same-source evidence before an AI proposal. CI success is engineering evidence.
+- Keep strong restrictions on history deletion, force pushes, credential exposure,
+  unbounded compute/spending, external access/billing changes, and evaluation-data
+  contamination. These require explicit scope-specific authorization.
+- Preserve append-only logs and old result artifacts. New runs use isolated output
+  locations and record source SHA, config, seed, action counts, runtime and results.
+- Sealed held-out labels remain evaluation-only. Authorized evaluation is allowed;
+  do not inspect/reuse them for training, tuning or model selection. If data are
+  exposed, record contamination and use a fresh held-out set for future claims.
+- Fix CI and merge conflicts autonomously within the authorized branch. Preserve
+  evidence and run validation; do not weaken provenance gates to bypass failures.

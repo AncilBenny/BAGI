@@ -2,8 +2,7 @@ name: BAGI Autonomous Research Agent
 
 # The agent always works on setup/initial-platform.
 # A personal Copilot token is required; without it, the workflow skips safely.
-# Scheduled runs audit engineering health only. Scientific HOLD/STOP remains binding.
-# Experiment and autonomous-edit jobs require a separately reviewed policy change.
+# Scheduled research is admitted only after exact CI provenance and daily budget checks.
 on:
   workflow_dispatch:
   schedule:
@@ -18,7 +17,9 @@ concurrency:
 
 jobs:
   audit:
-    name: Verify CI provenance; scientific progression remains HOLD
+    outputs:
+      research_sha: ${{ steps.verify.outputs.research_sha }}
+    name: Verify current source and PR merge CI
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -29,6 +30,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check both CI events and the current PR merge
+        id: verify
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -51,18 +53,38 @@ jobs:
           except (GateError, KeyError, TypeError, ValueError) as exc:
               with open(summary, "a", encoding="utf-8") as output:
                   output.write(f"CI audit HOLD: {exc}\n")
-                  output.write("Scientific progression remains HOLD; no experiment or AI ran.\n")
+                  output.write("Research waits for verified CI; no work was admitted.\n")
               raise SystemExit(2) from exc
           with open(summary, "a", encoding="utf-8") as output:
               output.write("CI provenance verified: " + json.dumps(snapshot) + "\n")
-              output.write("Scientific progression remains HOLD. P0B HOLD, P6/P10a STOP, "
-                           "and P9 native HARD STOP remain binding. No experiment, "
-                           "acquisition, training, AI session, or research commit ran.\n")
+              output.write("CI verified. Research may proceed within the reviewed budget; "
+                           "this does not establish scientific progress.\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("research_sha=" + sha + "\n")
           PYTHON
 
+  budget:
+    needs: audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      eligible: ${{ steps.check.outputs.eligible }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Enforce daily compute budget before starting work
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/bagi_research_budget.py agent
+
   gate:
-    # Binding scientific HOLD: never enable this from a green CI result alone.
-    if: ${{ false }}
+    needs: [audit, budget]
+    if: needs.budget.outputs.eligible == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -209,6 +231,10 @@ jobs:
           code change, what was NOT run yet, and next measurement.
           If the evidence is insufficient, do not change the code; say why.
           No unsupported claims of measured improvements.
+          Read AGENTS.md and docs/RESEARCH_SAFETY_POLICY.md. Historical failed
+          gates are evidence, not permanent bans. Do not reuse sealed evaluation
+          labels for training/tuning or overwrite prior results. Any follow-up
+          must identify what changed and stay within existing compute limits.
           PROMPT
           copilot -p "$(cat "$RUNNER_TEMP/bagi-agent-prompt.txt")"             -s --no-ask-user --available-tools='view,edit,grep,glob'             --allow-tool='write' --deny-tool='shell' --deny-tool='url'             --secret-env-vars='COPILOT_GITHUB_TOKEN'             > "$RUNNER_TEMP/bagi-agent-response.txt"
           cat "$RUNNER_TEMP/bagi-agent-response.txt" >> "$GITHUB_STEP_SUMMARY"

@@ -12,6 +12,7 @@ from bagi_evidence_gate import (
     GateError,
     Github,
     ci_snapshot,
+    discover_milestone_pr,
     first_valid_artifact,
     inspect,
     latest_ci_success,
@@ -28,9 +29,9 @@ MERGE = 'd' * 40
 class FakeAPI:
     repo = 'owner/BAGI'
 
-    def __init__(self, *, ci='success', artifact_sha=SHA, branch_sha=SHA):
+    def __init__(self, *, ci='success', artifact_sha=SHA, branch_sha=SHA, pr_number=1):
         self.artifact_sha, self.branch_sha = artifact_sha, branch_sha
-        self.pr = {'state': 'open', 'merged': False, 'number': 1, 'mergeable': True,
+        self.pr = {'state': 'open', 'merged': False, 'number': pr_number, 'mergeable': True,
                    'head': {'ref': 'setup/initial-platform', 'sha': SHA,
                             'repo': {'full_name': self.repo}},
                    'base': {'ref': 'main', 'sha': BASE, 'repo': {'full_name': self.repo}},
@@ -41,21 +42,26 @@ class FakeAPI:
                              'head_branch': 'setup/initial-platform', 'head_sha': SHA,
                              'event': event, 'status': 'completed', 'conclusion': ci,
                              'created_at': '2026-10-28', 'id': i, 'run_attempt': 1,
-                             'pull_requests': [{'number': 1}]}]
+                             'pull_requests': [{'number': pr_number}]}]
                      for i, event in enumerate(('push', 'pull_request'), 10)}
-        self.manifest = {'repository': self.repo, 'event': 'pull_request', 'pr_number': 1,
+        self.manifest = {'repository': self.repo, 'event': 'pull_request', 'pr_number': pr_number,
                          'source_sha': SHA, 'base_sha': BASE, 'merge_sha': MERGE,
                          'run_id': 11, 'run_attempt': 1}
+        self.open_prs = [self.pr]
+        self.requests = []
         self.ci_reads = 0
 
     def request(self, endpoint, *, binary=False):
+        self.requests.append(endpoint)
+        if endpoint.startswith('pulls?'):
+            return self.open_prs
         if endpoint == 'branches/main':
             return {'commit': {'sha': BASE}}
         if endpoint.startswith('branches/'):
             return {'commit': {'sha': self.branch_sha}}
-        if endpoint == 'pulls/1':
+        if endpoint == f"pulls/{self.pr['number']}":
             return self.pr
-        if endpoint == 'git/ref/pull/1/merge':
+        if endpoint == f"git/ref/pull/{self.pr['number']}/merge":
             return {'object': {'sha': self.merge}}
         if endpoint.startswith('git/commits/'):
             return {'sha': self.merge, 'parents': [{'sha': p} for p in self.parents]}
@@ -79,10 +85,11 @@ class FakeAPI:
 
 class GateTests(unittest.TestCase):
     def test_accepts_only_current_successful_ci(self):
-        items = [{'name': 'CI', 'head_sha': SHA, 'status': 'completed',
-                  'conclusion': 'success', 'created_at': '2026-10-27', 'id': 1},
-                 {'name': 'CI', 'head_sha': SHA, 'status': 'completed',
-                  'conclusion': 'failure', 'created_at': '2026-10-28', 'id': 2}]
+        items = FakeAPI().runs['push']
+        self.assertTrue(latest_ci_success(items, SHA, event="push"))
+        failed = copy.deepcopy(items[0])
+        failed.update(conclusion='failure', created_at='2026-10-29', id=99)
+        items.append(failed)
         self.assertFalse(latest_ci_success(items, SHA, event="push"))
         self.assertFalse(latest_ci_success(items, OLD, event="push"))
 
@@ -230,3 +237,117 @@ class ProvenanceTests(unittest.TestCase):
             else:
                 with self.assertRaises(GateError):
                     api.ci_provenance(run)
+
+
+class MilestoneDiscoveryTests(unittest.TestCase):
+    def test_future_prs_use_their_own_merge_ref_run_association_and_manifest(self):
+        for number in (7, 42, 1234):
+            with self.subTest(pr_number=number):
+                api = FakeAPI(pr_number=number)
+                snapshot = ci_snapshot(api, SHA)
+                self.assertEqual(snapshot['pr_number'], number)
+                self.assertIn(f'pulls/{number}', api.requests)
+                self.assertIn(f'git/ref/pull/{number}/merge', api.requests)
+                self.assertNotIn('pulls/1', api.requests)
+                self.assertNotIn('git/ref/pull/1/merge', api.requests)
+                self.assertEqual(api.requests[0], 'pulls?state=open&head=owner%3Asetup%2F'
+                                 'initial-platform&base=main&per_page=100&page=1')
+
+    def test_missing_multiple_or_malformed_discovery_holds_without_fallback(self):
+        for records in ([], [{}, {}], [{}] * 100, {}, [None], [{}]):
+            with self.subTest(records=records):
+                api = FakeAPI(pr_number=42)
+                api.open_prs = records
+                with self.assertRaises(GateError):
+                    ci_snapshot(api, SHA)
+                self.assertFalse(any(p.startswith('pulls/') for p in api.requests))
+
+    def test_discovery_rejects_wrong_source_target_fork_or_closed_pr(self):
+        mutations = (
+            lambda p: p.update(state='closed'),
+            lambda p: p.update(number=0),
+            lambda p: p.update(number=True),
+            lambda p: p.update(number='42'),
+            lambda p: p['head'].update(sha=OLD),
+            lambda p: p['head'].update(ref='other'),
+            lambda p: p['head'].update(repo=None),
+            lambda p: p['head']['repo'].update(full_name='fork/BAGI'),
+            lambda p: p['base'].update(ref='other'),
+            lambda p: p['base']['repo'].update(full_name='other/BAGI'),
+        )
+        for mutation in mutations:
+            api = FakeAPI(pr_number=42)
+            mutation(api.pr)
+            with self.assertRaises(GateError):
+                discover_milestone_pr(api, SHA)
+
+    def test_discovery_and_detail_must_agree(self):
+        api = FakeAPI(pr_number=42)
+        api.open_prs = [copy.deepcopy(api.pr)]
+        api.pr['number'] = 43
+        request = api.request
+        def changed_detail(endpoint, **kwargs):
+            if endpoint == 'pulls/42':
+                return api.pr
+            return request(endpoint, **kwargs)
+        api.request = changed_detail
+        with self.assertRaisesRegex(GateError, 'PR source/base'):
+            ci_snapshot(api, SHA)
+
+    def test_old_pr_association_or_manifest_cannot_authorize_new_milestone(self):
+        for old_evidence in ('association', 'manifest'):
+            api = FakeAPI(pr_number=42)
+            if old_evidence == 'association':
+                api.runs['pull_request'][0]['pull_requests'] = [{'number': 1}]
+            else:
+                api.manifest['pr_number'] = 1
+            with self.assertRaises(GateError):
+                ci_snapshot(api, SHA)
+
+    def test_future_milestone_keeps_all_ci_failure_modes_closed(self):
+        for event in ('push', 'pull_request'):
+            for field, value in (('conclusion', 'failure'), ('head_sha', OLD),
+                                 ('status', 'queued'), ('status', 'in_progress'),
+                                 ('status', 'waiting'), ('conclusion', None)):
+                with self.subTest(event=event, field=field, value=value):
+                    api = FakeAPI(pr_number=42)
+                    api.runs[event][0][field] = value
+                    with self.assertRaises(GateError):
+                        ci_snapshot(api, SHA)
+
+    def test_pr_handoff_during_evidence_download_holds(self):
+        api = FakeAPI(pr_number=42)
+        def switched_pr(_):
+            api.pr['number'] = 43
+            api.runs['pull_request'][0]['pull_requests'] = [{'number': 43}]
+            api.manifest['pr_number'] = 43
+            return SHA
+        api.marker = switched_pr
+        with self.assertRaisesRegex(GateError, 'changed during preflight'):
+            inspect(api)
+
+
+    def test_future_milestone_missing_runs_or_ambiguous_associations_hold(self):
+        for event in ('push', 'pull_request'):
+            api = FakeAPI(pr_number=42)
+            api.runs[event] = []
+            with self.assertRaises(GateError):
+                ci_snapshot(api, SHA)
+        for associations in ([], [{'number': 42}, {'number': 43}]):
+            api = FakeAPI(pr_number=42)
+            api.runs['pull_request'][0]['pull_requests'] = associations
+            with self.assertRaises(GateError):
+                ci_snapshot(api, SHA)
+
+    def test_future_milestone_stale_base_merge_or_manifest_holds(self):
+        for mutation in (
+                lambda a: a.pr['base'].update(sha=OLD),
+                lambda a: a.pr.update(merge_commit_sha=OLD),
+                lambda a: setattr(a, 'parents', [BASE, OLD]),
+                lambda a: a.manifest.update(source_sha=OLD),
+                lambda a: a.manifest.update(merge_sha=OLD),
+                lambda a: a.pr.update(mergeable=None)):
+            api = FakeAPI(pr_number=42)
+            mutation(api)
+            with self.assertRaises(GateError):
+                ci_snapshot(api, SHA)
