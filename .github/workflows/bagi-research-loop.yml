@@ -1,9 +1,9 @@
 name: BAGI Research Loop
 
+# Automatic research is paused during CI/provenance repair.
+# Manual dispatch remains available; this repair does not dispatch it.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "17 * * * *"
 
 permissions:
   contents: read

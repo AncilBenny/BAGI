@@ -1,19 +1,11 @@
 name: BAGI Autonomous Research Agent
 
-# Scheduling lives on main. The agent always works on setup/initial-platform.
+# The agent always works on setup/initial-platform.
 # A personal Copilot token is required; without it, the workflow skips safely.
+# Automatic research is paused during CI/provenance repair.
+# Manual dispatch remains available; this repair does not dispatch it.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/bagi-autonomous-agent.yml"
-  workflow_run:
-    workflows: ["BAGI Research Loop", "BAGI E6 Imagination Gap"]
-    types: [completed]
-  schedule:
-    # Check between ChatGPT's hourly turns; most runs will skip AI.
-    - cron: "7 */2 * * *"
 
 permissions:
   contents: read
