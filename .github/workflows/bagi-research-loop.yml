@@ -1,7 +1,6 @@
 name: BAGI Research Loop
 
-# Scheduled runs audit engineering health only. Scientific HOLD/STOP remains binding.
-# Experiment and autonomous-edit jobs require a separately reviewed policy change.
+# Scheduled research is admitted only after exact CI provenance and daily budget checks.
 on:
   workflow_dispatch:
   schedule:
@@ -16,7 +15,9 @@ concurrency:
 
 jobs:
   audit:
-    name: Verify CI provenance; scientific progression remains HOLD
+    outputs:
+      research_sha: ${{ steps.verify.outputs.research_sha }}
+    name: Verify current source and PR merge CI
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -27,6 +28,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check both CI events and the current PR merge
+        id: verify
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -49,25 +51,66 @@ jobs:
           except (GateError, KeyError, TypeError, ValueError) as exc:
               with open(summary, "a", encoding="utf-8") as output:
                   output.write(f"CI audit HOLD: {exc}\n")
-                  output.write("Scientific progression remains HOLD; no experiment or AI ran.\n")
+                  output.write("Research waits for verified CI; no work was admitted.\n")
               raise SystemExit(2) from exc
           with open(summary, "a", encoding="utf-8") as output:
               output.write("CI provenance verified: " + json.dumps(snapshot) + "\n")
-              output.write("Scientific progression remains HOLD. P0B HOLD, P6/P10a STOP, "
-                           "and P9 native HARD STOP remain binding. No experiment, "
-                           "acquisition, training, AI session, or research commit ran.\n")
+              output.write("CI verified. Research may proceed within the reviewed budget; "
+                           "this does not establish scientific progress.\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("research_sha=" + sha + "\n")
           PYTHON
 
+  budget:
+    needs: audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      eligible: ${{ steps.check.outputs.eligible }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Enforce daily compute budget before starting work
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/bagi_research_budget.py research
+
   research:
-    # Binding scientific HOLD: never enable this from a green CI result alone.
-    if: ${{ false }}
+    needs: [audit, budget]
+    if: needs.budget.outputs.eligible == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Check out research branch
         uses: actions/checkout@v4
         with:
-          ref: setup/initial-platform
+          ref: ${{ needs.audit.outputs.research_sha }}
+          persist-credentials: false
+
+      - name: Recheck exact source and CI before compute
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ needs.audit.outputs.research_sha }}
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          import sys
+          sys.path.insert(0, "scripts")
+          from bagi_evidence_gate import BRANCH, GateError, Github, ci_snapshot
+          api = Github(os.environ["GITHUB_REPOSITORY"], os.environ["GH_TOKEN"])
+          sha = api.request("branches/" + BRANCH.replace("/", "%2F"))["commit"]["sha"]
+          if sha != os.environ["EXPECTED_SHA"]:
+              raise GateError("research branch changed after admission")
+          ci_snapshot(api, sha)
+          PYTHON
 
       - name: Identify branch revision and UTC research date
         id: revision
@@ -75,16 +118,16 @@ jobs:
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
-      - name: Check if this revision has already been evaluated today
+      - name: Reuse any successful evaluation of this exact revision
         id: evaluated
         uses: actions/cache/restore@v4
         with:
           path: .bagi-evaluated
-          key: bagi-evaluated-${{ steps.revision.outputs.sha }}-${{ steps.revision.outputs.day }}
+          key: bagi-evaluated-${{ steps.revision.outputs.sha }}
 
       - name: Note cached evaluation
         if: steps.evaluated.outputs.cache-hit == 'true'
-        run: echo "Same revision has already been evaluated today; skipping repeated compute." >> "$GITHUB_STEP_SUMMARY"
+        run: echo "This revision was already evaluated; reusing results instead of repeating compute." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Set up Python
         if: steps.evaluated.outputs.cache-hit != 'true'
@@ -163,4 +206,4 @@ jobs:
         if: steps.evaluated.outputs.cache-hit != 'true'
         with:
           path: .bagi-evaluated
-          key: bagi-evaluated-${{ steps.revision.outputs.sha }}-${{ steps.revision.outputs.day }}
+          key: bagi-evaluated-${{ steps.revision.outputs.sha }}

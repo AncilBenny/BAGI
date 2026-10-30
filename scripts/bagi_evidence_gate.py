@@ -21,7 +21,6 @@ import zipfile
 BRANCH = "setup/initial-platform"
 SHA = re.compile(r"^[0-9a-f]{40}$")
 ALLOWED_WORKFLOWS = frozenset({"BAGI Research Loop", "BAGI E6 Imagination Gap"})
-PR_NUMBER = 1
 CI_PATH = ".github/workflows/ci.yml"
 MAX_ZIP_BYTES = 12 * 1024 * 1024
 
@@ -48,18 +47,45 @@ def latest_ci_success(runs: list[dict], sha: str, *, event: str,
             and latest.get("status") == "completed" and latest.get("conclusion") == "success")
 
 
+def discover_milestone_pr(api: Github, sha: str) -> int:
+    """Require exactly one open PR from this repository's protected branch."""
+    owner = api.repo.split("/", 1)[0]
+    query = urllib.parse.urlencode({"state": "open", "head": f"{owner}:{BRANCH}",
+                                    "base": "main", "per_page": 100, "page": 1})
+    records = api.request("pulls?" + query)
+    # Multiple candidates (including a full page) are ambiguous. Never pick the
+    # newest PR or silently fall back to a historical PR when discovery fails.
+    if not isinstance(records, list) or len(records) != 1:
+        raise GateError("expected exactly one open milestone PR")
+    pr = records[0]
+    try:
+        number = pr["number"]
+        valid = (isinstance(number, int) and not isinstance(number, bool) and number > 0
+                 and pr["state"] == "open" and pr["head"]["ref"] == BRANCH
+                 and pr["head"]["sha"] == sha
+                 and pr["head"]["repo"]["full_name"] == api.repo
+                 and pr["base"]["ref"] == "main"
+                 and pr["base"]["repo"]["full_name"] == api.repo)
+    except (KeyError, TypeError) as exc:
+        raise GateError("malformed milestone PR discovery response") from exc
+    if not valid:
+        raise GateError("ambiguous or stale milestone PR discovery")
+    return number
+
+
 def ci_snapshot(api: Github, sha: str) -> dict:
     """Require one current same-repository PR and its exact synthetic merge."""
-    pr = api.request(f"pulls/{PR_NUMBER}")
+    pr_number = discover_milestone_pr(api, sha)
+    pr = api.request(f"pulls/{pr_number}")
     base = api.request("branches/main")["commit"]["sha"]
     if (pr.get("state") != "open" or pr.get("merged") is not False
-            or pr.get("number") != PR_NUMBER or pr.get("mergeable") is not True
+            or pr.get("number") != pr_number or pr.get("mergeable") is not True
             or pr["head"]["ref"] != BRANCH or pr["head"]["sha"] != sha
             or pr["head"]["repo"]["full_name"] != api.repo
             or pr["base"]["ref"] != "main" or pr["base"]["sha"] != base
             or pr["base"]["repo"]["full_name"] != api.repo):
         raise GateError("ambiguous or stale PR source/base provenance")
-    merge = api.request(f"git/ref/pull/{PR_NUMBER}/merge")["object"]["sha"]
+    merge = api.request(f"git/ref/pull/{pr_number}/merge")["object"]["sha"]
     if not SHA.fullmatch(merge) or pr.get("merge_commit_sha") != merge:
         raise GateError("stale PR merge ref")
     commit = api.request(f"git/commits/{merge}")
@@ -77,15 +103,15 @@ def ci_snapshot(api: Github, sha: str) -> dict:
             key=lambda r: (r.get("created_at", ""), r.get("id", 0)))
     run = selected["pull_request"]
     associations = run.get("pull_requests", [])
-    if len(associations) != 1 or associations[0].get("number") != PR_NUMBER:
+    if len(associations) != 1 or associations[0].get("number") != pr_number:
         raise GateError("ambiguous PR run association")
     manifest = api.ci_provenance(run)
-    expected = {"repository": api.repo, "event": "pull_request", "pr_number": PR_NUMBER,
+    expected = {"repository": api.repo, "event": "pull_request", "pr_number": pr_number,
                 "source_sha": sha, "base_sha": base, "merge_sha": merge,
                 "run_id": run["id"], "run_attempt": run["run_attempt"]}
     if manifest != expected:
         raise GateError("CI artifact does not prove current PR-merge provenance")
-    return {"source_sha": sha, "base_sha": base, "merge_sha": merge,
+    return {"pr_number": pr_number, "source_sha": sha, "base_sha": base, "merge_sha": merge,
             "push_run_id": selected["push"]["id"], "pr_run_id": run["id"],
             "push_attempt": selected["push"]["run_attempt"], "pr_attempt": run["run_attempt"]}
 
@@ -128,7 +154,7 @@ class Github:
         self.token = token
         self.opener = urllib.request.build_opener(SafeRedirectHandler())
 
-    def request(self, endpoint: str, *, binary: bool = False) -> bytes | dict:
+    def request(self, endpoint: str, *, binary: bool = False) -> bytes | dict | list:
         url = "https://api.github.com/repos/" + self.repo + "/" + endpoint
         request = urllib.request.Request(url, headers={
             "Authorization": "Bearer " + self.token,

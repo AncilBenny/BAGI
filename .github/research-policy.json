@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "research_runs_per_utc_day": 1,
+  "ai_proposals_per_utc_day": 1,
+  "research_timeout_minutes": 45,
+  "ai_timeout_minutes": 20
+}
