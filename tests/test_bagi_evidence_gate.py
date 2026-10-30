@@ -1,35 +1,77 @@
 """Tests for the fail-closed, public-source BAGI evidence gate."""
+import copy
 import io
+import json
+import sys
 import unittest
 import zipfile
 from pathlib import Path
-import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from bagi_evidence_gate import (Github, GateError, first_valid_artifact,
-                                inspect, latest_ci_success)
+from bagi_evidence_gate import (
+    GateError,
+    Github,
+    ci_snapshot,
+    first_valid_artifact,
+    inspect,
+    latest_ci_success,
+)
 
 SHA = 'a' * 40
 OLD = 'b' * 40
 
 
+BASE = 'c' * 40
+MERGE = 'd' * 40
+
+
 class FakeAPI:
+    repo = 'owner/BAGI'
+
     def __init__(self, *, ci='success', artifact_sha=SHA, branch_sha=SHA):
-        self.ci, self.artifact_sha, self.branch_sha = ci, artifact_sha, branch_sha
+        self.artifact_sha, self.branch_sha = artifact_sha, branch_sha
+        self.pr = {'state': 'open', 'merged': False, 'number': 1, 'mergeable': True,
+                   'head': {'ref': 'setup/initial-platform', 'sha': SHA,
+                            'repo': {'full_name': self.repo}},
+                   'base': {'ref': 'main', 'sha': BASE, 'repo': {'full_name': self.repo}},
+                   'merge_commit_sha': MERGE}
+        self.merge = MERGE
+        self.parents = [BASE, SHA]
+        self.runs = {event: [{'name': 'CI', 'path': '.github/workflows/ci.yml',
+                             'head_branch': 'setup/initial-platform', 'head_sha': SHA,
+                             'event': event, 'status': 'completed', 'conclusion': ci,
+                             'created_at': '2026-10-28', 'id': i, 'run_attempt': 1,
+                             'pull_requests': [{'number': 1}]}]
+                     for i, event in enumerate(('push', 'pull_request'), 10)}
+        self.manifest = {'repository': self.repo, 'event': 'pull_request', 'pr_number': 1,
+                         'source_sha': SHA, 'base_sha': BASE, 'merge_sha': MERGE,
+                         'run_id': 11, 'run_attempt': 1}
+        self.ci_reads = 0
 
     def request(self, endpoint, *, binary=False):
+        if endpoint == 'branches/main':
+            return {'commit': {'sha': BASE}}
         if endpoint.startswith('branches/'):
             return {'commit': {'sha': self.branch_sha}}
-        if endpoint.startswith('actions/runs?head_sha='):
-            return {'workflow_runs': [{'name': 'CI', 'head_sha': SHA,
-                       'created_at': '2026-10-28', 'status': 'completed',
-                       'conclusion': self.ci, 'id': 10}]}
+        if endpoint == 'pulls/1':
+            return self.pr
+        if endpoint == 'git/ref/pull/1/merge':
+            return {'object': {'sha': self.merge}}
+        if endpoint.startswith('git/commits/'):
+            return {'sha': self.merge, 'parents': [{'sha': p} for p in self.parents]}
+        if endpoint.startswith('actions/workflows/ci.yml/runs?'):
+            self.ci_reads += 1
+            return {'workflow_runs': self.runs['pull_request' if 'event=pull_request&' in endpoint
+                                               else 'push']}
         if endpoint == 'actions/runs?per_page=100':
             return {'workflow_runs': [{'name': 'BAGI Research Loop', 'id': 123,
                     'status': 'completed', 'conclusion': 'success', 'created_at': '2026-10-27'}]}
         if endpoint == 'actions/runs/123/artifacts':
             return {'artifacts': [{'id': 45, 'name': 'bagi-research-1', 'expired': False}]}
         raise AssertionError(endpoint)
+
+    def ci_provenance(self, run):
+        return self.manifest
 
     def marker(self, artifact_id):
         return self.artifact_sha
@@ -41,8 +83,8 @@ class GateTests(unittest.TestCase):
                   'conclusion': 'success', 'created_at': '2026-10-27', 'id': 1},
                  {'name': 'CI', 'head_sha': SHA, 'status': 'completed',
                   'conclusion': 'failure', 'created_at': '2026-10-28', 'id': 2}]
-        self.assertFalse(latest_ci_success(items, SHA))
-        self.assertFalse(latest_ci_success(items, OLD))
+        self.assertFalse(latest_ci_success(items, SHA, event="push"))
+        self.assertFalse(latest_ci_success(items, OLD, event="push"))
 
     def test_refuses_stale_artifacts(self):
         items = [{'name': 'bagi-research-1', 'id': 1, 'expired': False}]
@@ -78,3 +120,113 @@ class GateTests(unittest.TestCase):
         api.request = lambda endpoint, binary=False: make_zip('research_branch_commit.txt', 'x' * 129)
         with self.assertRaises(GateError):
             api.marker(22)
+
+
+class ProvenanceTests(unittest.TestCase):
+    def test_both_event_modes_and_merge_checkout(self):
+        for tested_sha in (SHA, MERGE):
+            api = FakeAPI()
+            api.runs['pull_request'][0]['head_sha'] = tested_sha
+            self.assertEqual(ci_snapshot(api, SHA)['pr_run_id'], 11)
+
+    def test_events_cannot_mask_each_other(self):
+        for failed in ('push', 'pull_request'):
+            api = FakeAPI()
+            api.runs[failed][0]['conclusion'] = 'failure'
+            with self.assertRaisesRegex(GateError, failed):
+                ci_snapshot(api, SHA)
+
+    def test_missing_stale_wrong_or_incomplete_event_holds(self):
+        for event in ('push', 'pull_request'):
+            for field, value in (('head_sha', OLD), ('event', 'workflow_dispatch'),
+                                 ('path', 'evil.yml'), ('head_branch', 'other'),
+                                 ('status', 'queued'), ('status', 'in_progress'),
+                                 ('status', 'waiting'), ('conclusion', None)):
+                with self.subTest(event=event, field=field, value=value):
+                    api = FakeAPI()
+                    api.runs[event][0][field] = value
+                    with self.assertRaises(GateError):
+                        ci_snapshot(api, SHA)
+            api = FakeAPI()
+            api.runs[event] = []
+            with self.assertRaises(GateError):
+                ci_snapshot(api, SHA)
+
+    def test_latest_failure_and_active_old_run_block_success(self):
+        for event in ('push', 'pull_request'):
+            for status, conclusion in (('completed', 'failure'), ('queued', None)):
+                api = FakeAPI()
+                run = copy.deepcopy(api.runs[event][0])
+                run.update(id=99, created_at='2026-10-29', status=status, conclusion=conclusion)
+                api.runs[event].append(run)
+                with self.assertRaises(GateError):
+                    ci_snapshot(api, SHA)
+
+    def test_ambiguous_or_stale_pr_snapshot_holds(self):
+        for mutation in (
+                lambda a: a.pr.update(mergeable=None),
+                lambda a: a.pr.update(mergeable=False),
+                lambda a: a.pr['head'].update(sha=OLD),
+                lambda a: a.pr['base'].update(sha=OLD),
+                lambda a: a.pr['head']['repo'].update(full_name='fork/BAGI'),
+                lambda a: a.pr.update(merge_commit_sha=OLD),
+                lambda a: setattr(a, 'merge', OLD),
+                lambda a: setattr(a, 'parents', [BASE, OLD]),
+                lambda a: a.runs['pull_request'][0].update(pull_requests=[]),
+                lambda a: a.runs['pull_request'][0].update(pull_requests=[{'number': 2}]),
+                lambda a: a.runs['pull_request'][0].update(
+                    pull_requests=[{'number': 1}, {'number': 2}])):
+            api = FakeAPI()
+            mutation(api)
+            with self.assertRaises(GateError):
+                ci_snapshot(api, SHA)
+
+    def test_manifest_must_match_every_provenance_field(self):
+        for key in FakeAPI().manifest:
+            api = FakeAPI()
+            api.manifest[key] = 'wrong'
+            with self.assertRaisesRegex(GateError, 'artifact'):
+                ci_snapshot(api, SHA)
+
+    def test_rechecks_ci_after_research_artifact_download(self):
+        api = FakeAPI()
+        def changed_marker(_):
+            api.runs['push'][0]['status'] = 'queued'
+            return SHA
+        api.marker = changed_marker
+        with self.assertRaises(GateError):
+            inspect(api)
+
+    def test_missing_ci_manifest_holds(self):
+        api = FakeAPI()
+        def absent(_):
+            raise GateError('missing provenance')
+        api.ci_provenance = absent
+        with self.assertRaises(GateError):
+            inspect(api)
+
+    def test_ci_archive_requires_unique_unexpired_bounded_manifest(self):
+        api = object.__new__(Github)
+        run = {'id': 11, 'run_attempt': 1}
+        name = 'bagi-ci-provenance-11-1'
+        for entries in ([], [{'id': 1, 'name': name, 'expired': True}],
+                        [{'id': i, 'name': name, 'expired': False} for i in (1, 2)]):
+            api.request = lambda endpoint, entries=entries: {'artifacts': entries}
+            with self.assertRaises(GateError):
+                api.ci_provenance(run)
+        for filename, body, valid in (('ci_provenance.json', '{}', True),
+                                      ('wrong.json', '{}', False),
+                                      ('ci_provenance.json', 'x' * 4097, False)):
+            stream = io.BytesIO()
+            with zipfile.ZipFile(stream, 'w') as archive:
+                archive.writestr(filename, body)
+            def request(endpoint, binary=False, stream=stream):
+                if binary:
+                    return stream.getvalue()
+                return {'artifacts': [{'id': 1, 'name': name, 'expired': False}]}
+            api.request = request
+            if valid:
+                self.assertEqual(api.ci_provenance(run), json.loads(body))
+            else:
+                with self.assertRaises(GateError):
+                    api.ci_provenance(run)
