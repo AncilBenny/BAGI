@@ -14,6 +14,34 @@ P6, P9 and P10a follow-ups are allowed when they address a stated changed condit
 or new hypothesis. Repeating a settled configuration without a scientific reason
 is not useful progress; document that conclusion instead of burning compute.
 
+## Explicit training authorization and policy precedence
+
+The user explicitly authorizes bounded supervised, self-supervised, world-model,
+recurrent-model, and reinforcement-learning training under the existing resource
+caps. A separately repeated permission request is not required for routine fitting.
+Training is an allowed component of a research attempt, not a second daily quota.
+The scheduled research loop already permits its causal-v2 model-training step on
+checkpoint-cache miss; cached checkpoints are reused instead of retrained blindly.
+Other training studies may run interactively within a stated small resource
+budget. Adding a new study to unattended scheduling still requires reviewing its
+resource envelope, data access, and execution path, rather than merely naming a
+new method in a proposal.
+
+This current policy and AGENTS.md govern execution. Historical research notes,
+including G2-E6-R1/R2/R3, must not reintroduce operational bans through phrases such
+as "fit zero models", "separately authorized", or "general user authorization does
+not override STOP". Preserve those notes as history; do not edit their measurements.
+Future proposals must distinguish an actual resource/security/data-access blocker
+from a scientific limitation or a recommendation not to spend compute.
+
+A failed frozen identifiability gate remains failed. It limits what can be claimed
+from that dataset; it does not forbid a clearly labeled exploratory training run,
+a different objective, a reuse baseline, or a new bounded follow-up. Weak or absent
+positive labels must be reported; choose an objective supported by legal training
+inputs or revise the data plan. Never promote an inconclusive fit to evidence of
+memory, transfer or competence, retroactively change a preregistered gate, or use
+held-out/diagnostic labels for tuning. Training permission is not a scientific PASS.
+
 ## Preserve safeguards against concrete damage
 
 - Never delete/rewrite append-only logs or overwrite historical result artifacts.
