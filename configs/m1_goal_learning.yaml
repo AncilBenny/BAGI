@@ -1,0 +1,16 @@
+# BAGI-M1: first bounded public-action goal-success study.
+# A future runner review must approve execution; ordinary CI never trains.
+train_task: MiniGrid-MemoryS7-v0
+transfer_task: MiniGrid-MemoryS13Random-v0
+arms: [reactive, action4, frame4, recurrent]
+training_seeds: [17, 29]
+train_steps_per_arm_seed: 8192
+rollout_steps: 128
+batch_size: 64
+epochs_per_rollout: 2
+evaluation_seeds: [92001, 92002, 92003, 92004, 92005, 92006]
+transfer_seeds: [93001, 93002, 93003, 93004, 93005, 93006]
+max_eval_steps: 120
+max_total_training_steps: 65536
+max_total_evaluation_steps: 17280
+output_dir: runs/m1_goal_learning
