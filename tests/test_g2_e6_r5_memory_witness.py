@@ -13,7 +13,7 @@ from bagi.experiments.g2_e6_r5_memory_witness import (
     SOURCE_GIT_BLOB_SHA1,
     action_program,
 )
-from bagi.worlds.workshop import WorkshopEnv
+from bagi.worlds.workshop import KEY, WorkshopEnv
 
 LOOP_ACTIONS = (0, 2, 0, 2)  # From the approach: up, down, up, down.
 HISTORY_SUFFIX = len(LOOP_ACTIONS)
@@ -106,6 +106,11 @@ def test_source_only_lock_alias_and_four_step_history_control(
         # the SAME final four actual-command suffix actions, at the same spots.
         neg_trace, neg_end, neg_post = _source_only_trace(world, collect_key=False)
         pos_trace, pos_end, pos_post = _source_only_trace(world, collect_key=True)
+        # R8 negative control: merely having SEEN a public key is not evidence
+        # of possessing it. Both source-legal routes observe KEY before the
+        # lock; an ever-seen-KEY bit cannot separate their later effects.
+        assert any(KEY in np.frombuffer(obs, dtype=np.int8) for obs, _ in neg_trace)
+        assert any(KEY in np.frombuffer(obs, dtype=np.int8) for obs, _ in pos_trace)
         assert len(neg_trace) == len(pos_trace) == 11 + HISTORY_SUFFIX
         assert [action for _, action in neg_trace[-5:]] == [
             action for _, action in pos_trace[-5:]
