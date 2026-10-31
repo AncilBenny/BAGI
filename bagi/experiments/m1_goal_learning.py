@@ -30,6 +30,8 @@ TRAIN_STEPS = 8192
 MAX_TRAIN_TOTAL = 65536
 MAX_EVAL_TOTAL = 17280
 MAX_EVAL_EPISODE_STEPS = 120
+FROZEN_EVAL_SEEDS = (92001, 92002, 92003, 92004, 92005, 92006)
+FROZEN_TRANSFER_SEEDS = (93001, 93002, 93003, 93004, 93005, 93006)
 
 
 class PublicExecutedActions(gym.Wrapper):
@@ -117,6 +119,8 @@ def validate_config(c):
             raise ValueError("Registered research budget changed: " + name)
     train = set(c["training_seeds"])
     first, transfer = c.get("evaluation_seeds"), c.get("transfer_seeds")
+    if first != list(FROZEN_EVAL_SEEDS) or transfer != list(FROZEN_TRANSFER_SEEDS):
+        raise ValueError("Frozen evaluation or transfer seed set changed")
     if any(not isinstance(s, list) or len(s) != 6 or
            any(type(n) is not int for n in s) or len(set(s)) != 6
            for s in (first, transfer)):

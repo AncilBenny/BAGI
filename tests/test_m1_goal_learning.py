@@ -35,6 +35,8 @@ def test_frozen_budget_and_disjoint_splits():
         {"training_seeds": [17, 17]},
         {"max_total_evaluation_steps": 30000},
         {"transfer_seeds": [92001, 93002, 93003, 93004, 93005, 93006]},
+        {"evaluation_seeds": [92007, 92002, 92003, 92004, 92005, 92006]},
+        {"transfer_seeds": [93007, 93002, 93003, 93004, 93005, 93006]},
     ):
         with pytest.raises(ValueError):
             m1.validate_config({**config(), **override})
@@ -167,7 +169,7 @@ def test_native_goal_scoring_requires_termination_and_counts_resets():
         policy = DeterministicMockPolicy()
         summary = m1.evaluate_goal_agent(
             policy, "mock", [201, 202],
-            env_factory=lambda _task: m1.CountNativeSteps(env_class()),
+            env_factory=lambda _task, cls=env_class: m1.CountNativeSteps(cls()),
         )
         assert summary["successes"] == expected_success
         assert summary["episodes"] == 2
