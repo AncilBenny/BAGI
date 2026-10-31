@@ -22,7 +22,7 @@ VIEW_SIZES = (3, 5)
 PROGRAM_ACTIONS = 11
 MAX_NATIVE_ACTIONS = 176
 MAX_NATIVE_RESETS = 16
-SOURCE_GIT_BLOB_SHA1 = "3a91b058d3461ce4ec489e93939c88f624557f4"
+SOURCE_GIT_BLOB_SHA1 = "3a91b058d3461ce4ecb489e93939c88f624557f4"
 # Absolute movements: up=0, right=1, down=2, left=3.
 COMMON = (1, 1, 3, 3, 2, 2)  # Enter switch, then traverse the open door.
 WITH_KEY = (2, 2, 1, 1)     # Collect visible key, then approach lock.

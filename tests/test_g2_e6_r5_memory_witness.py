@@ -2,7 +2,17 @@
 
 import numpy as np
 
-from bagi.experiments.g2_e6_r5_memory_witness import action_program, run
+from bagi.experiments import g2_e5_p2_workshop_reachability_audit as p2
+from bagi.experiments.g2_e6_r5_memory_witness import (
+    SOURCE_GIT_BLOB_SHA1,
+    action_program,
+    run,
+)
+
+
+def test_source_pin_matches_verified_workshop():
+    p2.verify_source()
+    assert SOURCE_GIT_BLOB_SHA1 == p2.SOURCE_GIT_BLOB_SHA1
 
 
 def test_mirror_preserves_bounded_action_budget():
