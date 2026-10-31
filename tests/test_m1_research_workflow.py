@@ -29,6 +29,7 @@ def test_m1_and_legacy_reuse_exact_daily_quota_and_a_single_research_job():
         "inputs.study || 'legacy' }}"
     )
     assert "bagi_research_budget.py research" in str(jobs["budget"]["steps"])
+    assert jobs["research"]["env"]["BAGI_RESEARCH_SOURCE_SHA"] == "${{ needs.audit.outputs.research_sha }}"
     assert "ci_snapshot(api, sha)" in str(jobs["audit"]["steps"])
     assert "ci_snapshot(api, sha)" in str(jobs["research"]["steps"])
 

@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import os
+import subprocess
 import time
 from collections import deque
 from importlib.metadata import version
@@ -149,6 +150,16 @@ def count_optimizer_steps(agent):
     return count
 
 
+def admitted_source_commit():
+    """Bind M1 results to the actually checked-out, quota-admitted source."""
+    actual = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], text=True, timeout=5
+    ).strip()
+    if actual != os.environ.get("BAGI_RESEARCH_SOURCE_SHA"):
+        raise ValueError("M1 source commit does not match admitted research HEAD")
+    return actual
+
+
 def numeric_state(agent, path: Path):
     """Pure numeric state arrays; no unsafe pickle or SB3 archive deserialization."""
     if path.exists():
@@ -268,6 +279,7 @@ def run(config: Path, output: Path):
         raise FileExistsError("Refusing to overwrite previous M1 evidence")
     raw_config = config.read_bytes()
     c = validate_config(yaml.safe_load(raw_config))
+    source_commit = admitted_source_commit()
     if output.parent.as_posix() != c["output_dir"]:
         raise ValueError("Unregistered M1 output path")
     from sb3_contrib import RecurrentPPO
@@ -330,7 +342,7 @@ def run(config: Path, output: Path):
                     raise ValueError("Aggregate M1 native-action budget exceeded")
                 progress = {
                     "status": "partial_not_a_completed_study",
-                    "source_commit": os.environ.get("GITHUB_SHA", "unavailable"),
+                    "source_commit": source_commit,
                     "completed_models": len(records), "training_real_actions": training,
                     "evaluation_real_actions": evaluation,
                     "optimizer_step_calls": optimizer, "records": records,
@@ -348,7 +360,7 @@ def run(config: Path, output: Path):
     result = {
         "study": "BAGI-M1 goal learning using established PPO and recurrent PPO",
         "status": "exploratory_bounded_training",
-        "source_commit": os.environ.get("GITHUB_SHA", "unavailable"),
+        "source_commit": source_commit,
         "config_sha256": hashlib.sha256(raw_config).hexdigest(),
         "versions": {name: version(name) for name in
                      ("gymnasium", "minigrid", "stable-baselines3", "sb3-contrib")},

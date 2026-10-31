@@ -96,6 +96,7 @@ jobs:
     timeout-minutes: 45
     env:
       BAGI_RESEARCH_STUDY: ${{ inputs.study || 'legacy' }}
+      BAGI_RESEARCH_SOURCE_SHA: ${{ needs.audit.outputs.research_sha }}
     permissions:
       contents: read
       actions: read

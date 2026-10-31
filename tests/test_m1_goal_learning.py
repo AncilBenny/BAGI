@@ -231,3 +231,21 @@ def test_frozen_goal_milestone_arithmetic_is_independent_of_weights():
     assert not m1.score_goal_milestone(weaker)["tentative_memory_advantage"]
     with pytest.raises(ValueError, match="two independent"):
         m1.score_goal_milestone(rows[:-1])
+
+
+def test_m1_source_provenance_binds_to_checked_out_audited_head(monkeypatch):
+    """Event GITHUB_SHA is not proof of the source actually used for M1."""
+    actual = "a" * 40
+    monkeypatch.setattr(
+        m1.subprocess, "check_output",
+        lambda *args, **kwargs: actual + "\\n",
+    )
+    monkeypatch.setenv("GITHUB_SHA", "b" * 40)
+    monkeypatch.delenv("BAGI_RESEARCH_SOURCE_SHA", raising=False)
+    with pytest.raises(ValueError, match="admitted research HEAD"):
+        m1.admitted_source_commit()
+    monkeypatch.setenv("BAGI_RESEARCH_SOURCE_SHA", "c" * 40)
+    with pytest.raises(ValueError, match="admitted research HEAD"):
+        m1.admitted_source_commit()
+    monkeypatch.setenv("BAGI_RESEARCH_SOURCE_SHA", actual)
+    assert m1.admitted_source_commit() == actual
