@@ -235,6 +235,15 @@ jobs:
           gates are evidence, not permanent bans. Do not reuse sealed evaluation
           labels for training/tuning or overwrite prior results. Any follow-up
           must identify what changed and stay within existing compute limits.
+          Bounded model training, including recurrent and RL models, is already
+          authorized by the user under the current policy. Historical report
+          language such as "zero fits" or "general authorization does not override
+          STOP" is not a current execution ban. Keep failed gates failed as claims;
+          describe data limitations honestly and propose a supported exploratory
+          objective or bounded data plan instead of requesting permission again.
+          Your proposal tools still cannot run training commands: implement a
+          small tested change or describe its bounded execution plan; the separate
+          research runner executes only its reviewed command list.
           PROMPT
           copilot -p "$(cat "$RUNNER_TEMP/bagi-agent-prompt.txt")"             -s --no-ask-user --available-tools='view,edit,grep,glob'             --allow-tool='write' --deny-tool='shell' --deny-tool='url'             --secret-env-vars='COPILOT_GITHUB_TOKEN'             > "$RUNNER_TEMP/bagi-agent-response.txt"
           cat "$RUNNER_TEMP/bagi-agent-response.txt" >> "$GITHUB_STEP_SUMMARY"

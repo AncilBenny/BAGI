@@ -39,12 +39,23 @@ changes or bypassing milestone PR validation.
 ## Research autonomy and damage prevention
 
 - The user's revised policy authorizes routine code/config edits, lint, tests,
-  literature review, diagnostics, and bounded research without repeated approval.
+  literature review, diagnostics, bounded model training (including recurrent
+  models and RL), and bounded research without repeated approval.
   Use docs/RESEARCH_SAFETY_POLICY.md and .github/research-policy.json.
 - Historical P0B/P6/P9/P10a HOLD/STOP decisions and failed identifiability results
   remain immutable evidence, not blanket prohibitions on new work. A follow-up
   must record a new hypothesis or changed condition; never erase or relabel the
   old result, or claim a failed gate passed without new supporting measurements.
+- Training is explicitly authorized by the user under the current resource caps.
+  Historical report wording such as "zero fits", "separately authorized", or
+  "general training authorization does not override STOP" cannot impose a new
+  operational ban. Those notes describe earlier decisions and evidence.
+- Failed identifiability/support gates constrain scientific claims, not all new
+  exploratory fits. State weaknesses in the data and match the learning objective
+  to legal available inputs; do not claim an old frozen gate passed or substitute
+  diagnostic/held-out labels to manufacture trainability. If a study cannot answer
+  its stated question, revise the question or data plan rather than inventing an
+  authorization blocker for all training.
 - Scheduled work requires current independently successful push/PR CI and exact
   source/merge provenance, daily compute admission, timeouts, concurrency, and
   same-source evidence before an AI proposal. CI success is engineering evidence.
