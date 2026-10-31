@@ -1,0 +1,7 @@
+# REUSE-13: fixed expert labels and CPU-only established imitation.BC.
+# Only four previous actions differ from REUSE-10 class-balanced input.
+source_config: configs/xland_bc_class_balance.yaml
+training_tasks: [hold, near, putdown]
+training_labels: 256
+previous_action_count: 4
+output_dir: runs/xland_bc_action_history

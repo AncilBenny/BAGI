@@ -1,0 +1,9 @@
+# SHA256 is from the official upstream checkpoint Xet/LFS manifest.
+# Audit only: no SB3.load, torch.load or normalization-pickle loading.
+upstream:
+  repository: sb3/ppo-MiniGrid-DoorKey-5x5-v0
+  revision: 90b0f9903be52f016a4f9f378d027f441350444f
+  filename: ppo-MiniGrid-DoorKey-5x5-v0.zip
+  sha256: 8343ddfedf676da11b05407fabe3e8a5ede175a04ebc32731ab670ff713be5e2
+environment: MiniGrid-DoorKey-5x5-v0
+output_dir: runs/pretrained_checkpoint_audit

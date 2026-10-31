@@ -1,0 +1,125 @@
+{
+  "study": "G2-E5-P10a",
+  "status": "selection_preflight_only",
+  "source_artifact": 12588790887,
+  "source_zip_sha256": "aaf8eb011763bf47e1d196771e257eb13c4eb35294bbeed2b71757ade525f073",
+  "new_model_fits": 0,
+  "new_native_actions": 0,
+  "original_test_array_reads": 0,
+  "datasets": [
+    {
+      "name": "e1_xland_train",
+      "all_rows": 3244,
+      "interior_rows": 3064,
+      "tail_rows": 180,
+      "public_positive": 2019,
+      "source_groups": 15,
+      "early_terminal_tails": 30,
+      "folds": [
+        {
+          "held_fold": 0,
+          "shifted_train_rows": 1448,
+          "tail_swap_train_rows": 1448,
+          "held_rows": 1712,
+          "train_tails_added": 84,
+          "train_interiors_removed": 84,
+          "train_tails_by_action": [
+            22,
+            16,
+            8,
+            18,
+            13,
+            7
+          ],
+          "train_interiors_by_action": [
+            428,
+            285,
+            259,
+            135,
+            214,
+            127
+          ],
+          "removed_source_index_sha256": "c6c7626f7d84cb318b770be61cd1373efdd07a3e2eb5f51e492e929a81599c53"
+        },
+        {
+          "held_fold": 1,
+          "shifted_train_rows": 1616,
+          "tail_swap_train_rows": 1616,
+          "held_rows": 1532,
+          "train_tails_added": 96,
+          "train_interiors_removed": 96,
+          "train_tails_by_action": [
+            12,
+            21,
+            18,
+            23,
+            15,
+            7
+          ],
+          "train_interiors_by_action": [
+            475,
+            318,
+            281,
+            182,
+            202,
+            158
+          ],
+          "removed_source_index_sha256": "70fd03d25a9044b5c234736e9ea15e448b669be62b4e41e1afe506e7b2652d25"
+        }
+      ]
+    },
+    {
+      "name": "e1_workshop_train",
+      "all_rows": 200,
+      "interior_rows": 190,
+      "tail_rows": 10,
+      "public_positive": 121,
+      "source_groups": 10,
+      "early_terminal_tails": 0,
+      "folds": [
+        {
+          "held_fold": 0,
+          "shifted_train_rows": 95,
+          "tail_swap_train_rows": 95,
+          "held_rows": 100,
+          "train_tails_added": 5,
+          "train_interiors_removed": 5,
+          "train_tails_by_action": [
+            2,
+            1,
+            1,
+            1
+          ],
+          "train_interiors_by_action": [
+            18,
+            22,
+            28,
+            27
+          ],
+          "removed_source_index_sha256": "899cb6da844f5d09e64cb7e22da1bdd2ad639675701f0b6ba6e96437a9bfee00"
+        },
+        {
+          "held_fold": 1,
+          "shifted_train_rows": 95,
+          "tail_swap_train_rows": 95,
+          "held_rows": 100,
+          "train_tails_added": 5,
+          "train_interiors_removed": 5,
+          "train_tails_by_action": [
+            0,
+            3,
+            1,
+            1
+          ],
+          "train_interiors_by_action": [
+            20,
+            27,
+            24,
+            24
+          ],
+          "removed_source_index_sha256": "54e310d26420b86e68eb5dd1a5c797a8aa419b7ae0b8cf4d3a46a3ab6e1d6481"
+        }
+      ]
+    }
+  ]
+}

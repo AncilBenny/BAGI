@@ -1,0 +1,41 @@
+# G2-E3-P1 — Independently audited native PPO exploration result: FAIL / STOP
+
+**Date:** 2026-10-25. **Status:** native experiment completed; predeclared promotion gate FAILED on both seeds and both task families. This is a bounded negative result for episodic first-visit novelty under the frozen PPO setup, not evidence that all intrinsic exploration, memory, RL or continual learning fails. **Do not rerun, retune beta or promote the method using the same TEST seeds.**
+
+## Source, native experiment, and controls
+
+- Frozen experiment source on research branch `setup/initial-platform`: `07ea70549a88c509b633ae683aa96ce296b56d2b`; earlier preflight-only failures were software failures, with zero native actions, and are not scientific comparisons.
+- Native CPU GitHub Actions run [40207283092](https://github.com/AncilBenny/BAGI/actions/runs/40207283092), job `121210813390`: COMPLETE SUCCESS. Path-triggered once after the final preflight fix; 13/13 synthetic contract tests passed in that workflow before the true experiment. Push CI [40207283068](https://github.com/AncilBenny/BAGI/actions/runs/40207283068) and PR CI [40207287049](https://github.com/AncilBenny/BAGI/actions/runs/40207287049): SUCCESS. No duplicate native dispatch was conducted.
+- Authoritative GitHub Actions artifact **12604910475**, `bagi-g2-e3-p1-public-exploration`, ZIP SHA256 **`daa4879fa2cdf90b19b85408f21628c60e5b31551e49496f33d95f33b5597429`**. Independently downloaded ZIP hash equals GitHub artifact's published digest. Archive contains `summary.json` plus **16 numeric-only NPZ files** (8 TRAIN and 8 TEST), loaded with `numpy.load(..., allow_pickle=False)`. Native source and workflow inspected separately for actor observation and step-accounting boundary.
+- Matched maintained SB3 2.9.0 PPO MlpPolicy, model seeds 17 and 29, task-neutral public first-visit bonus beta **0.05** versus native-extrinsic-only PPO, equal 4,096 TRAIN actions per arm/seed/task, fresh TEST seed numbers Workshop16000..16009 on mirrored geometry, MiniGrid Empty17000..17009. Both arms use only 1-D flattened public image observations, with evaluator `info.events` withheld from policy/intrinsic reward. TEST is native reward only. No teacher queries or hidden composition labels.
+- **Exact execution:** **40,128 recorded real native environment steps** = **32,768 TRAIN** (8 arms ×4,096) + **7,360 TEST** (4 Workshop arms ×400; 4 MiniGrid arms ×1,440), 639 total TRAIN/TEST episodes, and **128 reported PPO updates per arm** (1,024 in total). There are **zero** new teacher queries. This count is audited from NPZ rows and episode summaries; archived traces cannot prove absence of unlogged external simulator calls.
+
+## True native goal completions, not novelty bonuses
+
+| Task | Seed | Control TRAIN rewarded goals | First-visit TRAIN rewarded goals | Control TEST goals | First-visit TEST goals |
+|---|---:|---:|---:|---:|---:|
+| Workshop default TRAIN, mirror_x TEST | 17 | 0/103 | 0/103 | 0/10 | 0/10 |
+| Workshop default TRAIN, mirror_x TEST | 29 | 0/103 | 0/103 | 0/10 | 0/10 |
+| MiniGrid Empty-6x6 | 17 | 20/40 | 8/32 | 0/10 | 0/10 |
+| MiniGrid Empty-6x6 | 29 | 20/38 | 20/37 | 0/10 | 0/10 |
+
+TRAIN episodes include the last partial budget-exhausted episode when applicable; a partial episode is not a goal. The positive TRAIN MiniGrid episodes represent **real native rewards with actual termination**, but do not demonstrate a successful **frozen greedy** learned policy: all TEST policies failed all ten episodes. In MiniGrid, control TRAIN totaled **40 rewarded goals**, novelty **28**, not an improvement.
+
+Each task × seed pairing has **0 novelty wins, 0 losses and 10 ties** on native TEST goal completion. The preregistered promotion requirement (>=2/10 net novelty wins for both seeds on at least one task, no losses on other task, and actual rewarded TRAIN in the improved task for both seeds) is **FAILED**. Workshop had no positive native TRAIN goal reward in any arm. `summary.json` records `promotion: false`.
+
+## Mechanism-level evidence, limitations, and independent verification
+
+- Workshop TRAIN evaluator-only stage-event totals (source summary, **not independently recoverable from public numeric arrays**): control seed17 switch48/key4/lock8 vs novelty seed17 switch83/key10/lock5; control seed29 switch45/key1/lock0 vs novelty seed29 switch74/key1/lock0. Combined: control switch93/key5/lock8; novelty switch157/key11/lock5. More switch/key encounters under novelty are *intermediate diagnostic coverage*, not completion or learned causal control.
+- In TEST, all four Workshop arms were 0/10. Control arms had 2 switch events per seed, novelty 0 per seed; no key or lock in any TEST arm. Frozen Workshop policy action choices were dominated by a single action (400/400 identical for 3 arms; 341/400 in the fourth). Repeating a fixed action does not establish goal-conditioned navigation.
+- MiniGrid-Empty-6x6 reset seeds **did not diversify the public starting condition**: every nominal TEST seed produced the SAME initial public observation; all 10 TEST episodes in each of four arms had the same archived trajectory SHA256, and all nominal TRAIN episodes also began with the same public observation across arms/seeds. Therefore the ten distinct seed numbers are **not ten independent layouts or starts**; MiniGrid does not provide a valid held-out generalization inference in this pilot. Treat TEST as repeated fixed-start diagnostic. Workshop TEST had 7 distinct initial public views across 10 nominal starts per arm, not 10 independent starts.
+- Independent audit: all **16 numeric NPZ traces** were safe finite arrays with legal action ranges and consistent rows; exactly **40,128** numeric action rows were present. Verified 639 per-episode trajectory SHA256 digests; all per-episode native rewards, intrinsic sums, steps, boundaries, legal actions, actual native rewarded terminations, registered reset-seed sequences, and summary counts matched. **All 7,360 frozen TEST actions were independently reproduced by NumPy from the saved PPO MLP numeric weights** and the public images, with zero mismatches. First-visit bonuses matched public-only per-episode novelty decisions. This is verification of the archive, NOT an independently rerun environment or proof that no calls were omitted from software outside the archived path.
+- Training-only novelty sum by Workshop seed17 **54.25**, seed29 **51.00**, MiniGrid seed17 **35.85**, seed29 **42.95**; zero intrinsic reward in all TEST arrays. Never treat those intrinsic bonuses or evaluator-only switch/key events as native game reward.
+- Proven negative result: the stated first-visit bonus did **not** increase frozen-policy native goal completion on either task or either seed under equal interaction budgets. It did reward intermediate Workshop exploration but did not solve sparse long-horizon outcomes. The MiniGrid fixed-start TEST problem is a separate evaluation-design limitation.
+
+## Scientific decision and reuse
+
+**STOP G2-E3-P1**, including TEST-seed-guided bonus retuning, extra seeds against the same frozen geometry, or further BLUE-specific escape tweaks. General problem remains learning task-independent belief/goal-conditioned control, effects/recovery, reusable skills, and transfer. Do not claim knowledge transfer just because the same PPO code was used separately in Workshop and MiniGrid.
+
+A *separate prospective* study should first establish a genuinely varying benchmark with independently distinct PUBLIC initial states and an established, validated learnt-policy baseline under meaningful sparse-reward coverage; then distinguish exploration coverage from public-history memory using maintained recurrent PPO or a vetted reference method at matched native real-step budgets and untouched new TEST environments. Do not propose a larger world-model/transfer sweep without first meeting prerequisite reward/competence and true distinct-start gates.
+
+**Audit reproducibility:** The independently downloaded ZIP, numeric audit JSON and standalone `bagi_g2e3_p1_independent_audit.py` were generated in the ChatGPT conversation and are available there. This repository note records hashes and exact checks to make subsequent re-audit possible. The audit itself used **zero** new native simulator steps, PPO updates, teacher queries or heldout probes.

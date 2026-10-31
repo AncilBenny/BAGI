@@ -1,0 +1,17 @@
+# REUSE-7: bounded training with unchanged upstream XLand recurrent PPO.
+# Pilot for integration/learning signal. NOT a science-ready PPO vs no-memory trial.
+environment: XLand-MiniGrid-R1-9x9
+upstream_training_dir: external/xland-minigrid/training
+training:
+  seed: 20261
+  num_envs: 4
+  steps_per_env: 64
+  steps_per_update: 16
+  num_minibatches: 2
+  real_steps: 8192
+  rnn_hidden_dim: 32
+  head_hidden_dim: 64
+evaluation:
+  seeds: [6800, 6801, 6802]
+  episode_cap: 40
+output_dir: runs/xland_upstream_recurrent_pilot

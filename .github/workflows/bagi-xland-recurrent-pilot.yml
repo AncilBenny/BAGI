@@ -1,0 +1,54 @@
+name: BAGI Reused XLand Recurrent PPO Pilot
+
+# Single bounded pilot; not scheduled and does not run for unrelated changes.
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_upstream_recurrent_pilot.py"
+      - "tests/test_xland_upstream_recurrent_pilot.py"
+      - "configs/xland_upstream_recurrent_pilot.yaml"
+      - ".github/workflows/bagi-xland-recurrent-pilot.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upstream-recurrent-ppo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+      WANDB_MODE: disabled
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install upstream XLand and upstream PPO trainer dependencies
+        run: |
+          python -m pip install "xminigrid[baselines]==0.9.3" "pyyaml>=6" "pytest>=8" "ruff>=0.6"
+      - name: Fetch PINNED upstream existing trainer, not model weights
+        run: |
+          git clone -q https://github.com/dunnolab/xland-minigrid.git external/xland-minigrid
+          git -C external/xland-minigrid checkout --detach -q 0d306d1414dcb6e451358d94e7d9a91879462ee1
+          test "$(git -C external/xland-minigrid rev-parse HEAD)" = "0d306d1414dcb6e451358d94e7d9a91879462ee1"
+      - name: Check exact budget and source contracts
+        run: |
+          ruff check bagi/experiments/xland_upstream_recurrent_pilot.py tests/test_xland_upstream_recurrent_pilot.py
+          python -m pytest -q tests/test_xland_upstream_recurrent_pilot.py
+      - name: Train existing RNN-PPO only on two primitive rules; evaluate held-out chain
+        run: |
+          python -m bagi.experiments.xland_upstream_recurrent_pilot --config configs/xland_upstream_recurrent_pilot.yaml
+      - name: Save actual measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-upstream-recurrent-pilot
+          path: runs/xland_upstream_recurrent_pilot/summary.json
+          retention-days: 30
+          if-no-files-found: warn

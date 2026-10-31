@@ -1,0 +1,29 @@
+{
+  "consumer_archive_contains_eval_rows": false,
+  "derivation_accessed_mixed_eval_arrays": true,
+  "derived_train_rows": 4096,
+  "fields": [
+    "observation",
+    "next_observation",
+    "action",
+    "episode_index",
+    "seed_index",
+    "actor_index"
+  ],
+  "numeric_npz_sha256": "12abe9ac3102367f5323b9faef78a440913c248ddb984f49a2075c25d90159a0",
+  "schema": "BAGI_E2_ACTOR0_PUBLIC_TRAIN_V1",
+  "selection": "actor_index==0",
+  "source_actor_counts": {
+    "0": 4096,
+    "1": 1600,
+    "2": 1600
+  },
+  "source_artifact_id": 12596191672,
+  "source_run_id": 40185492543,
+  "source_total_rows": 7296,
+  "source_zip_sha256": "b000a02a2eacfb8aa07befa151e0bbfb2c5bf7fd430f8bd896bd11f90f57436a",
+  "train_seed_counts": {
+    "0": 2048,
+    "1": 2048
+  }
+}

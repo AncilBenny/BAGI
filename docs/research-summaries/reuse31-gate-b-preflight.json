@@ -1,0 +1,41 @@
+{
+  "study": "REUSE-31 / Gate B correction-label provenance preflight",
+  "status": "verified",
+  "source_commit": "18586bb19a81795bfe6a8a642fbadfd1257eeffb",
+  "source_run_id": 39735997245,
+  "source_artifact_id": 12407282471,
+  "audit_commit": "bae78b6d15cf96bd9eab0dac8bb3d57be4bb658b",
+  "audit_run_id": 39863615792,
+  "audit_artifact_id": 12462508684,
+  "audit_artifact_zip_sha256": "c998fc9a88e1aa1b612be32805791adb2c886915dd2e226f0a32678a25fa2788",
+  "model_training_seed": 29,
+  "planner_seed": null,
+  "historical_reuse30_native_steps": 114,
+  "historical_reuse30_teacher_queries": 20,
+  "new_native_steps": 0,
+  "new_teacher_queries": 0,
+  "new_model_training_steps": 0,
+  "heldout_teacher_queries": 0,
+  "learner_visited_checkpoint_labels": 2,
+  "expert_controlled_continuation_labels": 18,
+  "correction_labels_total": 20,
+  "combined_reuse29_30_learner_checkpoint_labels": 3,
+  "combined_reuse29_30_teacher_labels": 40,
+  "archived_public_observation_rows": 0,
+  "action_label_counts": {
+    "0": 10,
+    "1": 4,
+    "2": 2,
+    "3": 2,
+    "4": 2,
+    "5": 0
+  },
+  "stage_label_counts": {
+    "seek_square": 11,
+    "carrying_square": 9
+  },
+  "teacher_assisted_physical_successes": 2,
+  "learner_only_physical_successes": 0,
+  "interpretation": "Verified source-state provenance, not learned competence or a ready-to-train matched dataset.",
+  "next_measurement": "Collect paired 20-query train-only correction/reset legal-public-observation datasets under fixed seeds and equal real-interaction accounting before retraining; test physical BLUE placement on fresh nonadjacent layouts and hold/near retention."
+}

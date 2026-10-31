@@ -1,0 +1,10 @@
+# REUSE-26: validate whether learner putdown REWARD entailed any placement.
+environment: XLand-MiniGrid-R1-9x9
+task: putdown
+policy_model_seed: 29
+learner_success_layout_seed: 9604
+source_recovery_run_id: 39649325255
+source_dir: runs/reuse25_native_trace
+episode_cap: 40
+heldout_teacher_queries: 0
+output_dir: runs/xland_putdown_reward_validity

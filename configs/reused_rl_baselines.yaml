@@ -1,0 +1,13 @@
+# REUSE-1. Reproduce existing algorithms on independently seeded Farama benchmarks.
+# Integration smoke test, NOT a claim of learned general intelligence.
+tasks:
+  - MiniGrid-MemoryS13Random-v0
+  - MiniGrid-DoorKey-6x6-v0
+training_seeds: [17]
+train_steps: 512
+rollout_steps: 64
+batch_size: 32
+epochs_per_rollout: 1
+evaluation_seed_base: 82000
+evaluation_episodes: 3
+output_dir: runs/reused_rl_baselines

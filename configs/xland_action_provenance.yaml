@@ -1,0 +1,14 @@
+# REUSE-19: teacher labels vs ACTUALLY executed learner actions in DAgger.
+# Original two seeded REUSE-15 rounds, no heldout task and no evaluation.
+environment: XLand-MiniGrid-R1-9x9
+training_tasks: [hold, near, putdown]
+model_seeds: [17, 29]
+training_seed_base: 7500
+cap: 40
+rollout_min_steps: 256
+round_min_steps: 128
+round_min_episodes: 3
+bc_epochs: 4
+batch_size: 32
+max_online_steps_per_model: 400
+output_dir: runs/xland_action_provenance

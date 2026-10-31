@@ -1,0 +1,5 @@
+# REUSE-11: regenerate the identical REUSE-10 train-only expert pool.
+# Diagnostic only: do not retrain BC or inspect the held-out oracle.
+source_config: configs/xland_bc_class_balance.yaml
+training_tasks: [hold, near, putdown]
+output_dir: runs/xland_observation_aliasing

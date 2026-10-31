@@ -1,0 +1,8 @@
+# REUSE-14: train-only corrective expert feasibility before DAgger.
+# No learner is trained, and no held-out chain state/label is queried.
+environment: XLand-MiniGrid-R1-9x9
+training_tasks: [hold, near, putdown]
+seeds: [7300, 7301, 7302]
+episode_cap: 40
+modes: [weak_turn, weak_putdown, post_event]
+output_dir: runs/xland_dagger_teacher_feasibility

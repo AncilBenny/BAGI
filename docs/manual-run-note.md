@@ -1,0 +1,1 @@
+The BAGI Research Loop also supports GitHub Actions `workflow_dispatch`, so it can be started manually from the Actions UI when an immediate research run is desired. The scheduled run remains the default and does not require a local computer or Codespace.
