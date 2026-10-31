@@ -238,7 +238,7 @@ def test_m1_source_provenance_binds_to_checked_out_audited_head(monkeypatch):
     actual = "a" * 40
     monkeypatch.setattr(
         m1.subprocess, "check_output",
-        lambda *args, **kwargs: actual + "\\n",
+        lambda *args, **kwargs: actual + "\n",
     )
     monkeypatch.setenv("GITHUB_SHA", "b" * 40)
     monkeypatch.delenv("BAGI_RESEARCH_SOURCE_SHA", raising=False)
