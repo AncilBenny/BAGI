@@ -1,8 +1,8 @@
 """M1 contracts: public executed actions, caps and safe output, no live RL fit."""
+import gymnasium as gym
 import numpy as np
 import pytest
 import torch
-import gymnasium as gym
 from gymnasium.spaces import Box, Discrete
 
 from bagi.experiments import m1_goal_learning as m1
@@ -123,3 +123,23 @@ def test_numeric_policy_exports_no_pickle(tmp_path):
 def test_unknown_task_is_rejected_before_env_creation():
     with pytest.raises(ValueError):
         m1.make_task("MiniGrid-HiddenOracle-v0", "recurrent")
+
+
+def test_memory_arms_have_distinct_public_control_inputs_without_steps():
+    """Reactive and recurrent see only image; action4 and frame4 add legal history."""
+    environments = {}
+    try:
+        for arm in m1.ARMS:
+            environments[arm] = m1.make_task(m1.TRAIN_TASK, arm)
+        shapes = {arm: env.observation_space.shape for arm, env in environments.items()}
+        image_width = 7 * 7 * 3  # Standard MiniGrid local public image.
+        n_actions = environments["action4"].action_space.n
+        assert shapes["reactive"] == (image_width,)
+        assert shapes["recurrent"] == (image_width,)
+        assert shapes["action4"] == (image_width + 4 * (n_actions + 1),)
+        assert shapes["frame4"] == (4 * image_width,)
+        assert all(env.native_steps == 0 and env.native_resets == 0
+                   for env in environments.values())
+    finally:
+        for env in environments.values():
+            env.close()

@@ -40,7 +40,7 @@ class PublicExecutedActions(gym.Wrapper):
     def __init__(self, env, history_length: int):
         super().__init__(env)
         if not isinstance(env.action_space, gym.spaces.Discrete):
-            raise ValueError("Requires a discrete action space")
+            raise TypeError("Requires a discrete action space")
         if len(env.observation_space.shape) != 1 or history_length not in (1, 4):
             raise ValueError("Requires flat image and frozen 1/4 history length")
         self.n_actions = int(env.action_space.n)
@@ -97,7 +97,8 @@ def make_task(task: str, arm: str):
     env = gym.make(task)
     env = gym.wrappers.TimeLimit(env, max_episode_steps=MAX_EVAL_EPISODE_STEPS)
     env = FlattenObservation(ImgObsWrapper(env))
-    env = PublicExecutedActions(env, 4 if arm == "action4" else 1)
+    if arm == "action4":
+        env = PublicExecutedActions(env, 4)
     if arm == "frame4":
         env = FlattenObservation(FrameStackObservation(env, stack_size=4))
     return CountNativeSteps(env)
@@ -173,8 +174,8 @@ def run(config: Path, output: Path):
     c = validate_config(yaml.safe_load(raw_config))
     if output.parent.as_posix() != c["output_dir"]:
         raise ValueError("Unregistered M1 output path")
-    from stable_baselines3 import PPO
     from sb3_contrib import RecurrentPPO
+    from stable_baselines3 import PPO
 
     torch.set_num_threads(1)
     for arm in ARMS:
