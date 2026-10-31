@@ -23,8 +23,6 @@ from gymnasium.spaces import Box
 from gymnasium.wrappers import FlattenObservation, FrameStackObservation
 from minigrid.wrappers import ImgObsWrapper
 
-from bagi.experiments.reused_rl_baselines import evaluate_agent
-
 TRAIN_TASK = "MiniGrid-MemoryS7-v0"
 TRANSFER_TASK = "MiniGrid-MemoryS13Random-v0"
 ARMS = ("reactive", "action4", "frame4", "recurrent")
@@ -167,9 +165,103 @@ def numeric_state(agent, path: Path):
             "members": entries, "allow_pickle": False}
 
 
+def evaluate_goal_agent(agent, task, evaluation_seeds, env_factory):
+    """Native goal success requires positive reward AND actual termination."""
+    results = []
+    for seed in evaluation_seeds:
+        env = env_factory(task)
+        try:
+            env.action_space.seed(seed)
+            observation, _ = env.reset(seed=seed)
+            lstm_states = None
+            episode_start = np.array([True], dtype=bool)
+            total_reward = 0.0
+            terminated = truncated = False
+            steps = 0
+            for _ in range(MAX_EVAL_EPISODE_STEPS):
+                action, lstm_states = agent.predict(
+                    observation, state=lstm_states,
+                    episode_start=episode_start, deterministic=True,
+                )
+                observation, reward, terminated, truncated, _ = env.step(
+                    int(np.asarray(action).item())
+                )
+                total_reward += float(reward)
+                steps += 1
+                if terminated or truncated:
+                    break
+                episode_start[:] = False
+            if not (terminated or truncated):
+                raise ValueError("Evaluation did not terminate within the frozen cap")
+            if env.native_steps != steps or env.native_resets != 1:
+                raise ValueError("Native evaluation action/reset count disagreement")
+            results.append({
+                "seed": seed, "reward": total_reward,
+                "goal_success": int(bool(terminated) and total_reward > 0.0),
+                "terminated": bool(terminated), "truncated": bool(truncated),
+                "evaluation_real_steps": steps,
+                "evaluation_real_resets": env.native_resets,
+            })
+        finally:
+            env.close()
+    return {
+        "episodes": len(results),
+        "successes": sum(row["goal_success"] for row in results),
+        "mean_reward": sum(row["reward"] for row in results) / len(results),
+        "evaluation_real_steps": sum(row["evaluation_real_steps"] for row in results),
+        "evaluation_real_resets": sum(row["evaluation_real_resets"] for row in results),
+        "episode_results": results,
+    }
+
+
+def score_goal_milestone(records):
+    """Post-hoc arithmetic on frozen goal metrics; no training/selection."""
+    arms = {}
+    for arm in ARMS:
+        rows = [row for row in records if row["arm"] == arm]
+        if len(rows) != 2 or {row["model_seed"] for row in rows} != {17, 29}:
+            raise ValueError("Expected two independent model seeds for each arm")
+        before = sum(row["before"]["successes"] for row in rows)
+        after = sum(row["after"]["successes"] for row in rows)
+        transfer = sum(row["transfer"]["successes"] for row in rows)
+        arms[arm] = {
+            "before_goals_of_12": before,
+            "after_goals_of_12": after,
+            "transfer_goals_of_12": transfer,
+            "tentative_learning_pass": (
+                after >= 6 and after - before >= 4
+                and all(row["after"]["successes"] >= 1 for row in rows)
+            ),
+        }
+    recurrent = arms["recurrent"]
+    strongest_control = max(arms[arm]["after_goals_of_12"] for arm in ARMS[:-1])
+    strongest_transfer = max(
+        arms[arm]["transfer_goals_of_12"] for arm in ARMS[:-1]
+    )
+    return {
+        "per_arm": arms,
+        "recurrent_post_minus_best_control": (
+            recurrent["after_goals_of_12"] - strongest_control
+        ),
+        "recurrent_transfer_minus_best_control": (
+            recurrent["transfer_goals_of_12"] - strongest_transfer
+        ),
+        "tentative_memory_advantage": bool(
+            recurrent["tentative_learning_pass"]
+            and recurrent["after_goals_of_12"] - strongest_control >= 3
+        ),
+        "tentative_size_transfer": bool(
+            recurrent["tentative_learning_pass"]
+            and recurrent["transfer_goals_of_12"] >= 3
+            and recurrent["transfer_goals_of_12"] - strongest_transfer >= 2
+        ),
+        "note": "Small N=12 pilot gates; independent replication required.",
+    }
+
+
 def run(config: Path, output: Path):
-    if output.exists():
-        raise FileExistsError("Refusing to overwrite M1 results")
+    if output.exists() or (output.parent / "progress.json").exists():
+        raise FileExistsError("Refusing to overwrite previous M1 evidence")
     raw_config = config.read_bytes()
     c = validate_config(yaml.safe_load(raw_config))
     if output.parent.as_posix() != c["output_dir"]:
@@ -208,12 +300,12 @@ def run(config: Path, output: Path):
                 )
                 count = count_optimizer_steps(agent)
                 factory = lambda task, arm=arm: make_task(task, arm)
-                before = evaluate_agent(agent, TRAIN_TASK, c["evaluation_seeds"], factory)
+                before = evaluate_goal_agent(agent, TRAIN_TASK, c["evaluation_seeds"], factory)
                 agent.learn(total_timesteps=TRAIN_STEPS)
                 if agent.num_timesteps != TRAIN_STEPS or env.native_steps != TRAIN_STEPS:
                     raise ValueError("Native training action budget mismatch")
-                after = evaluate_agent(agent, TRAIN_TASK, c["evaluation_seeds"], factory)
-                transfer = evaluate_agent(agent, TRANSFER_TASK, c["transfer_seeds"], factory)
+                after = evaluate_goal_agent(agent, TRAIN_TASK, c["evaluation_seeds"], factory)
+                transfer = evaluate_goal_agent(agent, TRANSFER_TASK, c["transfer_seeds"], factory)
                 total_eval = sum(x["evaluation_real_steps"] for x in
                                  (before, after, transfer))
                 state = numeric_state(agent, output.parent / f"{arm}-seed{seed}.npz")
@@ -232,6 +324,16 @@ def run(config: Path, output: Path):
                 optimizer += count["calls"]
                 if training > MAX_TRAIN_TOTAL or evaluation > MAX_EVAL_TOTAL:
                     raise ValueError("Aggregate M1 native-action budget exceeded")
+                progress = {
+                    "status": "partial_not_a_completed_study",
+                    "source_commit": os.environ.get("GITHUB_SHA", "unavailable"),
+                    "completed_models": len(records), "training_real_actions": training,
+                    "evaluation_real_actions": evaluation,
+                    "optimizer_step_calls": optimizer, "records": records,
+                }
+                (output.parent / "progress.json").write_text(
+                    json.dumps(progress, indent=2) + "\n", encoding="utf-8"
+                )
                 print(f"{arm} seed={seed}: {before['successes']}/6 -> "
                       f"{after['successes']}/6; transfer={transfer['successes']}/6")
             finally:
@@ -246,7 +348,8 @@ def run(config: Path, output: Path):
         "config_sha256": hashlib.sha256(raw_config).hexdigest(),
         "versions": {name: version(name) for name in
                      ("gymnasium", "minigrid", "stable-baselines3", "sb3-contrib")},
-        "records": records, "training_real_actions": training,
+        "records": records, "milestone_pilot_gates": score_goal_milestone(records),
+        "training_real_actions": training,
         "evaluation_real_actions": evaluation,
         "optimizer_step_calls": optimizer, "teacher_queries": 0,
         "elapsed_seconds": round(time.monotonic()-started, 3),

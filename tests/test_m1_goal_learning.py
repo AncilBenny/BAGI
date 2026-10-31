@@ -143,3 +143,89 @@ def test_memory_arms_have_distinct_public_control_inputs_without_steps():
     finally:
         for env in environments.values():
             env.close()
+
+class DeterministicMockPolicy:
+    def __init__(self):
+        self.starts = []
+
+    def predict(self, _observation, *, state, episode_start, deterministic):
+        assert deterministic
+        self.starts.append((bool(episode_start[0]), state))
+        return np.array(0), ("state_from_last_action",)
+
+
+class PositiveTruncated(TinyPublic):
+    """Positive public reward without terminated goal must NOT count."""
+
+    def step(self, action):
+        observation, reward, terminated, _, info = super().step(action)
+        return observation, reward, False, terminated, info
+
+
+def test_native_goal_scoring_requires_termination_and_counts_resets():
+    for env_class, expected_success in ((TinyPublic, 2), (PositiveTruncated, 0)):
+        policy = DeterministicMockPolicy()
+        summary = m1.evaluate_goal_agent(
+            policy, "mock", [201, 202],
+            env_factory=lambda _task: m1.CountNativeSteps(env_class()),
+        )
+        assert summary["successes"] == expected_success
+        assert summary["episodes"] == 2
+        assert summary["evaluation_real_steps"] == 4
+        assert summary["evaluation_real_resets"] == 2
+        assert policy.starts == [
+            (True, None), (False, ("state_from_last_action",)),
+            (True, None), (False, ("state_from_last_action",)),
+        ]
+        assert all(row["reward"] == 1.0 for row in summary["episode_results"])
+
+
+def test_training_and_transfer_observation_contracts_match_without_native_actions():
+    for arm in m1.ARMS:
+        train = m1.make_task(m1.TRAIN_TASK, arm)
+        transfer = m1.make_task(m1.TRANSFER_TASK, arm)
+        try:
+            assert train.observation_space.shape == transfer.observation_space.shape
+            assert train.action_space == transfer.action_space
+            assert train.native_steps == train.native_resets == 0
+            assert transfer.native_steps == transfer.native_resets == 0
+        finally:
+            train.close()
+            transfer.close()
+
+
+def test_command_cannot_train_outside_admitted_research_job(monkeypatch):
+    import sys
+
+    monkeypatch.setattr(sys, "argv", [
+        "m1_goal_learning", "--execute-budgeted-research",
+    ])
+    monkeypatch.setenv("BAGI_M1_ADMITTED", "1")
+    monkeypatch.setenv("GITHUB_WORKFLOW", "BAGI Research Loop")
+    monkeypatch.setenv("GITHUB_JOB", "test")
+    with pytest.raises(SystemExit, match="quota-admitted research job"):
+        m1.main()
+
+def test_frozen_goal_milestone_arithmetic_is_independent_of_weights():
+    rows = []
+    for arm in m1.ARMS:
+        for seed in (17, 29):
+            rows.append({
+                "arm": arm, "model_seed": seed,
+                "before": {"successes": 0},
+                "after": {"successes": 3 if arm == "recurrent" else 1},
+                "transfer": {"successes": 2 if arm == "recurrent" else 0},
+            })
+    score = m1.score_goal_milestone(rows)
+    assert score["per_arm"]["recurrent"]["after_goals_of_12"] == 6
+    assert score["per_arm"]["recurrent"]["tentative_learning_pass"]
+    assert score["recurrent_post_minus_best_control"] == 4
+    assert score["tentative_memory_advantage"]
+    assert score["tentative_size_transfer"]
+    weaker = [
+        {**row, "after": {"successes": 0}, "transfer": {"successes": 0}}
+        if row["arm"] == "recurrent" else row for row in rows
+    ]
+    assert not m1.score_goal_milestone(weaker)["tentative_memory_advantage"]
+    with pytest.raises(ValueError, match="two independent"):
+        m1.score_goal_milestone(rows[:-1])
