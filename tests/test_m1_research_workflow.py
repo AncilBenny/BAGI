@@ -74,3 +74,35 @@ def test_outputs_preserve_source_provenance_partial_evidence_and_study_cache():
     assert "env.BAGI_RESEARCH_STUDY" in steps.get(
         "Reuse any successful evaluation of this exact revision", restore
     )["with"]["key"]
+
+
+def test_dispatch_guard_rejects_missing_study_before_budgeted_work():
+    import os
+    import subprocess
+    import sys
+
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["audit"]["steps"]
+    guard = next(row for row in steps
+                 if row.get("name") == "Fail closed on missing or unknown manual study")
+    assert guard["env"]["BAGI_DISPATCH_STUDY"] == "${{ inputs.study }}"
+    assert guard["run"] == "python3 scripts/bagi_research_dispatch.py"
+    assert steps.index(guard) < next(i for i, row in enumerate(steps)
+                                     if row.get("id") == "verify")
+    script = WORKFLOW.parents[2] / "scripts" / "bagi_research_dispatch.py"
+    cases = (
+        ("schedule", "", "refs/heads/main", True),
+        ("workflow_dispatch", "legacy", "refs/heads/setup/initial-platform", True),
+        ("workflow_dispatch", "m1", "refs/heads/setup/initial-platform", True),
+        ("workflow_dispatch", "", "refs/heads/setup/initial-platform", False),
+        ("workflow_dispatch", "unregistered", "refs/heads/setup/initial-platform", False),
+        ("workflow_dispatch", "m1", "refs/heads/main", False),
+        ("push", "m1", "refs/heads/setup/initial-platform", False),
+    )
+    for event, study, ref, admitted in cases:
+        env = {**os.environ, "GITHUB_EVENT_NAME": event,
+               "BAGI_DISPATCH_STUDY": study, "GITHUB_REF": ref}
+        run = subprocess.run([sys.executable, str(script)], env=env,
+                             capture_output=True, text=True, timeout=5, check=False)
+        assert (run.returncode == 0) is admitted
+        assert ("BAGI research dispatch HOLD" in run.stderr) is not admitted
