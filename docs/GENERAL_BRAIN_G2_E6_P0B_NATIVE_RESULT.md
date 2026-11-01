@@ -1,0 +1,35 @@
+# G2-E6-P0B — independently audited first-and-only native Workshop acquisition (2026-10-28 IST)
+
+**Disposition: source integrity PASS; frozen learned-behavior eligibility PASS; within-size history identifiability HOLD. No P1 fit authorized.** This is a preregistered public-observation source-eligibility audit, **not** learned belief, goal competence, cross-size transfer, cross-domain transfer, or a general brain. XLand BLUE is unrelated evaluator-only context.
+
+## Immutable execution and independent artifact provenance
+
+- Research-only source commit `1751989016ed14a82bfe110e27ec9a711c1be14f`; native one-shot push workflow run `40578403185`, preflight job `122450932302`, native job `122452228930`, all COMPLETE SUCCESS on 2026-10-27 UTC. Push CI `40578403190` and PR CI `40578409503` both COMPLETE SUCCESS. The one-shot artifact ID is `12768976012`, `bagi-g2-e6-p0b-first-and-only-native-acquisition`.
+- Independently downloaded numeric-only workflow artifact outer ZIP SHA256 `182466a08a646b7f6d62a2b95a82f0a0c20e10d4313d71959e6ac840669cc7e3`; its nested four-member source ZIP SHA256 `fcdaaa9b3aa0f08d4c3ae350f291cefb1ae04921a299893b16d08be928a4f5dc`. Both ZIP/member manifests and all three inner NPZ SHA256 values match; `np.load(allow_pickle=False)`, only allowlisted numeric arrays, no unsafe deserialization.
+- Native source blobs verified from the research branch: Workshop `3a91b058d3461ce4ecb489e93939c88f624557f4`, DQN `4c5fac098e53e9c81884d36e14b894679b40513d`. No changes to actor source, network, optimizer, preregistered thresholds, split, or one-shot authorization.
+- Artifact summary and independently replayed per-step trace digests agree for **all 496 episodes**; 19,712 recorded native step returns, **8,192 TRAIN** and **11,520 frozen diagnostic**, 496 resets, zero exceptions/unrecorded returns, **8,066 actual optimizer returns** (4,033 per seed), zero teacher queries, zero size13 calls. Runtime reported 17.028 seconds. Four TRAIN episodes are intentionally budget-limited eight-step partial finals (one per seed×size), not mistaken for terminal successes. All 288 diagnostic episodes ran 40 steps. Every within-episode pre/post observation chain, step index, episode metadata, native reward and 496 trajectory SHA256 hashes was checked. Independently recomputed four numeric network-weight digests and **all 7,680 trained/untrained greedy diagnostic decisions** from archived 25→128→128→4 weights using NumPy (exact parity); random controls were not mislabeled as greedy.
+
+## Frozen preregistered eligibility gates (trained arm, 24 episodes and 960 actions per seed×size)
+
+| Model seed × Workshop size | Distinct initial public views (default / mirror) | Changed / unchanged public transitions | Executed actions 0/1/2/3 | Second-largest action fraction | Trained vs same-initialization untrained argmax differs |
+| --- | --- | --- | --- | --- | --- |
+| 17 × 9 | 9 / 9 | 532 / 428 | 216 / 207 / 332 / 205 | 22.50% | 755/960 = 78.65% |
+| 17 × 11 | 8 / 8 | 684 / 276 | 177 / 241 / 291 / 251 | 26.15% | 709/960 = 73.85% |
+| 29 × 9 | 9 / 9 | 452 / 508 | 83 / 203 / 353 / 321 | 33.44% | 874/960 = 91.04% |
+| 29 × 11 | 8 / 8 | 416 / 544 | 83 / 177 / 386 / 314 | 32.71% | 873/960 = 90.94% |
+
+All four seed×size groups meet the **predeclared descriptive** minimums: ≥6 distinct initial views per layout, ≥10 changed and unchanged public transitions, ≥2 action categories with the second ≥5%, and ≥5% trained-vs-untrained action disagreement. Action disagreement proves different greedy decisions after weight updates, **not** useful task learning.
+
+## Falsifiable history gate: one size fails
+
+Using only frozen trained-actor records, key = `(current public 5×5 view, actually executed action)`, outcome = `next public 5×5 view`. A qualifying pair additionally requires different independent episode IDs, different preceding **two** public-view histories, and nonterminal transitions (steps 2..38); sizes are never pooled. Size **9**: 24 distinct eligible keys, **0** keys with different next public outcomes, **0** qualifying pairs; even when including all 40 episode steps, 43 keys and **0** outcome conflicts. Size **11**: 28 eligible keys, **1** conflicting key and at least **1** qualifying cross-episode pair (seed17/default, episode IDs 176 and 178, reset seeds 19000 and 19002, executed action 3). With early steps included, three size11 keys conflict; these do not rescue size9. Exploratory TRAIN has 2/155 conflicting current-view/action keys at size9 and 7/173 at size11, but those are **not frozen learned-policy eligibility evidence** and are not a reason to override the preregistration.
+
+Therefore **P0B history identifiability HOLD**, despite source-integrity and behavior-source PASS. The frozen learned policy has not supplied a within-size history-dependent outcome contrast on **both** required sizes. Do not train P1, adjust the gate post hoc, rerun the one-shot acquisition, substitute random/untrained trajectories, or touch size13 to force a positive. Any future TRAIN-only hypothesis needs a *new* prospective, independently justified decision gate; no unregistered fit is authorized here.
+
+## Native task outcomes and limits
+
+**Zero native rewards, zero goal terminations and zero goal completions** across all 8,192 TRAIN and 11,520 diagnostic actions, all seeds/sizes/layouts/arms. In 96 trained diagnostic episodes there were 25 switch-activation events but **zero key pickups or lock openings**. Across the 96 matched untrained episodes there were 14 switch events and zero key/lock events; 96 random episodes had 58 switch events, two key pickups and four lock events, but zero goal completions. TRAIN exploratory episodes did produce 174 switch events, 33 key pickups and five lock events; none reached the goal. Evaluator event counts are summary-only and never actor inputs or learning targets. These are limited within-two-geometry source measurements, not demonstrated navigation, useful reward learning, goal-conditioned control, or transfer.
+
+## Research decision and next bounded step
+
+Reuse existing Workshop DQN, numeric public-only transition records and established POMDP/GRU/next-view modeling methods rather than adding a task-specific heuristic or novel network. The unresolved BAGI question is whether **legal public observation history** predicts action outcomes beyond matched reactive, action-only, persistence and shuffled-history controls on independent source episodes and eventually unrelated domains. P6 action-only history and P10a terminal-label experiments previously STOP; this artifact does not reverse those results. Preserve P6/P10a STOP and P9 native HARD STOP. **Do not launch another native P0B workflow or fit P1 under the failed gate.** Next iteration may perform a *read-only TRAIN-only coverage/causal-support audit* and preregister a genuinely discriminative, source-disjoint future test without opening diagnostic arrays for fitting, reserving untouched size13, or relaxing the registered gates. This commit is documentation-only and uses zero new simulator actions, optimizer updates, expert queries, or workflows.

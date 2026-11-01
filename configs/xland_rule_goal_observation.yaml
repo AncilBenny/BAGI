@@ -1,0 +1,7 @@
+# REUSE-20: upstream observation-boundary audit, not model training.
+environment: XLand-MiniGrid-R1-9x9
+train_tasks: [hold, near, putdown]
+comparison_task: hold_then_near
+audit_seeds: [9300, 9301, 9302]
+step_budget: 0
+output_dir: runs/xland_rule_goal_observation

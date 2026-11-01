@@ -1,0 +1,17 @@
+# Gate A2: evaluation-only coverage of reachable Workshop states.
+environment:
+  size: 9
+  max_steps: 100
+  view_size: 5
+training_data:
+  transitions: runs/sample_efficiency_causal_v2/guided_050/data/transitions.jsonl
+  training_seed: 42
+  validation_fraction: 0.2
+model:
+  actions: 4
+  cell_values: 9
+  hidden: 192
+  checkpoint: runs/sample_efficiency_causal_v2/guided_050/world_model/world_model.pt
+evaluation:
+  max_states: 512
+  output_dir: runs/reachable_state_holdout

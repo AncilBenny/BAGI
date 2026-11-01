@@ -30,10 +30,18 @@ class ScheduledSafetyTests(unittest.TestCase):
                 audit = data['jobs']['audit']
                 self.assertEqual(audit['permissions'], {'contents': 'read', 'actions': 'read'})
                 self.assertEqual(audit['timeout-minutes'], 5)
-                self.assertEqual(len(audit['steps']), 2)
+                expected_steps = 3 if filename == 'bagi-research-loop.yml' else 2
+                self.assertEqual(len(audit['steps']), expected_steps)
                 self.assertEqual(audit['steps'][0]['uses'], 'actions/checkout@v4')
                 self.assertFalse(audit['steps'][0]['with']['persist-credentials'])
-                code = audit['steps'][1]['run']
+                if filename == 'bagi-research-loop.yml':
+                    guard = audit['steps'][1]
+                    self.assertEqual(guard['name'],
+                                     'Fail closed on missing or unknown manual study')
+                    self.assertEqual(guard['run'], 'python3 scripts/bagi_research_dispatch.py')
+                    self.assertEqual(guard['env']['BAGI_DISPATCH_STUDY'],
+                                     '${{ inputs.study }}')
+                code = audit['steps'][-1]['run']
                 self.assertIn('ci_snapshot(api, sha)', code)
                 self.assertIn('this does not establish scientific progress', code)
                 for forbidden in ('subprocess', 'pip install', 'make ', 'copilot ', 'git push'):

@@ -1,0 +1,65 @@
+name: "BAGI G2-D2 Root Cause: Native Approach and Facing Diagnostics"
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_root_cause_d2.py"
+      - "tests/test_xland_root_cause_d2.py"
+      - ".github/workflows/bagi-root-cause-d2.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  native-geometry-diagnosis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+      OMP_NUM_THREADS: "1"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Restore exact published and checked TRAIN data
+        run: |
+          mkdir -p runs/d2_source runs/d2_original_teacher runs/d2_diverse_teacher
+          gh run download 39637067506 --repo AncilBenny/BAGI --name bagi-dagger-action-provenance --dir runs/d2_source
+          gh run download 40101923830 --repo AncilBenny/BAGI --name bagi-reuse33-complete-demo-bc --dir runs/d2_original_teacher
+          gh run download 40110945017 --repo AncilBenny/BAGI --name bagi-reuse36-diverse-physical-training --dir runs/d2_diverse_teacher
+          test -f runs/d2_source/action_provenance_seed17.npz
+          test -f runs/d2_source/action_provenance_seed29.npz
+          test -f runs/d2_original_teacher/train_source_complete_demos.npz
+          test -f runs/d2_diverse_teacher/diverse_train_physical.npz
+      - name: Install published pinned native XLand CPU environment
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir -r requirements/xland-reuse31.txt
+          python -m pip check
+      - name: Check research geometry and public isolation contracts
+        run: |
+          ruff check bagi/experiments/xland_root_cause_d2.py tests/test_xland_root_cause_d2.py
+          python -m pytest -q tests/test_xland_root_cause_d2.py
+      - name: Execute frozen learner native geometry diagnostic
+        run: |
+          python -m bagi.experiments.xland_root_cause_d2 \
+            --source-dir runs/d2_source \
+            --old-teacher-dir runs/d2_original_teacher \
+            --diverse-dir runs/d2_diverse_teacher \
+            --output-dir runs/g2_d2_navigation
+      - name: Save real diagnostic and partial failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-g2-d2-approach-orientation
+          path: runs/g2_d2_navigation/summary.json
+          retention-days: 30
+          if-no-files-found: warn

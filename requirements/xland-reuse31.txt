@@ -1,0 +1,12 @@
+# REUSE-31: Python 3.11 research-only environment, intentionally separate from
+# BAGI's base pyproject.toml (which specifies Gymnasium >=1.0).
+# Directly reuse versions from earlier successful BAGI native XLand workflows.
+# Install CPU torch==2.5.1+cpu separately from the official PyTorch CPU index.
+xminigrid==0.9.3
+imitation==1.0.1
+# imitation 1.0.1 pins these APIs; do NOT combine this env with the base/rl extras.
+gymnasium==0.29.1
+stable-baselines3==2.2.1
+pyyaml>=6,<7
+pytest>=8,<10
+ruff>=0.6,<1

@@ -1,0 +1,152 @@
+{
+  "study": "G2-E5-P10a independent action-only Laplace TRAIN layout sensitivity",
+  "type": "exploratory source-group influence; not preregistered neural outcome",
+  "source_commit": "cdc6440eed0398f4c61b538757e26f337b729a5f",
+  "source_artifact_id": 12588790887,
+  "source_zip_sha256": "aaf8eb011763bf47e1d196771e257eb13c4eb35294bbeed2b71757ade525f073",
+  "data_scope": "XLand E1 TRAIN only; original TEST/EVAL untouched",
+  "selection_hashes_by_held_fold": {
+    "0": "c6c7626f7d84cb318b770be61cd1373efdd07a3e2eb5f51e492e929a81599c53",
+    "1": "70fd03d25a9044b5c234736e9ea15e448b669be62b4e41e1afe506e7b2652d25"
+  },
+  "source_layouts": 15,
+  "tail_rows": 180,
+  "tail_positives": 122,
+  "per_layout_columns": [
+    "layout",
+    "shifted_tail_brier",
+    "tail_swap_tail_brier",
+    "tail_positives"
+  ],
+  "per_layout_rounded_to_9dp": [
+    [
+      11900,
+      0.361332308,
+      0.328517598,
+      8
+    ],
+    [
+      11901,
+      0.132564339,
+      0.120575384,
+      7
+    ],
+    [
+      11902,
+      0.160064545,
+      0.138043339,
+      9
+    ],
+    [
+      11903,
+      0.503826705,
+      0.437561298,
+      8
+    ],
+    [
+      11904,
+      0.22555318,
+      0.19439548,
+      7
+    ],
+    [
+      11905,
+      0.158611142,
+      0.135310022,
+      10
+    ],
+    [
+      11906,
+      0.161086474,
+      0.149997407,
+      8
+    ],
+    [
+      11907,
+      0.146006799,
+      0.121897372,
+      5
+    ],
+    [
+      11908,
+      0.156591197,
+      0.133792949,
+      12
+    ],
+    [
+      11909,
+      0.01368582,
+      0.019370208,
+      7
+    ],
+    [
+      11910,
+      0.006525253,
+      0.005937448,
+      10
+    ],
+    [
+      11911,
+      0.007580999,
+      0.008168108,
+      10
+    ],
+    [
+      11912,
+      0.361757546,
+      0.331079369,
+      7
+    ],
+    [
+      11913,
+      0.015502286,
+      0.018251802,
+      8
+    ],
+    [
+      11914,
+      0.207201871,
+      0.187035672,
+      6
+    ]
+  ],
+  "group_equal_tail_brier": {
+    "shifted": 0.17452603091099347,
+    "tail_swap": 0.155328903115,
+    "relative_change": -0.10999581974275852
+  },
+  "source_layout_direction": {
+    "improved": 12,
+    "worsened": 3,
+    "unchanged": 0
+  },
+  "leave_one_layout_out_relative_change_range": [
+    -0.11403531596109606,
+    -0.10486514401883318
+  ],
+  "all_leave_one_out_exceed_10pct": true,
+  "fold_relative_changes": {
+    "0": -0.10445205678023883,
+    "1": -0.1192948563227616
+  },
+  "paired_layout_bootstrap_descriptive": {
+    "seed": 20261027,
+    "resamples": 20000,
+    "percentiles_2_5_50_97_5": [
+      -0.1272347105057354,
+      -0.11010866288412047,
+      -0.08989307036493571
+    ],
+    "fraction_at_least_10pct": 0.85025
+  },
+  "resources": {
+    "new_native_actions": 0,
+    "new_native_resets": 0,
+    "model_fits": 0,
+    "optimizer_updates": 0,
+    "teacher_queries": 0,
+    "original_test_eval_reads": 0,
+    "heldout_expert_label_reads": 0
+  },
+  "caveat": "Bootstrap is exploratory TRAIN-layout resampling; not a confidence statement for the preregistered neural P10a result. No physical manipulation, continual learning or transfer claim."
+}

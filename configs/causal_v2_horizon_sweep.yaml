@@ -1,0 +1,19 @@
+run_dir: runs/sample_efficiency_causal_v2
+guided_budget: 50
+horizons: [5, 6, 7, 8]
+planner_seeds: [42, 101, 202]
+episodes: 25
+evaluation_seed_base: 42
+output_dir: runs/causal_v2_horizon_sweep
+environment:
+  size: 9
+  max_steps: 100
+  view_size: 5
+model:
+  actions: 4
+  hidden: 192
+  cell_values: 9
+planning:
+  candidates: 128
+  gamma: 0.97
+  event_weights: [0.05, 0.10, 0.20, 1.00]

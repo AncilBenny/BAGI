@@ -1,0 +1,8 @@
+# REUSE-22: XLand observation-only inventory aliasing, no new learner.
+environment: XLand-MiniGrid-R1-9x9
+task: putdown
+seeds: [7300, 7301, 7302]
+native_action: 4
+episode_cap: 40
+heldout_oracle_queries: 0
+output_dir: runs/xland_inventory_observation_audit

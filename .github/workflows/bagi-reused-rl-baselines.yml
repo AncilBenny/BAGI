@@ -1,0 +1,48 @@
+name: BAGI Reused RL Baselines
+
+# Dedicated, limited smoke test. Not scheduled and unrelated changes don't trigger it.
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/reused_rl_baselines.py"
+      - "tests/test_reused_rl_baselines.py"
+      - "configs/reused_rl_baselines.yaml"
+      - "pyproject.toml"
+      - ".github/workflows/bagi-reused-rl-baselines.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bagi-reused-rl-baselines
+  cancel-in-progress: false
+
+jobs:
+  existing-rl-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned existing RL libraries
+        run: |
+          python -m pip install -e '.[dev,rl]'
+      - name: Check integration and environment contracts
+        run: |
+          ruff check bagi/experiments/reused_rl_baselines.py tests/test_reused_rl_baselines.py
+          pytest -q tests/test_reused_rl_baselines.py
+      - name: Run equal-step PPO versus recurrent PPO pilot
+        run: |
+          python -m bagi.experiments.reused_rl_baselines --config configs/reused_rl_baselines.yaml
+      - name: Save reproducible evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-reused-rl-baselines
+          path: runs/reused_rl_baselines/summary.json
+          if-no-files-found: warn
+          retention-days: 30

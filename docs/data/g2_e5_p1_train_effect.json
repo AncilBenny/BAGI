@@ -1,0 +1,207 @@
+{
+  "study": "G2-E5-P1",
+  "status": "exploratory_train_only_retrospective",
+  "source_study": "G2-E4-P4",
+  "source_zip_sha256": "15b8976859385c7f620364ca50c42a7d952ec85d26f9ab1faf537b19dbc28759",
+  "new_native_actions": 0,
+  "new_policy_updates": 0,
+  "teacher_queries": 0,
+  "test_arrays_accessed": false,
+  "claim_limit": "TRAIN episode-disjoint predictive lookup on repeated MiniGrid views; not heldout-layout generalization, online control, physical effects, Workshop competence, cross-domain transfer or a new algorithm",
+  "datasets": [
+    {
+      "model_seed": 17,
+      "input_scale": "raw",
+      "original_native_train_actions": 16384,
+      "terminal_or_partial_end_rows_excluded": 170,
+      "train_only_rows": 16214,
+      "train_episodes": 169,
+      "distinct_public_views": 48,
+      "distinct_public_next_views": 48,
+      "distinct_public_view_action_pairs": 334,
+      "public_change_positive_rows": 5882,
+      "fold_assignment": "episode_index_mod_5; TRAIN only; not layout-disjoint",
+      "scores": {
+        "action_only": {
+          "next_view_exact_accuracy": 0.10299741,
+          "next_view_cell_mismatch_rate": 0.10209536,
+          "public_change_brier": 0.04953455,
+          "exact_key_covered_rows": 16214
+        },
+        "public_view_action": {
+          "next_view_exact_accuracy": 0.95152337,
+          "next_view_cell_mismatch_rate": 0.00086261,
+          "public_change_brier": 0.00098263,
+          "exact_key_covered_rows": 16214
+        },
+        "shuffled_public_view_action": {
+          "next_view_exact_accuracy": 0.08770199,
+          "next_view_cell_mismatch_rate": 0.10777786,
+          "public_change_brier": 0.05097652,
+          "exact_key_covered_rows": 16214
+        }
+      }
+    },
+    {
+      "model_seed": 17,
+      "input_scale": "scaled",
+      "original_native_train_actions": 16384,
+      "terminal_or_partial_end_rows_excluded": 188,
+      "train_only_rows": 16196,
+      "train_episodes": 186,
+      "distinct_public_views": 48,
+      "distinct_public_next_views": 48,
+      "distinct_public_view_action_pairs": 334,
+      "public_change_positive_rows": 5600,
+      "fold_assignment": "episode_index_mod_5; TRAIN only; not layout-disjoint",
+      "scores": {
+        "action_only": {
+          "next_view_exact_accuracy": 0.12626574,
+          "next_view_cell_mismatch_rate": 0.09104961,
+          "public_change_brier": 0.066869,
+          "exact_key_covered_rows": 16196
+        },
+        "public_view_action": {
+          "next_view_exact_accuracy": 0.95640899,
+          "next_view_cell_mismatch_rate": 0.00085433,
+          "public_change_brier": 0.0011924,
+          "exact_key_covered_rows": 16190
+        },
+        "shuffled_public_view_action": {
+          "next_view_exact_accuracy": 0.09977772,
+          "next_view_cell_mismatch_rate": 0.09613107,
+          "public_change_brier": 0.06910661,
+          "exact_key_covered_rows": 16195
+        }
+      }
+    },
+    {
+      "model_seed": 29,
+      "input_scale": "raw",
+      "original_native_train_actions": 16384,
+      "terminal_or_partial_end_rows_excluded": 256,
+      "train_only_rows": 16128,
+      "train_episodes": 254,
+      "distinct_public_views": 48,
+      "distinct_public_next_views": 48,
+      "distinct_public_view_action_pairs": 334,
+      "public_change_positive_rows": 6247,
+      "fold_assignment": "episode_index_mod_5; TRAIN only; not layout-disjoint",
+      "scores": {
+        "action_only": {
+          "next_view_exact_accuracy": 0.15265377,
+          "next_view_cell_mismatch_rate": 0.08482396,
+          "public_change_brier": 0.08943505,
+          "exact_key_covered_rows": 16128
+        },
+        "public_view_action": {
+          "next_view_exact_accuracy": 0.95610119,
+          "next_view_cell_mismatch_rate": 0.00080226,
+          "public_change_brier": 0.00143538,
+          "exact_key_covered_rows": 16128
+        },
+        "shuffled_public_view_action": {
+          "next_view_exact_accuracy": 0.12896825,
+          "next_view_cell_mismatch_rate": 0.08951433,
+          "public_change_brier": 0.09134132,
+          "exact_key_covered_rows": 16128
+        }
+      }
+    },
+    {
+      "model_seed": 29,
+      "input_scale": "scaled",
+      "original_native_train_actions": 16384,
+      "terminal_or_partial_end_rows_excluded": 241,
+      "train_only_rows": 16143,
+      "train_episodes": 238,
+      "distinct_public_views": 48,
+      "distinct_public_next_views": 48,
+      "distinct_public_view_action_pairs": 334,
+      "public_change_positive_rows": 5698,
+      "fold_assignment": "episode_index_mod_5; TRAIN only; not layout-disjoint",
+      "scores": {
+        "action_only": {
+          "next_view_exact_accuracy": 0.12525553,
+          "next_view_cell_mismatch_rate": 0.08347334,
+          "public_change_brier": 0.09558109,
+          "exact_key_covered_rows": 16143
+        },
+        "public_view_action": {
+          "next_view_exact_accuracy": 0.95769064,
+          "next_view_cell_mismatch_rate": 0.00075768,
+          "public_change_brier": 0.0014991,
+          "exact_key_covered_rows": 16143
+        },
+        "shuffled_public_view_action": {
+          "next_view_exact_accuracy": 0.10921142,
+          "next_view_cell_mismatch_rate": 0.08672237,
+          "public_change_brier": 0.097855,
+          "exact_key_covered_rows": 16143
+        }
+      }
+    }
+  ],
+  "cross_model_seed_train_only": [
+    {
+      "source_model_seed": 17,
+      "target_model_seed": 29,
+      "input_scale": "raw",
+      "source_train_reset_seed_start": 2000000,
+      "target_train_reset_seed_start": 2100000,
+      "target_train_rows": 16128,
+      "source_train_rows": 16214,
+      "source_distinct_public_view_action_pairs": 334,
+      "target_exact_key_covered_rows": 16128,
+      "action_only_next_view_exact_accuracy": 0.15265377,
+      "view_action_next_view_exact_accuracy": 0.95362103,
+      "view_action_cell_mismatch_rate": 0.00084781,
+      "qualification": "Different TRAIN reset-seed ranges, same 6x6 environment; finite layouts/views can recur; no heldout TEST or new domain"
+    },
+    {
+      "source_model_seed": 29,
+      "target_model_seed": 17,
+      "input_scale": "raw",
+      "source_train_reset_seed_start": 2100000,
+      "target_train_reset_seed_start": 2000000,
+      "target_train_rows": 16214,
+      "source_train_rows": 16128,
+      "source_distinct_public_view_action_pairs": 334,
+      "target_exact_key_covered_rows": 16214,
+      "action_only_next_view_exact_accuracy": 0.10546441,
+      "view_action_next_view_exact_accuracy": 0.9502282,
+      "view_action_cell_mismatch_rate": 0.00087688,
+      "qualification": "Different TRAIN reset-seed ranges, same 6x6 environment; finite layouts/views can recur; no heldout TEST or new domain"
+    },
+    {
+      "source_model_seed": 17,
+      "target_model_seed": 29,
+      "input_scale": "scaled",
+      "source_train_reset_seed_start": 2000000,
+      "target_train_reset_seed_start": 2100000,
+      "target_train_rows": 16143,
+      "source_train_rows": 16196,
+      "source_distinct_public_view_action_pairs": 334,
+      "target_exact_key_covered_rows": 16143,
+      "action_only_next_view_exact_accuracy": 0.11652109,
+      "view_action_next_view_exact_accuracy": 0.95886762,
+      "view_action_cell_mismatch_rate": 0.00074167,
+      "qualification": "Different TRAIN reset-seed ranges, same 6x6 environment; finite layouts/views can recur; no heldout TEST or new domain"
+    },
+    {
+      "source_model_seed": 29,
+      "target_model_seed": 17,
+      "input_scale": "scaled",
+      "source_train_reset_seed_start": 2100000,
+      "target_train_reset_seed_start": 2000000,
+      "target_train_rows": 16196,
+      "source_train_rows": 16143,
+      "source_distinct_public_view_action_pairs": 334,
+      "target_exact_key_covered_rows": 16196,
+      "action_only_next_view_exact_accuracy": 0.10187701,
+      "view_action_next_view_exact_accuracy": 0.95887874,
+      "view_action_cell_mismatch_rate": 0.0007342,
+      "qualification": "Different TRAIN reset-seed ranges, same 6x6 environment; finite layouts/views can recur; no heldout TEST or new domain"
+    }
+  ]
+}

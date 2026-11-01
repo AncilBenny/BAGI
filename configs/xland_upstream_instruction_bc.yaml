@@ -1,0 +1,13 @@
+# REUSE-21: same training-only REUSE-19 label pool, same 87-width BC.
+environment: XLand-MiniGrid-R1-9x9
+source_run_id: 39637067506
+source_dir: runs/reuse19_instruction_source
+training_tasks: [hold, near, putdown]
+model_seeds: [17, 29]
+conditions: [sham_instructions, upstream_instructions]
+evaluation_seeds: [9500, 9501, 9502, 9503, 9504]
+max_rule_slots: 4
+episode_cap: 40
+epochs: 12
+batch_size: 32
+output_dir: runs/xland_upstream_instruction_bc

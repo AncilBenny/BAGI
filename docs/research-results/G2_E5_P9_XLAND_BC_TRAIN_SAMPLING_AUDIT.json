@@ -1,0 +1,194 @@
+{
+  "schema": "BAGI_G2_E5_P9_XLAND_BC_TRAIN_SAMPLING_AUDIT_V1",
+  "status": "READ_ONLY_TRAIN_SAMPLING; HISTORICAL_ACTOR_IDENTITY_UNVERIFIED; NATIVE_P9_STOP",
+  "date": "2026-10-26",
+  "runtime": {
+    "python": "3.13.5",
+    "torch": "2.10.0+cpu",
+    "numpy": "2.3.5",
+    "historical_torch": "2.5.1+cpu",
+    "index_level_historical_parity_verified": false
+  },
+  "source_outer_zip_sha256": {
+    "reuse19": "5992e5f3a14d8acf1d625b6df34f7ae1f8d18043d0ebfedf11353b71f0e6efd7",
+    "reuse33": "adbbb1a1d67f07fcb4efeb94d1188e6b5c793720cd6cb5c3b3cd9f506a85d80a",
+    "reuse36": "6ca2bf2d3102f3cd68c60394e8eb42af236cf47fcdd6f6e3abe5104f800d0c64"
+  },
+  "source_inner_train_npz_sha256": {
+    "reuse19_seed17": "25d24168163fbc189f1afbd8454e3948deae73d4924cfc83f49ba35ebb5b4882",
+    "reuse19_seed29": "66d5a546875e8b373f5ec42926b46b683e0f29c885a24f207f66386f1dfa4607",
+    "reuse33": "b405e1ba816f424179dbf65a93a31e5a5db5b471bd8079671ecfd99215688efd",
+    "reuse36": "e6c605bc9a109e2e366eb50635361bae9cd4c93563c282d787640694280d75da"
+  },
+  "sampling": {
+    "method": "torch.utils.data.WeightedRandomSampler; inverse label frequency; replacement=True",
+    "seed_offsets": [
+      0,
+      4100,
+      5300
+    ],
+    "block_draws": [
+      291,
+      248,
+      248
+    ],
+    "total_draws_per_policy_seed": 787,
+    "physical_pool_rows": 955,
+    "actual_bc_fits": 0,
+    "actual_optimizer_steps": 0,
+    "native_actions": 0
+  },
+  "results": {
+    "17": {
+      "base_source_label_counts_actions_0_to_5": [
+        130,
+        69,
+        64,
+        22,
+        6,
+        0
+      ],
+      "physical_source_label_counts_actions_0_to_5": [
+        563,
+        126,
+        90,
+        88,
+        88,
+        0
+      ],
+      "sampled_label_counts_actions_0_to_5": [
+        140,
+        166,
+        154,
+        161,
+        166,
+        0
+      ],
+      "sampled_counts_by_block": {
+        "base291": [
+          48,
+          68,
+          56,
+          57,
+          62,
+          0
+        ],
+        "rehearsal248": [
+          46,
+          51,
+          51,
+          55,
+          45,
+          0
+        ],
+        "physical248": [
+          46,
+          47,
+          47,
+          49,
+          59,
+          0
+        ]
+      },
+      "unique_source_indices": {
+        "base291": 144,
+        "rehearsal248": 140,
+        "base_union": 207,
+        "physical248": 194,
+        "total_base_plus_physical": 401
+      },
+      "repeated_source_index_draws": 386,
+      "physical_draws_old248": 47,
+      "physical_draws_new707": 201,
+      "index_sha256": {
+        "base291": "e3391ee608271e137ffe3d327053bd2abb91ea3934439c660a74512187138f94",
+        "rehearsal248": "f19a9a195ef80c190b7d906e60d66e61b9c7ac855d73ab475f9f32ce597b4284",
+        "physical248": "3955e00fdf430919b623bd49bef2d168a412b314d173721ee1a6bf41b477c1e9"
+      },
+      "sampled_label_sha256": "8aac905950c4b476652b98eb4fa389b569316e79c6b167a6a325397763525ff5",
+      "historical_reuse36_expanded_label_histogram_exact_match": true,
+      "historical_source_record_sha256": "f893dc633a14bb9347c5e12a2ac5799f450b49a2daa700e4e67845f2176dd4ba"
+    },
+    "29": {
+      "base_source_label_counts_actions_0_to_5": [
+        132,
+        83,
+        49,
+        21,
+        6,
+        0
+      ],
+      "physical_source_label_counts_actions_0_to_5": [
+        563,
+        126,
+        90,
+        88,
+        88,
+        0
+      ],
+      "sampled_label_counts_actions_0_to_5": [
+        142,
+        157,
+        172,
+        145,
+        171,
+        0
+      ],
+      "sampled_counts_by_block": {
+        "base291": [
+          54,
+          58,
+          63,
+          50,
+          66,
+          0
+        ],
+        "rehearsal248": [
+          42,
+          41,
+          64,
+          41,
+          60,
+          0
+        ],
+        "physical248": [
+          46,
+          58,
+          45,
+          54,
+          45,
+          0
+        ]
+      },
+      "unique_source_indices": {
+        "base291": 147,
+        "rehearsal248": 132,
+        "base_union": 212,
+        "physical248": 202,
+        "total_base_plus_physical": 414
+      },
+      "repeated_source_index_draws": 373,
+      "physical_draws_old248": 60,
+      "physical_draws_new707": 188,
+      "index_sha256": {
+        "base291": "2abe768e81339483f586cc5fe8db81c408eac4817aad0213e1a990f0db4b01ad",
+        "rehearsal248": "81d2f10b7dd84cb73071c048786f2d55650057bf37a78fd4b1b0075f618b9490",
+        "physical248": "9e4c5faab96847a1f6fc659b5f1e3bd31e424d50d3559754dffc372f64c2821e"
+      },
+      "sampled_label_sha256": "fc4aea2df64ce34abba6a873e82fdf16d7c65e2927b3ba095858781e691cb1a6",
+      "historical_reuse36_expanded_label_histogram_exact_match": true,
+      "historical_source_record_sha256": "0735b160ef62a353b3fb52dd8df496630ffe5104ec10d24b1bfb2b22a9b83675"
+    }
+  },
+  "physical_source_index_overlap_between_policy_seeds": 65,
+  "physical_source_index_union_between_policy_seeds": 331,
+  "disclosures": [
+    "Only TRAIN numeric arrays opened with allow_pickle=False; strict outer and inner SHA256 and member allowlists",
+    "REUSE-36 historical summary.json parsed to compare TRAIN label histograms; same JSON also includes historical EVAL outcome metadata; no EVAL numeric arrays materialized",
+    "REUSE-33 summary JSON not parsed",
+    "Original 115-feature base TRAIN instruction/history assembly not reproduced",
+    "Distinct source indices are not independent states, trajectories, layouts or physical effects",
+    "Local Torch version differs from historical pinned Torch; histogram parity does not establish index-level or actor-weight identity",
+    "P9 native evaluation remains STOP; no BC fits, native steps, or teacher queries"
+  ]
+}

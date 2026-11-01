@@ -1,0 +1,109 @@
+{
+  "study": "G2-E5-P9-E1-early-terminal-censoring",
+  "status": "retrospective_train_only",
+  "source_run": 40165691302,
+  "source_artifact": 12588790887,
+  "source_zip_sha256": "aaf8eb011763bf47e1d196771e257eb13c4eb35294bbeed2b71757ade525f073",
+  "e1_xland": {
+    "episodes": 180,
+    "executed": 3244,
+    "public_changes": 2019,
+    "shifted": 3064,
+    "shifted_public_changes": 1897,
+    "tails": 180,
+    "tail_public_changes": 122,
+    "early_terminal_episodes": 30,
+    "early_terminal_tail_positive": 30,
+    "action3": {
+      "all": [
+        358,
+        43
+      ],
+      "shifted": [
+        317,
+        17
+      ],
+      "tails": [
+        41,
+        26
+      ],
+      "early_terminal": [
+        26,
+        26
+      ]
+    },
+    "action4": {
+      "all": [
+        444,
+        4
+      ],
+      "shifted": [
+        416,
+        0
+      ],
+      "tails": [
+        28,
+        4
+      ],
+      "early_terminal": [
+        4,
+        4
+      ]
+    },
+    "matched_held_brier": {
+      "retained": {
+        "rows": 3064,
+        "positives": 1897,
+        "shifted": 0.049624258,
+        "tail_inclusive": 0.050084575
+      },
+      "tails": {
+        "rows": 180,
+        "positives": 122,
+        "shifted": 0.174526031,
+        "tail_inclusive": 0.158753287
+      },
+      "all": {
+        "rows": 3244,
+        "positives": 2019,
+        "shifted": 0.05655469,
+        "tail_inclusive": 0.056114282
+      },
+      "early_terminal": {
+        "rows": 30,
+        "positives": 30,
+        "shifted": 0.90358088,
+        "tail_inclusive": 0.802402462
+      }
+    }
+  },
+  "e1_workshop_uniform_random": {
+    "episodes": 10,
+    "executed": 200,
+    "public_changes": 121,
+    "shifted": 190,
+    "shifted_public_changes": 114,
+    "matched_held_brier": {
+      "retained": {
+        "rows": 190,
+        "positives": 114,
+        "shifted": 0.187766267,
+        "tail_inclusive": 0.187580055
+      },
+      "tails": {
+        "rows": 10,
+        "positives": 7,
+        "shifted": 0.158862711,
+        "tail_inclusive": 0.15132707
+      }
+    }
+  },
+  "controls": "Opposite-fold per-action Laplace smoothing; identical held rows, XLand layout parity, Workshop reset parity",
+  "new_native_actions": 0,
+  "new_native_resets": 0,
+  "new_model_fits": 0,
+  "new_optimizer_steps": 0,
+  "teacher_queries": 0,
+  "original_test_eval_array_reads": 0,
+  "physical_success_claim": false
+}

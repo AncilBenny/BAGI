@@ -1,0 +1,57 @@
+name: BAGI Frozen Skill Replication
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_frozen_phase_replication.py"
+      - "tests/test_xland_frozen_phase_replication.py"
+      - "configs/xland_frozen_phase_replication.yaml"
+      - ".github/workflows/bagi-frozen-phase-replication.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  frozen-replication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Fetch reviewed numeric pool and original policy results
+        run: |
+          mkdir -p runs/reuse19_replay_numbers runs/reuse23_original_results
+          gh run download 39637067506 --repo AncilBenny/BAGI --name bagi-dagger-action-provenance --dir runs/reuse19_replay_numbers
+          gh run download 39644180240 --repo AncilBenny/BAGI --name bagi-instruction-actual-history-control --dir runs/reuse23_original_results
+          test -f runs/reuse19_replay_numbers/action_provenance_seed17.npz
+          test -f runs/reuse19_replay_numbers/action_provenance_seed29.npz
+          test -f runs/reuse23_original_results/summary.json
+      - name: Install reviewed upstream XLand and imitation BC
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir "xminigrid==0.9.3" "imitation==1.0.1" "pyyaml>=6" "pytest>=8" "ruff>=0.6"
+      - name: Check identical-history controls, seed partition and frozen anchors
+        run: |
+          ruff check bagi/experiments/xland_frozen_phase_replication.py tests/test_xland_frozen_phase_replication.py
+          python -m pytest -q tests/test_xland_frozen_phase_replication.py
+      - name: Evaluate frozen policies on untouched training-task layouts
+        run: python -m bagi.experiments.xland_frozen_phase_replication --config configs/xland_frozen_phase_replication.yaml
+      - name: Save full stage counts and actual simulator interaction budget
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-frozen-skill-phase-replication
+          path: runs/xland_frozen_phase_replication/summary.json
+          if-no-files-found: warn
+          retention-days: 30

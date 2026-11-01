@@ -1,0 +1,19 @@
+environment:
+  size: 9
+  max_steps: 100
+  view_size: 5
+model:
+  actions: 4
+  cell_values: 9
+  hidden: 192
+  checkpoint: runs/sample_efficiency_causal_v2/guided_050/world_model/world_model.pt
+planning:
+  horizon: 8
+  candidates: 128
+  gamma: 0.97
+  event_weights: [0.05, 0.10, 0.20, 1.00]
+evaluation:
+  planner_seeds: [171, 272, 373]
+  episodes_per_seed: 2
+  evaluation_seed_base: 50042
+  output_dir: runs/mirror_planner_transfer

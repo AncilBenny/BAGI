@@ -1,0 +1,43 @@
+name: BAGI Pretrained Checkpoint Audit
+
+# One read-only benchmark compatibility check. Never on an hourly schedule.
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/pretrained_checkpoint_audit.py"
+      - "tests/test_pretrained_checkpoint_audit.py"
+      - "configs/pretrained_checkpoint_audit.yaml"
+      - ".github/workflows/bagi-pretrained-checkpoint-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install only upstream benchmark wrappers and static audit utilities
+        run: pip install "minigrid==3.2.0" "gymnasium>=1.0" "numpy>=1.26" "pyyaml>=6" "pytest>=8" "ruff>=0.6"
+      - name: Test fail-closed archive inspector
+        run: |
+          ruff check bagi/experiments/pretrained_checkpoint_audit.py tests/test_pretrained_checkpoint_audit.py
+          python -m pytest -q tests/test_pretrained_checkpoint_audit.py
+      - name: Download and verify the pinned artifact; inspect plain metadata only
+        run: python -m bagi.experiments.pretrained_checkpoint_audit --config configs/pretrained_checkpoint_audit.yaml
+      - name: Archive compatibility verdict, never weights
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-pretrained-compatibility-audit
+          path: runs/pretrained_checkpoint_audit/summary.json
+          retention-days: 30
+          if-no-files-found: warn

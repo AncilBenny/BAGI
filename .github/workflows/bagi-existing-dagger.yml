@@ -1,0 +1,47 @@
+name: BAGI Existing DAgger Pilot
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_existing_dagger.py"
+      - "tests/test_xland_existing_dagger.py"
+      - "configs/xland_existing_dagger.yaml"
+      - ".github/workflows/bagi-existing-dagger.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upstream-dagger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned upstream imitation and CPU-only torch
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir "xminigrid==0.9.3" "imitation==1.0.1" "pyyaml>=6" "pytest>=8" "ruff>=0.6"
+      - name: Validate tasks stay train-only and lint adapter
+        run: |
+          ruff check bagi/experiments/xland_existing_dagger.py tests/test_xland_existing_dagger.py
+          python -m pytest -q tests/test_xland_existing_dagger.py
+      - name: Train upstream DAgger and measure closed-loop primitive success
+        run: python -m bagi.experiments.xland_existing_dagger --config configs/xland_existing_dagger.yaml
+      - name: Preserve actual experiment artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-existing-dagger
+          path: runs/xland_existing_dagger/summary.json
+          if-no-files-found: warn
+          retention-days: 30

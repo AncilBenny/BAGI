@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bagi"
+version = "0.1.0"
+description = "Experimental platform for sample-efficient adaptive learning agents"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "gymnasium>=1.0",
+  "minigrid>=3.0",
+  "torch>=2.4",
+  "matplotlib>=3.9",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+# Optional; default CI and the lightweight environment do not install these.
+rl = ["stable-baselines3==2.9.0", "sb3-contrib==2.9.0"]
+
+[tool.setuptools.packages.find]
+include = ["bagi*"]
+
+[tool.ruff]
+line-length = 100

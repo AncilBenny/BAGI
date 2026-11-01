@@ -1,0 +1,4 @@
+study=G2-E6-P0B
+decision=AUTHORIZE_SINGLE_NATIVE_ACQUISITION
+native_action_ceiling=19712
+max_wall_seconds=2700

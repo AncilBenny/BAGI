@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Experiment outputs
+runs/
+results/
+checkpoints/
+artifacts/
+wandb/
+*.pt
+*.pth
+*.ckpt
+*.npz
+
+# Local configuration
+.env
+.env.*
+
+# Coverage
+.coverage
+htmlcov/

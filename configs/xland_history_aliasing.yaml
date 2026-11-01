@@ -1,0 +1,5 @@
+# REUSE-12: same 256 train-only XLand expert examples and 0/1/4 action histories.
+# No learned policy training, oracle task ID, or held-out demonstration.
+source_config: configs/xland_bc_class_balance.yaml
+training_tasks: [hold, near, putdown]
+output_dir: runs/xland_history_aliasing

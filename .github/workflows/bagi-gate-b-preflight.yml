@@ -1,0 +1,52 @@
+name: BAGI Gate B Label Provenance Preflight
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_gate_b_preflight.py"
+      - "tests/test_xland_gate_b_preflight.py"
+      - ".github/workflows/bagi-gate-b-preflight.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  archived-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download fixed REUSE-30 verified artifact
+        run: |
+          mkdir -p runs/reuse30_archived
+          gh run download 39735997245 --repo AncilBenny/BAGI --name bagi-real-wrong-object-recovery --dir runs/reuse30_archived
+          echo "05f3968d5e1ff905fd6727b2e85ce9bc73d253587ebaf4adc26c9b745d382c30  runs/reuse30_archived/reuse30_summary.json" | sha256sum -c -
+          echo "c38ea71574c0d15ee53d6782de3681cde68a74cac508ee1b66563282d4ce988f  runs/reuse30_archived/summary.json" | sha256sum -c -
+      - name: Test provenance and interaction guards
+        run: |
+          python -m pip install "pytest>=8,<10"
+          python -m pytest -q tests/test_xland_gate_b_preflight.py
+      - name: Analyze frozen correction-label provenance
+        run: |
+          python -m bagi.experiments.xland_gate_b_preflight \
+            --reuse30 runs/reuse30_archived/reuse30_summary.json \
+            --control runs/reuse30_archived/summary.json \
+            --output runs/xland_gate_b_preflight/summary.json
+      - name: Archive machine-readable research summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-gate-b-label-provenance
+          path: runs/xland_gate_b_preflight/summary.json
+          if-no-files-found: warn
+          retention-days: 30

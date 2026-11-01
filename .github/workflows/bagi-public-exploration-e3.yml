@@ -1,0 +1,51 @@
+name: "BAGI G2-E3-P1: Public Episodic Exploration PPO"
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/public_episodic_ppo_e3.py"
+      - ".github/workflows/bagi-public-exploration-e3.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bagi-public-exploration-e3
+  cancel-in-progress: false
+
+jobs:
+  public-exploration-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install existing CPU Torch and official maintained PPO libraries
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir -e '.[dev,rl]'
+          python -m pip check
+      - name: Fail closed on synthetic public-boundary and native-budget contracts
+        run: |
+          ruff check bagi/exploration/public_count.py bagi/experiments/public_episodic_ppo_e3.py tests/test_public_count.py tests/test_public_episodic_ppo_e3.py
+          python -m pytest -q tests/test_public_count.py tests/test_public_episodic_ppo_e3.py
+      - name: Execute ONE frozen matched PPO experiment; no teacher or simulator probes
+        run: |
+          python -m bagi.experiments.public_episodic_ppo_e3 --output-dir runs/g2_e3_p1_public_exploration
+      - name: Preserve native-only numeric evidence and failure summaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-g2-e3-p1-public-exploration
+          path: runs/g2_e3_p1_public_exploration/
+          if-no-files-found: warn
+          retention-days: 30
