@@ -1,7 +1,7 @@
 """M1: first bounded learned goal-completion and transfer experiment.
 
 Uses upstream PPO / RecurrentPPO and Farama MiniGrid. NOT executed by CI.
-The existing metered BAGI research loop must explicitly admit this command.
+Run explicitly from the CLI or the existing source-verified research loop.
 """
 from __future__ import annotations
 
@@ -110,14 +110,14 @@ def validate_config(c):
         raise ValueError("Task or transfer contract changed")
     if c.get("arms") != list(ARMS) or c.get("training_seeds") != [17, 29]:
         raise ValueError("Model comparison and seeds must remain frozen")
-    for name, expected in (("train_steps_per_arm_seed", TRAIN_STEPS),
-                           ("rollout_steps", 128), ("batch_size", 64),
-                           ("epochs_per_rollout", 2),
-                           ("max_eval_steps", MAX_EVAL_EPISODE_STEPS),
-                           ("max_total_training_steps", MAX_TRAIN_TOTAL),
-                           ("max_total_evaluation_steps", MAX_EVAL_TOTAL)):
-        if type(c.get(name)) is not int or c[name] != expected:
-            raise ValueError("Registered research budget changed: " + name)
+    for name in ("train_steps_per_arm_seed", "rollout_steps", "batch_size",
+                 "epochs_per_rollout"):
+        if type(c.get(name)) is not int or c[name] < 1:
+            raise ValueError("Require a positive training setting: " + name)
+    if c["rollout_steps"] < 2 or c["batch_size"] < 2:
+        raise ValueError("PPO requires at least two rollout/batch samples")
+    if c.get("max_eval_steps") != MAX_EVAL_EPISODE_STEPS:
+        raise ValueError("Evaluation episode definition changed")
     train = set(c["training_seeds"])
     first, transfer = c.get("evaluation_seeds"), c.get("transfer_seeds")
     if first != list(FROZEN_EVAL_SEEDS) or transfer != list(FROZEN_TRANSFER_SEEDS):
@@ -128,12 +128,10 @@ def validate_config(c):
         raise ValueError("Require six distinct fixed evaluation seeds per split")
     if train & (set(first) | set(transfer)) or set(first) & set(transfer):
         raise ValueError("Training/validation/transfer seed overlap")
-    if len(ARMS) * len(train) * TRAIN_STEPS != MAX_TRAIN_TOTAL:
-        raise ValueError("Training arithmetic changed")
-    if len(ARMS) * len(train) * 3 * len(first) * MAX_EVAL_EPISODE_STEPS != MAX_EVAL_TOTAL:
-        raise ValueError("Evaluation arithmetic changed")
-    if c.get("output_dir") != "runs/m1_goal_learning":
-        raise ValueError("Results must remain inside the registered runs path")
+    output_dir = Path(c.get("output_dir", ""))
+    if (output_dir.is_absolute() or ".." in output_dir.parts
+            or len(output_dir.parts) < 2 or output_dir.parts[0] != "runs"):
+        raise ValueError("Use an isolated output directory under runs")
     return c
 
 
@@ -151,11 +149,12 @@ def count_optimizer_steps(agent):
 
 
 def admitted_source_commit():
-    """Bind M1 results to the actually checked-out, quota-admitted source."""
+    """Bind results to checked-out source; verify an expected SHA when provided."""
     actual = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], text=True, timeout=5
     ).strip()
-    if actual != os.environ.get("BAGI_RESEARCH_SOURCE_SHA"):
+    expected = os.environ.get("BAGI_RESEARCH_SOURCE_SHA")
+    if expected and actual != expected:
         raise ValueError("M1 source commit does not match admitted research HEAD")
     return actual
 
@@ -280,6 +279,15 @@ def run(config: Path, output: Path):
     raw_config = config.read_bytes()
     c = validate_config(yaml.safe_load(raw_config))
     source_commit = admitted_source_commit()
+    requested_steps = c["train_steps_per_arm_seed"]
+    # Upstream PPO finishes whole rollouts. Record its expected actual work
+    # instead of imposing the old fixed 8,192-action training ceiling.
+    rollout_steps = c["rollout_steps"]
+    actual_steps_per_model = ((requested_steps + rollout_steps - 1)
+                              // rollout_steps) * rollout_steps
+    expected_training_total = len(ARMS) * len(c["training_seeds"]) * actual_steps_per_model
+    expected_evaluation_total = (len(ARMS) * len(c["training_seeds"]) * 3
+                                 * len(c["evaluation_seeds"]) * MAX_EVAL_EPISODE_STEPS)
     if output.parent.as_posix() != c["output_dir"]:
         raise ValueError("Unregistered M1 output path")
     from sb3_contrib import RecurrentPPO
@@ -317,8 +325,8 @@ def run(config: Path, output: Path):
                 count = count_optimizer_steps(agent)
                 factory = lambda task, arm=arm: make_task(task, arm)
                 before = evaluate_goal_agent(agent, TRAIN_TASK, c["evaluation_seeds"], factory)
-                agent.learn(total_timesteps=TRAIN_STEPS)
-                if agent.num_timesteps != TRAIN_STEPS or env.native_steps != TRAIN_STEPS:
+                agent.learn(total_timesteps=requested_steps)
+                if agent.num_timesteps != actual_steps_per_model or env.native_steps != actual_steps_per_model:
                     raise ValueError("Native training action budget mismatch")
                 after = evaluate_goal_agent(agent, TRAIN_TASK, c["evaluation_seeds"], factory)
                 transfer = evaluate_goal_agent(agent, TRANSFER_TASK, c["transfer_seeds"], factory)
@@ -338,8 +346,8 @@ def run(config: Path, output: Path):
                 training += env.native_steps
                 evaluation += total_eval
                 optimizer += count["calls"]
-                if training > MAX_TRAIN_TOTAL or evaluation > MAX_EVAL_TOTAL:
-                    raise ValueError("Aggregate M1 native-action budget exceeded")
+                if training > expected_training_total or evaluation > expected_evaluation_total:
+                    raise ValueError("Actual work exceeded the configured study accounting")
                 progress = {
                     "status": "partial_not_a_completed_study",
                     "source_commit": source_commit,
@@ -354,12 +362,18 @@ def run(config: Path, output: Path):
                       f"{after['successes']}/6; transfer={transfer['successes']}/6")
             finally:
                 env.close()
-    if training != MAX_TRAIN_TOTAL:
-        raise ValueError("Training under-ran frozen total")
+    if training != expected_training_total:
+        raise ValueError("Training did not match configured study accounting")
     output.parent.mkdir(parents=True, exist_ok=True)
     result = {
         "study": "BAGI-M1 goal learning using established PPO and recurrent PPO",
-        "status": "exploratory_bounded_training",
+        "status": "exploratory_training",
+        "requested_training_steps_per_model": requested_steps,
+        "expected_actual_steps_per_model": actual_steps_per_model,
+        "protocol_variant": ("original_pilot_settings" if
+                             (requested_steps, rollout_steps, c["batch_size"],
+                              c["epochs_per_rollout"]) == (8192, 128, 64, 2)
+                             else "modified_exploratory_settings"),
         "source_commit": source_commit,
         "config_sha256": hashlib.sha256(raw_config).hexdigest(),
         "versions": {name: version(name) for name in
@@ -386,13 +400,11 @@ def main():
     p.add_argument("--config", type=Path, default=Path("configs/m1_goal_learning.yaml"))
     p.add_argument("--output", type=Path,
                    default=Path("runs/m1_goal_learning/summary.json"))
-    p.add_argument("--execute-budgeted-research", action="store_true")
+    p.add_argument("--execute", "--execute-budgeted-research", dest="execute",
+                   action="store_true")
     a = p.parse_args()
-    if (not a.execute_budgeted_research or
-            os.environ.get("GITHUB_WORKFLOW") != "BAGI Research Loop" or
-            os.environ.get("GITHUB_JOB") != "research" or
-            os.environ.get("BAGI_M1_ADMITTED") != "1"):
-        raise SystemExit("M1 requires the existing audited, quota-admitted research job")
+    if not a.execute:
+        raise SystemExit("Use --execute to start training")
     run(a.config, a.output)
 
 

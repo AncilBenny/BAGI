@@ -10,7 +10,7 @@ WORKFLOW = (
 )
 
 
-def test_m1_and_legacy_reuse_exact_daily_quota_and_a_single_research_job():
+def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     assert workflow["concurrency"]["group"] == "bagi-research-loop"
     # PyYAML may parse the YAML 1.1 key "on" as the boolean True.
@@ -21,14 +21,15 @@ def test_m1_and_legacy_reuse_exact_daily_quota_and_a_single_research_job():
     assert dispatch["required"] is True
     assert triggers["schedule"] == [{"cron": "17 * * * *"}]
     jobs = workflow["jobs"]
-    assert list(jobs) == ["audit", "budget", "research"]
-    assert jobs["research"]["needs"] == ["audit", "budget"]
-    assert jobs["research"]["timeout-minutes"] == 45
-    assert "needs.budget.outputs.eligible == 'true'" in jobs["research"]["if"]
+    assert list(jobs) == ["audit", "research"]
+    assert jobs["research"]["needs"] == "audit"
+    assert "timeout-minutes" not in jobs["research"]
+    assert jobs["research"]["if"] == "needs.audit.result == 'success'"
+    assert triggers["workflow_dispatch"]["inputs"]["force_retrain"]["type"] == "boolean"
     assert jobs["research"]["env"]["BAGI_RESEARCH_STUDY"].endswith(
         "inputs.study || 'legacy' }}"
     )
-    assert "bagi_research_budget.py research" in str(jobs["budget"]["steps"])
+    assert "budget" not in jobs
     assert jobs["research"]["env"]["BAGI_RESEARCH_SOURCE_SHA"] == "${{ needs.audit.outputs.research_sha }}"
     assert "ci_snapshot(api, sha)" in str(jobs["audit"]["steps"])
     assert "ci_snapshot(api, sha)" in str(jobs["research"]["steps"])
@@ -39,11 +40,10 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     steps = {row["name"]: row for row in workflow["jobs"]["research"]["steps"]
              if "name" in row}
     m1 = steps["Run admitted M1 public-observation goal-learning trial"]
-    assert m1["timeout-minutes"] <= 32
-    assert m1["env"]["BAGI_M1_ADMITTED"] == "1"
+    assert "timeout-minutes" not in m1
     assert "env.BAGI_RESEARCH_STUDY == 'm1'" in m1["if"]
     assert "steps.evaluated.outputs.cache-hit != 'true'" in m1["if"]
-    assert "--execute-budgeted-research" in m1["run"]
+    assert "--execute" in m1["run"]
     install = steps["Install BAGI with pinned existing RL implementations (M1)"]
     assert "env.BAGI_RESEARCH_STUDY == 'm1'" in install["if"]
     assert "pip install -e '.[dev,rl]'" in install["run"]
@@ -76,7 +76,7 @@ def test_outputs_preserve_source_provenance_partial_evidence_and_study_cache():
     )["with"]["key"]
 
 
-def test_dispatch_guard_rejects_missing_study_before_budgeted_work():
+def test_dispatch_guard_selects_study_before_training():
     import os
     import subprocess
     import sys

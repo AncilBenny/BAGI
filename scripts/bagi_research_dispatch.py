@@ -1,4 +1,4 @@
-"""Fail closed before metered work when a manual research study is not explicit."""
+"""Select the requested study before execution; reject accidental wrong-branch runs."""
 from __future__ import annotations
 
 import os

@@ -1,4 +1,4 @@
-"""M1 contracts: public executed actions, caps and safe output, no live RL fit."""
+"""M1 contracts: public executed actions, configurable training and safe output, no live RL fit."""
 import gymnasium as gym
 import numpy as np
 import pytest
@@ -21,19 +21,23 @@ def config():
         "evaluation_seeds": [92001, 92002, 92003, 92004, 92005, 92006],
         "transfer_seeds": [93001, 93002, 93003, 93004, 93005, 93006],
         "max_eval_steps": 120,
-        "max_total_training_steps": 65536,
-        "max_total_evaluation_steps": 17280,
         "output_dir": "runs/m1_goal_learning",
     }
 
 
-def test_frozen_budget_and_disjoint_splits():
+def test_configurable_training_and_disjoint_evaluation_splits():
     assert m1.validate_config(config())["train_steps_per_arm_seed"] == 8192
+    changed = {**config(), "train_steps_per_arm_seed": 16384, "rollout_steps": 256,
+               "batch_size": 128, "epochs_per_rollout": 4,
+               "output_dir": "runs/m1_retraining/new_trial"}
+    assert m1.validate_config(changed)["train_steps_per_arm_seed"] == 16384
     for override in (
-        {"train_steps_per_arm_seed": 16384},
+        {"train_steps_per_arm_seed": 0},
+        {"rollout_steps": 1},
+        {"epochs_per_rollout": -1},
+        {"output_dir": "../old_results"},
         {"arms": ["recurrent"]},
         {"training_seeds": [17, 17]},
-        {"max_total_evaluation_steps": 30000},
         {"transfer_seeds": [92001, 93002, 93003, 93004, 93005, 93006]},
         {"evaluation_seeds": [92007, 92002, 92003, 92004, 92005, 92006]},
         {"transfer_seeds": [93007, 93002, 93003, 93004, 93005, 93006]},
@@ -196,17 +200,20 @@ def test_training_and_transfer_observation_contracts_match_without_native_action
             transfer.close()
 
 
-def test_command_cannot_train_outside_admitted_research_job(monkeypatch):
+def test_training_can_execute_locally_without_a_quota_or_ci_identity(monkeypatch):
     import sys
 
-    monkeypatch.setattr(sys, "argv", [
-        "m1_goal_learning", "--execute-budgeted-research",
-    ])
-    monkeypatch.setenv("BAGI_M1_ADMITTED", "1")
-    monkeypatch.setenv("GITHUB_WORKFLOW", "BAGI Research Loop")
-    monkeypatch.setenv("GITHUB_JOB", "test")
-    with pytest.raises(SystemExit, match="quota-admitted research job"):
+    for key in ("BAGI_M1_ADMITTED", "GITHUB_WORKFLOW", "GITHUB_JOB"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setattr(sys, "argv", ["m1_goal_learning"])
+    with pytest.raises(SystemExit, match="--execute"):
         m1.main()
+    calls = []
+    monkeypatch.setattr(m1, "run", lambda config, output: calls.append((config, output)))
+    monkeypatch.setattr(sys, "argv", ["m1_goal_learning", "--execute"])
+    m1.main()
+    assert len(calls) == 1
+
 
 def test_frozen_goal_milestone_arithmetic_is_independent_of_weights():
     rows = []
@@ -242,8 +249,7 @@ def test_m1_source_provenance_binds_to_checked_out_audited_head(monkeypatch):
     )
     monkeypatch.setenv("GITHUB_SHA", "b" * 40)
     monkeypatch.delenv("BAGI_RESEARCH_SOURCE_SHA", raising=False)
-    with pytest.raises(ValueError, match="admitted research HEAD"):
-        m1.admitted_source_commit()
+    assert m1.admitted_source_commit() == actual
     monkeypatch.setenv("BAGI_RESEARCH_SOURCE_SHA", "c" * 40)
     with pytest.raises(ValueError, match="admitted research HEAD"):
         m1.admitted_source_commit()

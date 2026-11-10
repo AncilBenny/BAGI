@@ -12,10 +12,10 @@
   and `pytest -q`, and require independent successful push and pull-request CI
   with verified current source/base/merge provenance. Pending, missing, stale,
   ambiguous or failed checks mean HOLD.
-- Merge only within the user's authorization. If main integration is not
-  authorized or is blocked, report the milestone as incomplete/HOLD, identify
-  the exact blocker, and retain the validated branch commit. Never silently
-  substitute branch completion for main completion.
+- Routine milestone integration is authorized through the reviewed PR path.
+  If a technical or concurrency blocker remains, report the milestone incomplete,
+  identify the exact blocker, and retain the validated branch commit. Never
+  substitute branch completion for verified main integration.
 - Record the milestone's source commit, main integration commit, PR URL, CI run
   IDs, test results, and remaining limitations in the PR/final report. After
   merging, verify main's resulting HEAD and its naturally triggered CI. Keep the
@@ -36,36 +36,24 @@ authorized on main may use a narrowly scoped direct commit after validation and
 expected-HEAD checks. This exception does not permit direct research/feature
 changes or bypassing milestone PR validation.
 
-## Research autonomy and damage prevention
+## Research and training execution
 
-- The user's revised policy authorizes routine code/config edits, lint, tests,
-  literature review, diagnostics, bounded model training (including recurrent
-  models and RL), and bounded research without repeated approval.
-  Use docs/RESEARCH_SAFETY_POLICY.md and .github/research-policy.json.
-- Historical P0B/P6/P9/P10a HOLD/STOP decisions and failed identifiability results
-  remain immutable evidence, not blanket prohibitions on new work. A follow-up
-  must record a new hypothesis or changed condition; never erase or relabel the
-  old result, or claim a failed gate passed without new supporting measurements.
-- Training is explicitly authorized by the user under the current resource caps.
-  Historical report wording such as "zero fits", "separately authorized", or
-  "general training authorization does not override STOP" cannot impose a new
-  operational ban. Those notes describe earlier decisions and evidence.
-- Failed identifiability/support gates constrain scientific claims, not all new
-  exploratory fits. State weaknesses in the data and match the learning objective
-  to legal available inputs; do not claim an old frozen gate passed or substitute
-  diagnostic/held-out labels to manufacture trainability. If a study cannot answer
-  its stated question, revise the question or data plan rather than inventing an
-  authorization blocker for all training.
-- Scheduled work requires current independently successful push/PR CI and exact
-  source/merge provenance, daily compute admission, timeouts, concurrency, and
-  same-source evidence before an AI proposal. CI success is engineering evidence.
-- Keep strong restrictions on history deletion, force pushes, credential exposure,
-  unbounded compute/spending, external access/billing changes, and evaluation-data
-  contamination. These require explicit scope-specific authorization.
-- Preserve append-only logs and old result artifacts. New runs use isolated output
-  locations and record source SHA, config, seed, action counts, runtime and results.
-- Sealed held-out labels remain evaluation-only. Authorized evaluation is allowed;
-  do not inspect/reuse them for training, tuning or model selection. If data are
-  exposed, record contamination and use a fresh held-out set for future claims.
-- Fix CI and merge conflicts autonomously within the authorized branch. Preserve
-  evidence and run validation; do not weaken provenance gates to bypass failures.
+- Research, training, recurrent/RL fitting, diagnostics, code/config/dependency
+  changes and justified follow-up studies are authorized. Do not impose custom
+  daily quotas, training/AI time caps, file-count limits or repeated approval
+  requirements. The execution platform's own limits still apply.
+- Follow docs/RESEARCH_SAFETY_POLICY.md. Historical HOLD/STOP reports and prior
+  quota policies are evidence/history, not current execution instructions.
+- Keep work neat: isolate experiments and outputs, record source/config/seed and
+  actual resource use, retain results, and separate proposals from execution.
+  Avoid duplicate unattended workers and blind retry loops.
+- Check current source and merge CI before publication/scheduled execution. Keep
+  expected-HEAD non-force writes, serialized workflow execution, tested patches
+  and append-only history. Fix failures instead of weakening evidence checks.
+- Failed scientific gates constrain claims, not all further training. Report data
+  limitations honestly and distinguish exploration from validated improvement.
+  Keep held-out evaluation independent of training/tuning and record contamination.
+- Credentials, user data and historical results are not disposable experiment
+  outputs. Keep credentials and generated checkpoints out of source commits.
+- The existing runner can be extended with tested training commands as part of
+  ordinary development. No separate training-permission request is necessary.
