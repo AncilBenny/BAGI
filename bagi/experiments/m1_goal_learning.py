@@ -376,11 +376,11 @@ def run(config: Path, output: Path):
                     policy_kwargs=kwargs, verbose=0,
                 )
                 count = count_optimizer_steps(agent)
-                def factory(task, current_arm=arm):
+                def factory(task, current_arm=arm, tracked_envs=evaluation_envs):
                     item = make_task(
                         task, current_arm, max_native_steps=MAX_EVAL_EPISODE_STEPS
                     )
-                    evaluation_envs.append(item)
+                    tracked_envs.append(item)
                     return item
 
                 phase = "before_evaluation"
