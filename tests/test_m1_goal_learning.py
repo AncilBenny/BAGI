@@ -1,8 +1,14 @@
 """M1 contracts: public executed actions, configurable training and safe output, no live RL fit."""
+import json
+import sys
+from pathlib import Path
+from types import ModuleType
+
 import gymnasium as gym
 import numpy as np
 import pytest
 import torch
+import yaml
 from gymnasium.spaces import Box, Discrete
 
 from bagi.experiments import m1_goal_learning as m1
@@ -351,3 +357,85 @@ def test_single_previous_executed_action_and_episode_reset_are_public_only():
         assert env.native_steps == 1 and env.native_resets == 2
     finally:
         env.close()
+
+def test_interrupted_model_measurement_counts_real_steps_and_resets_only():
+    training = m1.CountNativeSteps(TinyPublic())
+    evaluation = m1.CountNativeSteps(TinyPublic())
+    try:
+        training.reset(seed=17)
+        training.step(0)
+        evaluation.reset(seed=92001)
+        evaluation.step(0)
+        count = {"calls": 3}
+        snapshot = m1.interrupted_model_measurement(
+            training, [evaluation], count
+        )
+        assert snapshot["status"] == "interrupted_not_completed"
+        assert snapshot["training_real_actions"] == 1
+        assert snapshot["training_resets"] == 1
+        assert snapshot["evaluation_real_actions"] == 1
+        assert snapshot["evaluation_resets"] == 1
+        assert snapshot["optimizer_step_calls"] == 3
+    finally:
+        training.close()
+        evaluation.close()
+
+
+def test_interrupted_training_writes_provenance_bound_partial_ledger(
+        monkeypatch, tmp_path):
+    """Failure during learn preserves performed work but never scores a fit."""
+    class InterruptedAgent:
+        def __init__(self, _policy, env, **_kwargs):
+            self.env = env
+            self.policy = ToyPolicy()
+
+        def learn(self, total_timesteps):
+            assert total_timesteps == 8192
+            self.env.reset(seed=17)
+            self.env.step(0)
+            self.policy.optimizer.step()
+            raise RuntimeError("synthetic training interruption")
+
+    def evaluated(_agent, task, _seeds, env_factory):
+        env = env_factory(task)
+        env.reset(seed=92001)
+        env.step(0)
+        env.close()
+        return {"evaluation_real_steps": 1}
+
+    sb3 = ModuleType("stable_baselines3")
+    sb3.PPO = InterruptedAgent
+    contrib = ModuleType("sb3_contrib")
+    contrib.RecurrentPPO = InterruptedAgent
+    monkeypatch.setitem(sys.modules, "stable_baselines3", sb3)
+    monkeypatch.setitem(sys.modules, "sb3_contrib", contrib)
+    monkeypatch.setattr(
+        m1, "make_task",
+        lambda _task, _arm, max_native_steps=None: m1.CountNativeSteps(
+            TinyPublic(), max_native_steps=max_native_steps
+        ),
+    )
+    monkeypatch.setattr(m1, "evaluate_goal_agent", evaluated)
+    monkeypatch.setattr(m1, "admitted_source_commit", lambda: "a" * 40)
+    monkeypatch.chdir(tmp_path)
+    conf = tmp_path / "frozen.yaml"
+    conf.write_text(yaml.safe_dump(config()), encoding="utf-8")
+    output = Path("runs/m1_goal_learning/summary.json")
+    with pytest.raises(RuntimeError, match="synthetic training interruption"):
+        m1.run(conf, output)
+    progress = json.loads(Path("runs/m1_goal_learning/progress.json").read_text())
+    assert progress["status"] == "interrupted_not_a_completed_study"
+    assert progress["source_commit"] == "a" * 40
+    assert progress["failure_phase"] == "training"
+    assert progress["failure_type"] == "RuntimeError"
+    assert progress["completed_models"] == 0
+    assert progress["records"] == []
+    assert progress["observed_training_real_actions"] == 1
+    assert progress["observed_evaluation_real_actions"] == 1
+    assert progress["observed_optimizer_step_calls"] == 1
+    assert progress["in_flight_model"]["training_resets"] == 1
+    assert progress["in_flight_model"]["evaluation_resets"] == 1
+    assert not output.exists()
+    assert not Path("runs/m1_goal_learning/progress.json.pending").exists()
+    with pytest.raises(FileExistsError, match="Refusing to overwrite"):
+        m1.run(conf, output)

@@ -169,6 +169,29 @@ def count_optimizer_steps(agent):
     return count
 
 
+def interrupted_model_measurement(env, evaluation_envs, optimizer_counter):
+    """Account for observed, unfinished native work without calling it completed."""
+    return {
+        "status": "interrupted_not_completed",
+        "training_real_actions": env.native_steps,
+        "training_resets": env.native_resets,
+        "training_positive_reward_steps": env.native_positive_reward_steps,
+        "training_rewarded_goal_terminations": env.native_rewarded_goal_terminations,
+        "training_public_reward_sum": env.native_public_reward_sum,
+        "evaluation_real_actions": sum(item.native_steps for item in evaluation_envs),
+        "evaluation_resets": sum(item.native_resets for item in evaluation_envs),
+        "optimizer_step_calls": optimizer_counter["calls"],
+    }
+
+
+def save_progress(path: Path, payload: dict):
+    """Atomically replace the same run's progress, never an earlier study run."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pending = path.with_name(path.name + ".pending")
+    pending.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    pending.replace(path)
+
+
 def admitted_source_commit():
     """Bind results to checked-out source; verify an expected SHA when provided."""
     actual = subprocess.check_output(
@@ -295,10 +318,12 @@ def score_goal_milestone(records):
 
 
 def run(config: Path, output: Path):
-    if output.exists() or (output.parent / "progress.json").exists():
+    if (output.exists() or (output.parent / "progress.json").exists()
+            or (output.parent / "progress.json.pending").exists()):
         raise FileExistsError("Refusing to overwrite previous M1 evidence")
     raw_config = config.read_bytes()
     c = validate_config(yaml.safe_load(raw_config))
+    config_digest = hashlib.sha256(raw_config).hexdigest()
     source_commit = admitted_source_commit()
     requested_steps = c["train_steps_per_arm_seed"]
     # Upstream PPO finishes whole rollouts. Record its expected actual work
@@ -336,6 +361,9 @@ def run(config: Path, output: Path):
         for arm in ARMS:
             env = make_task(TRAIN_TASK, arm,
                             max_native_steps=actual_steps_per_model)
+            evaluation_envs = []
+            count = {"calls": 0}
+            phase = "agent_initialization"
             try:
                 recurrent = arm == "recurrent"
                 kwargs = {"net_arch": {"pi": [32], "vf": [32]}}
@@ -348,18 +376,28 @@ def run(config: Path, output: Path):
                     policy_kwargs=kwargs, verbose=0,
                 )
                 count = count_optimizer_steps(agent)
-                factory = lambda task, arm=arm: make_task(
-                    task, arm, max_native_steps=MAX_EVAL_EPISODE_STEPS
-                )
+                def factory(task, current_arm=arm):
+                    item = make_task(
+                        task, current_arm, max_native_steps=MAX_EVAL_EPISODE_STEPS
+                    )
+                    evaluation_envs.append(item)
+                    return item
+
+                phase = "before_evaluation"
                 before = evaluate_goal_agent(agent, TRAIN_TASK, c["evaluation_seeds"], factory)
+                phase = "training"
                 agent.learn(total_timesteps=requested_steps)
                 if agent.num_timesteps != actual_steps_per_model or env.native_steps != actual_steps_per_model:
                     raise ValueError("Native training action budget mismatch")
+                phase = "after_evaluation"
                 after = evaluate_goal_agent(agent, TRAIN_TASK, c["evaluation_seeds"], factory)
+                phase = "transfer_evaluation"
                 transfer = evaluate_goal_agent(agent, TRANSFER_TASK, c["transfer_seeds"], factory)
                 total_eval = sum(x["evaluation_real_steps"] for x in
                                  (before, after, transfer))
+                phase = "numeric_export"
                 state = numeric_state(agent, output.parent / f"{arm}-seed{seed}.npz")
+                phase = "completed_model_record"
                 records.append({
                     "arm": arm, "model_seed": seed,
                     "parameters": sum(p.numel() for p in agent.policy.parameters()),
@@ -392,11 +430,50 @@ def run(config: Path, output: Path):
                     "training_public_reward_sum": training_public_reward_sum,
                     "optimizer_step_calls": optimizer, "records": records,
                 }
-                (output.parent / "progress.json").write_text(
-                    json.dumps(progress, indent=2) + "\n", encoding="utf-8"
-                )
+                save_progress(output.parent / "progress.json", progress)
                 print(f"{arm} seed={seed}: {before['successes']}/6 -> "
                       f"{after['successes']}/6; transfer={transfer['successes']}/6")
+            except BaseException as failure:
+                # The completed-model ledger intentionally excludes in-flight
+                # work. Preserve separately observed actions/updates on failure.
+                already_complete = any(
+                    row["arm"] == arm and row["model_seed"] == seed
+                    for row in records
+                )
+                pending = None if already_complete else interrupted_model_measurement(
+                    env, evaluation_envs, count
+                )
+                partial = {
+                    "status": "interrupted_not_a_completed_study",
+                    "source_commit": source_commit,
+                    "config_sha256": config_digest,
+                    "failure_phase": phase,
+                    "failure_type": type(failure).__name__,
+                    "completed_models": len(records),
+                    "training_real_actions": training,
+                    "evaluation_real_actions": evaluation,
+                    "optimizer_step_calls": optimizer,
+                    "observed_training_real_actions": (
+                        training + (pending["training_real_actions"] if pending else 0)
+                    ),
+                    "observed_evaluation_real_actions": (
+                        evaluation + (pending["evaluation_real_actions"] if pending else 0)
+                    ),
+                    "observed_optimizer_step_calls": (
+                        optimizer + (pending["optimizer_step_calls"] if pending else 0)
+                    ),
+                    "in_flight_model": (
+                        {"arm": arm, "model_seed": seed, **pending} if pending else None
+                    ),
+                    "records": records,
+                    "elapsed_seconds": round(time.monotonic() - started, 3),
+                    "limitations": [
+                        "In-flight measurements are observed counts, not a completed fit.",
+                        "Abrupt process termination can prevent this exception handler.",
+                    ],
+                }
+                save_progress(output.parent / "progress.json", partial)
+                raise
             finally:
                 env.close()
     if training != expected_training_total:
@@ -412,7 +489,7 @@ def run(config: Path, output: Path):
                               c["epochs_per_rollout"]) == (8192, 128, 64, 2)
                              else "modified_exploratory_settings"),
         "source_commit": source_commit,
-        "config_sha256": hashlib.sha256(raw_config).hexdigest(),
+        "config_sha256": config_digest,
         "versions": {name: version(name) for name in
                      ("gymnasium", "minigrid", "stable-baselines3", "sb3-contrib")},
         "records": records, "milestone_pilot_gates": score_goal_milestone(records),
