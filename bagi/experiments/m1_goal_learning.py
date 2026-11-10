@@ -76,8 +76,12 @@ class PublicExecutedActions(gym.Wrapper):
 class CountNativeSteps(gym.Wrapper):
     """Records real simulator returns and resets, not model rollouts."""
 
-    def __init__(self, env):
+    def __init__(self, env, *, max_native_steps: int | None = None):
         super().__init__(env)
+        if max_native_steps is not None and (
+                type(max_native_steps) is not int or max_native_steps < 1):
+            raise ValueError("Native action limit must be a positive integer")
+        self.max_native_steps = max_native_steps
         self.native_steps = 0
         self.native_resets = 0
 
@@ -86,12 +90,15 @@ class CountNativeSteps(gym.Wrapper):
         return self.env.reset(**kwargs)
 
     def step(self, action):
+        if (self.max_native_steps is not None
+                and self.native_steps >= self.max_native_steps):
+            raise RuntimeError("Native action limit reached before env.step")
         result = self.env.step(action)
         self.native_steps += 1
         return result
 
 
-def make_task(task: str, arm: str):
+def make_task(task: str, arm: str, *, max_native_steps: int | None = None):
     if task not in (TRAIN_TASK, TRANSFER_TASK) or arm not in ARMS:
         raise ValueError("Unregistered task or model arm")
     # Local image only. Mission and hidden/evaluator information are excluded.
@@ -102,7 +109,7 @@ def make_task(task: str, arm: str):
         env = PublicExecutedActions(env, 4)
     if arm == "frame4":
         env = FlattenObservation(FrameStackObservation(env, stack_size=4))
-    return CountNativeSteps(env)
+    return CountNativeSteps(env, max_native_steps=max_native_steps)
 
 
 def validate_config(c):
@@ -310,7 +317,8 @@ def run(config: Path, output: Path):
     started = time.monotonic()
     for seed in c["training_seeds"]:
         for arm in ARMS:
-            env = make_task(TRAIN_TASK, arm)
+            env = make_task(TRAIN_TASK, arm,
+                            max_native_steps=actual_steps_per_model)
             try:
                 recurrent = arm == "recurrent"
                 kwargs = {"net_arch": {"pi": [32], "vf": [32]}}
@@ -323,7 +331,9 @@ def run(config: Path, output: Path):
                     policy_kwargs=kwargs, verbose=0,
                 )
                 count = count_optimizer_steps(agent)
-                factory = lambda task, arm=arm: make_task(task, arm)
+                factory = lambda task, arm=arm: make_task(
+                    task, arm, max_native_steps=MAX_EVAL_EPISODE_STEPS
+                )
                 before = evaluate_goal_agent(agent, TRAIN_TASK, c["evaluation_seeds"], factory)
                 agent.learn(total_timesteps=requested_steps)
                 if agent.num_timesteps != actual_steps_per_model or env.native_steps != actual_steps_per_model:

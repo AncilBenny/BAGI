@@ -255,3 +255,48 @@ def test_m1_source_provenance_binds_to_checked_out_audited_head(monkeypatch):
         m1.admitted_source_commit()
     monkeypatch.setenv("BAGI_RESEARCH_SOURCE_SHA", actual)
     assert m1.admitted_source_commit() == actual
+
+def test_native_action_limit_blocks_extra_calls_before_simulator_and_after_reset():
+    raw = TinyPublic()
+    env = m1.CountNativeSteps(raw, max_native_steps=1)
+    try:
+        env.reset(seed=17)
+        env.step(0)
+        assert raw.index == 1 and env.native_steps == 1
+        with pytest.raises(RuntimeError, match="before env.step"):
+            env.step(0)
+        assert raw.index == 1 and env.native_steps == 1
+        env.reset(seed=29)
+        with pytest.raises(RuntimeError, match="before env.step"):
+            env.step(1)
+        assert raw.index == 0 and env.native_resets == 2
+        assert env.native_steps == 1
+    finally:
+        env.close()
+
+
+def test_native_action_limit_is_configured_per_environment_and_starts_unspent():
+    for arm in m1.ARMS:
+        env = m1.make_task(
+            m1.TRAIN_TASK, arm, max_native_steps=8192
+        )
+        evaluation = m1.make_task(
+            m1.TRANSFER_TASK, arm,
+            max_native_steps=m1.MAX_EVAL_EPISODE_STEPS
+        )
+        try:
+            assert env.max_native_steps == 8192
+            assert evaluation.max_native_steps == 120
+            assert env.native_steps == evaluation.native_steps == 0
+            assert env.native_resets == evaluation.native_resets == 0
+        finally:
+            env.close()
+            evaluation.close()
+
+
+@pytest.mark.parametrize("invalid", (0, -1, True, 2.5, "8192"))
+def test_native_action_limit_rejects_invalid_caps(invalid):
+    env = TinyPublic()
+    with pytest.raises(ValueError, match="positive integer"):
+        m1.CountNativeSteps(env, max_native_steps=invalid)
+    env.close()
