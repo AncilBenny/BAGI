@@ -84,6 +84,9 @@ class CountNativeSteps(gym.Wrapper):
         self.max_native_steps = max_native_steps
         self.native_steps = 0
         self.native_resets = 0
+        self.native_public_reward_sum = 0.0
+        self.native_positive_reward_steps = 0
+        self.native_rewarded_goal_terminations = 0
 
     def reset(self, **kwargs):
         self.native_resets += 1
@@ -95,6 +98,13 @@ class CountNativeSteps(gym.Wrapper):
             raise RuntimeError("Native action limit reached before env.step")
         result = self.env.step(action)
         self.native_steps += 1
+        _, reward, terminated, _, _ = result
+        public_reward = float(reward)
+        self.native_public_reward_sum += public_reward
+        if public_reward > 0:
+            self.native_positive_reward_steps += 1
+            if terminated:
+                self.native_rewarded_goal_terminations += 1
         return result
 
 
@@ -314,6 +324,9 @@ def run(config: Path, output: Path):
             b.close()
 
     records, training, evaluation, optimizer = [], 0, 0, 0
+    training_positive_rewards = 0
+    training_rewarded_goals = 0
+    training_public_reward_sum = 0.0
     started = time.monotonic()
     for seed in c["training_seeds"]:
         for arm in ARMS:
@@ -348,6 +361,10 @@ def run(config: Path, output: Path):
                     "parameters": sum(p.numel() for p in agent.policy.parameters()),
                     "training_real_actions": env.native_steps,
                     "training_resets": env.native_resets,
+                    "training_positive_reward_steps": env.native_positive_reward_steps,
+                    "training_rewarded_goal_terminations":
+                        env.native_rewarded_goal_terminations,
+                    "training_public_reward_sum": env.native_public_reward_sum,
                     "optimizer_step_calls": count["calls"],
                     "evaluation_real_actions": total_eval,
                     "before": before, "after": after, "transfer": transfer,
@@ -356,6 +373,9 @@ def run(config: Path, output: Path):
                 training += env.native_steps
                 evaluation += total_eval
                 optimizer += count["calls"]
+                training_positive_rewards += env.native_positive_reward_steps
+                training_rewarded_goals += env.native_rewarded_goal_terminations
+                training_public_reward_sum += env.native_public_reward_sum
                 if training > expected_training_total or evaluation > expected_evaluation_total:
                     raise ValueError("Actual work exceeded the configured study accounting")
                 progress = {
@@ -363,6 +383,9 @@ def run(config: Path, output: Path):
                     "source_commit": source_commit,
                     "completed_models": len(records), "training_real_actions": training,
                     "evaluation_real_actions": evaluation,
+                    "training_positive_reward_steps": training_positive_rewards,
+                    "training_rewarded_goal_terminations": training_rewarded_goals,
+                    "training_public_reward_sum": training_public_reward_sum,
                     "optimizer_step_calls": optimizer, "records": records,
                 }
                 (output.parent / "progress.json").write_text(
@@ -391,6 +414,9 @@ def run(config: Path, output: Path):
         "records": records, "milestone_pilot_gates": score_goal_milestone(records),
         "training_real_actions": training,
         "evaluation_real_actions": evaluation,
+        "training_positive_reward_steps": training_positive_rewards,
+        "training_rewarded_goal_terminations": training_rewarded_goals,
+        "training_public_reward_sum": training_public_reward_sum,
         "optimizer_step_calls": optimizer, "teacher_queries": 0,
         "elapsed_seconds": round(time.monotonic()-started, 3),
         "limitations": [

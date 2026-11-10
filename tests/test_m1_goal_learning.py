@@ -300,3 +300,32 @@ def test_native_action_limit_rejects_invalid_caps(invalid):
     with pytest.raises(ValueError, match="positive integer"):
         m1.CountNativeSteps(env, max_native_steps=invalid)
     env.close()
+
+
+def test_training_reward_telemetry_counts_public_rewards_not_diagnostic_info():
+    # Both mocks return the same positive reward. A truncation is not a
+    # rewarded terminal goal, even though positive native reward was observed.
+    for kind, expected_goals in ((TinyPublic, 1), (PositiveTruncated, 0)):
+        env = m1.CountNativeSteps(kind(), max_native_steps=3)
+        try:
+            env.reset(seed=17)
+            env.step(0)
+            _, reward, terminated, truncated, _ = env.step(0)
+            assert reward == 1.0
+            assert terminated != truncated
+            assert env.native_steps == 2
+            assert env.native_positive_reward_steps == 1
+            assert env.native_rewarded_goal_terminations == expected_goals
+            assert env.native_public_reward_sum == 1.0
+            # A new episode must not erase actual training counters.
+            env.reset(seed=29)
+            env.step(0)
+            assert env.native_steps == 3
+            assert env.native_positive_reward_steps == 1
+            assert env.native_rewarded_goal_terminations == expected_goals
+            assert env.native_resets == 2
+            with pytest.raises(RuntimeError, match="before env.step"):
+                env.step(0)
+            assert env.native_steps == 3
+        finally:
+            env.close()
