@@ -1,4 +1,7 @@
 # BAGI-M1: first bounded public-action goal-success study.
+# Prespecified observation-input correction before any M1 fitted result:
+# reactive/recurrent = public image + one actually executed previous action;
+# action4 = public image + four executed previous actions; frame4 = four frames.
 # A future runner review must approve execution; ordinary CI never trains.
 train_task: MiniGrid-MemoryS7-v0
 transfer_task: MiniGrid-MemoryS13Random-v0

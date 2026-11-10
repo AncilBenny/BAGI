@@ -132,7 +132,7 @@ def test_unknown_task_is_rejected_before_env_creation():
 
 
 def test_memory_arms_have_distinct_public_control_inputs_without_steps():
-    """Reactive and recurrent see only image; action4 and frame4 add legal history."""
+    """Reactive/recurrent share a public action input; controls have legal history."""
     environments = {}
     try:
         for arm in m1.ARMS:
@@ -140,10 +140,13 @@ def test_memory_arms_have_distinct_public_control_inputs_without_steps():
         shapes = {arm: env.observation_space.shape for arm, env in environments.items()}
         image_width = 7 * 7 * 3  # Standard MiniGrid local public image.
         n_actions = environments["action4"].action_space.n
-        assert shapes["reactive"] == (image_width,)
-        assert shapes["recurrent"] == (image_width,)
+        assert shapes["reactive"] == (image_width + n_actions + 1,)
+        assert shapes["recurrent"] == shapes["reactive"]
         assert shapes["action4"] == (image_width + 4 * (n_actions + 1),)
         assert shapes["frame4"] == (4 * image_width,)
+        assert all(isinstance(environments[arm].env, m1.PublicExecutedActions)
+                   and environments[arm].env.n_history == 1
+                   for arm in ("reactive", "recurrent"))
         assert all(env.native_steps == 0 and env.native_resets == 0
                    for env in environments.values())
     finally:
@@ -329,3 +332,22 @@ def test_training_reward_telemetry_counts_public_rewards_not_diagnostic_info():
             assert env.native_steps == 3
         finally:
             env.close()
+
+
+def test_single_previous_executed_action_and_episode_reset_are_public_only():
+    raw = TinyPublic()
+    env = m1.CountNativeSteps(m1.PublicExecutedActions(raw, 1))
+    try:
+        first, info = env.reset(seed=17)
+        assert info["private_mock"] == "not in observation"
+        assert first.shape == (6,)
+        assert first[-3:].tolist() == [0, 0, 1]
+        subsequent, _, _, _, _ = env.step(1)
+        assert subsequent[-3:].tolist() == [0, 1, 0]
+        assert subsequent.shape == first.shape
+        assert env.native_steps == 1
+        fresh, _ = env.reset(seed=29)
+        assert fresh[-3:].tolist() == [0, 0, 1]
+        assert env.native_steps == 1 and env.native_resets == 2
+    finally:
+        env.close()

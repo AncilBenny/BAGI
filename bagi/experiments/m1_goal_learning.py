@@ -115,9 +115,13 @@ def make_task(task: str, arm: str, *, max_native_steps: int | None = None):
     env = gym.make(task)
     env = gym.wrappers.TimeLimit(env, max_episode_steps=MAX_EVAL_EPISODE_STEPS)
     env = FlattenObservation(ImgObsWrapper(env))
-    if arm == "action4":
+    # Give reactive and recurrent the SAME public observation/action inputs.
+    # The recurrent state then tests learned memory beyond the last action.
+    if arm in ("reactive", "recurrent"):
+        env = PublicExecutedActions(env, 1)
+    elif arm == "action4":
         env = PublicExecutedActions(env, 4)
-    if arm == "frame4":
+    elif arm == "frame4":
         env = FlattenObservation(FrameStackObservation(env, stack_size=4))
     return CountNativeSteps(env, max_native_steps=max_native_steps)
 
@@ -419,6 +423,12 @@ def run(config: Path, output: Path):
         "training_public_reward_sum": training_public_reward_sum,
         "optimizer_step_calls": optimizer, "teacher_queries": 0,
         "elapsed_seconds": round(time.monotonic()-started, 3),
+        "observation_contract": {
+            "reactive": "public_image_plus_one_executed_previous_action",
+            "recurrent": "public_image_plus_one_executed_previous_action",
+            "action4": "public_image_plus_four_executed_previous_actions",
+            "frame4": "four_public_image_frames",
+        },
         "limitations": [
             "This is public-image goal learning, not general intelligence.",
             "Training uses only MemoryS7; MemoryS13Random is a separate zero-shot test.",
