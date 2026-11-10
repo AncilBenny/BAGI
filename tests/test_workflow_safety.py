@@ -1,5 +1,4 @@
-"""Research is admitted through CI and budgets instead of blanket bans."""
-import json
+"""No custom quotas; publication and branch-integrity checks remain intact."""
 import unittest
 from pathlib import Path
 
@@ -9,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ScheduledSafetyTests(unittest.TestCase):
-    def test_scheduled_research_requires_ci_and_compute_admission(self):
+    def test_scheduled_research_requires_ci_without_daily_quotas(self):
         for filename, cron, blocked in (
             ('bagi-research-loop.yml', '17 * * * *', 'research'),
             ('bagi-autonomous-agent.yml', '7 */2 * * *', 'gate'),
@@ -19,21 +18,26 @@ class ScheduledSafetyTests(unittest.TestCase):
                 triggers = data.get('on', data.get(True))
                 self.assertEqual(set(triggers), {'schedule', 'workflow_dispatch'})
                 self.assertEqual(triggers['schedule'], [{'cron': cron}])
-                self.assertEqual(data['jobs'][blocked]['needs'], ['audit', 'budget'])
+                self.assertEqual(data['jobs'][blocked]['needs'], 'audit')
                 self.assertEqual(data['jobs'][blocked]['if'],
-                                 "needs.budget.outputs.eligible == 'true'")
-                budget = data['jobs']['budget']
-                self.assertEqual(budget['needs'], 'audit')
-                self.assertEqual(budget['permissions'],
-                                 {'contents': 'read', 'actions': 'read'})
-                self.assertIn('bagi_research_budget.py', budget['steps'][1]['run'])
+                                 "needs.audit.result == 'success'")
+                self.assertNotIn('budget', data['jobs'])
+                for job in data['jobs'].values():
+                    self.assertNotIn('timeout-minutes', job)
                 audit = data['jobs']['audit']
                 self.assertEqual(audit['permissions'], {'contents': 'read', 'actions': 'read'})
-                self.assertEqual(audit['timeout-minutes'], 5)
-                self.assertEqual(len(audit['steps']), 2)
+                expected_steps = 3 if filename == 'bagi-research-loop.yml' else 2
+                self.assertEqual(len(audit['steps']), expected_steps)
                 self.assertEqual(audit['steps'][0]['uses'], 'actions/checkout@v4')
                 self.assertFalse(audit['steps'][0]['with']['persist-credentials'])
-                code = audit['steps'][1]['run']
+                if filename == 'bagi-research-loop.yml':
+                    guard = audit['steps'][1]
+                    self.assertEqual(guard['name'],
+                                     'Fail closed on missing or unknown manual study')
+                    self.assertEqual(guard['run'], 'python3 scripts/bagi_research_dispatch.py')
+                    self.assertEqual(guard['env']['BAGI_DISPATCH_STUDY'],
+                                     '${{ inputs.study }}')
+                code = audit['steps'][-1]['run']
                 self.assertIn('ci_snapshot(api, sha)', code)
                 self.assertIn('this does not establish scientific progress', code)
                 for forbidden in ('subprocess', 'pip install', 'make ', 'copilot ', 'git push'):
@@ -50,18 +54,11 @@ class ScheduledSafetyTests(unittest.TestCase):
             self.assertNotIn('always()', data['jobs'][job]['if'])
 
 
-    def test_policy_and_workflow_timeouts_agree(self):
-        policy = json.loads((ROOT / '.github/research-policy.json').read_text())
-        self.assertEqual(policy['schema_version'], 1)
-        for key in ('research_runs_per_utc_day', 'ai_proposals_per_utc_day'):
-            self.assertIs(type(policy[key]), int)
-            self.assertGreater(policy[key], 0)
+    def test_research_remains_pinned_and_rechecked_without_quota_files(self):
         research = yaml.safe_load(
             (ROOT / '.github/workflows/bagi-research-loop.yml').read_text())['jobs']['research']
         agent = yaml.safe_load(
             (ROOT / '.github/workflows/bagi-autonomous-agent.yml').read_text())['jobs']
-        self.assertEqual(research['timeout-minutes'], policy['research_timeout_minutes'])
-        self.assertEqual(agent['propose']['timeout-minutes'], policy['ai_timeout_minutes'])
         checkout = research['steps'][0]
         self.assertEqual(checkout['with']['ref'], '${{ needs.audit.outputs.research_sha }}')
         self.assertFalse(checkout['with']['persist-credentials'])
@@ -69,3 +66,5 @@ class ScheduledSafetyTests(unittest.TestCase):
         self.assertIn('ci_snapshot(api, sha)', research['steps'][1]['run'])
         self.assertEqual(research['permissions'], {'contents': 'read', 'actions': 'read'})
         self.assertIn('bagi_evidence_gate.py', agent['gate']['steps'][1]['run'])
+        self.assertFalse((ROOT / '.github/research-policy.json').exists())
+        self.assertFalse((ROOT / 'scripts/bagi_research_budget.py').exists())

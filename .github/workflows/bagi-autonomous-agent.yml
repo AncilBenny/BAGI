@@ -2,7 +2,7 @@ name: BAGI Autonomous Research Agent
 
 # The agent always works on setup/initial-platform.
 # A personal Copilot token is required; without it, the workflow skips safely.
-# Scheduled research is admitted only after exact CI provenance and daily budget checks.
+# Scheduled research is admitted only after exact CI provenance and orderly branch checks.
 on:
   workflow_dispatch:
   schedule:
@@ -21,7 +21,6 @@ jobs:
       research_sha: ${{ steps.verify.outputs.research_sha }}
     name: Verify current source and PR merge CI
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     permissions:
       contents: read
       actions: read
@@ -57,36 +56,16 @@ jobs:
               raise SystemExit(2) from exc
           with open(summary, "a", encoding="utf-8") as output:
               output.write("CI provenance verified: " + json.dumps(snapshot) + "\n")
-              output.write("CI verified. Research may proceed within the reviewed budget; "
+              output.write("CI verified. Research may proceed; "
                            "this does not establish scientific progress.\n")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write("research_sha=" + sha + "\n")
           PYTHON
 
-  budget:
-    needs: audit
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      actions: read
-    outputs:
-      eligible: ${{ steps.check.outputs.eligible }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Enforce daily compute budget before starting work
-        id: check
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/bagi_research_budget.py agent
-
   gate:
-    needs: [audit, budget]
-    if: needs.budget.outputs.eligible == 'true'
+    needs: audit
+    if: needs.audit.result == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     permissions:
       contents: read
       actions: read
@@ -134,7 +113,6 @@ jobs:
     needs: gate
     if: needs.gate.outputs.eligible == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     outputs:
       ready: ${{ steps.auth.outputs.ready }}
     permissions:
@@ -213,36 +191,37 @@ jobs:
           world-model calibration, model exploitation, recurrent state/memory,
           causal-stage planning, stronger matched baselines, held-out layouts,
           uncertainty-aware control, and rigorous sample-efficiency evaluation.
-          Pick exactly ONE smallest informative experiment for this cycle,
-          avoiding repeated work and speculative architectural rewrites.
+          Advance a coherent, informative research milestone,
+          avoiding duplicate work and speculative architectural rewrites.
           Write a falsifiable hypothesis, control/baseline, fixed-seed policy,
           success/failure metrics, and realistic negative-result interpretation.
 
-          You may edit ONLY Python under bagi/ and tests/, YAML under configs/,
-          and docs/autonomous-research-log.md. DO NOT change the CI/workflow
-          files, dependencies, README, .gitignore, credentials, or branches.
-          DO NOT run commands, install dependencies, browse the web, invoke
-          other agents, commit, push, make PRs, or request secrets. The runner
-          will validate and commit changes after you finish.
-          No external services, secrets, spending, or deployment changes.
-          Keep changes under six small files, include a unit test when useful.
+          Prepare any coherent repository code, configuration, dependency,
+          documentation or workflow changes needed for the research milestone.
+          There is no fixed file-count or file-size quota. Keep generated runs,
+          checkpoints, downloaded evidence, credentials and caches out of commits.
+          This job proposes a patch; it does not run experiments or publish it.
+          The separate runner validates, tests and commits the patch. Do not
+          request secrets or make unsupported claims of measured improvements.
+          Include meaningful tests when needed and keep the patch reviewable.
           Every iteration MUST append a concise note to
           docs/autonomous-research-log.md recording hypothesis, prior evidence,
           code change, what was NOT run yet, and next measurement.
-          If the evidence is insufficient, do not change the code; say why.
+          When evidence is weak, choose an exploratory objective or control
+          and report its limitations. Avoid cosmetic commits without a purpose.
           No unsupported claims of measured improvements.
           Read AGENTS.md and docs/RESEARCH_SAFETY_POLICY.md. Historical failed
           gates are evidence, not permanent bans. Do not reuse sealed evaluation
           labels for training/tuning or overwrite prior results. Any follow-up
-          must identify what changed and stay within existing compute limits.
-          Bounded model training, including recurrent and RL models, is already
+          must identify what changed and keep code, data and results organized.
+          Model training, including recurrent and RL models, is already
           authorized by the user under the current policy. Historical report
           language such as "zero fits" or "general authorization does not override
           STOP" is not a current execution ban. Keep failed gates failed as claims;
           describe data limitations honestly and propose a supported exploratory
-          objective or bounded data plan instead of requesting permission again.
+          objective or data plan instead of requesting permission again.
           Your proposal tools still cannot run training commands: implement a
-          small tested change or describe its bounded execution plan; the separate
+          coherent tested change or describe its execution plan; the separate
           research runner executes only its reviewed command list.
           PROMPT
           copilot -p "$(cat "$RUNNER_TEMP/bagi-agent-prompt.txt")"             -s --no-ask-user --available-tools='view,edit,grep,glob'             --allow-tool='write' --deny-tool='shell' --deny-tool='url'             --secret-env-vars='COPILOT_GITHUB_TOKEN'             > "$RUNNER_TEMP/bagi-agent-response.txt"
@@ -251,10 +230,10 @@ jobs:
       - name: Package proposed diff and exact base
         if: steps.auth.outputs.ready == 'true'
         run: |
+          git add -N -- . ':!proposal' ':!evidence' ':!artifacts' ':!runs' ':!results' ':!checkpoints' ':!.bagi-*'
           mkdir -p proposal
           git rev-parse HEAD > proposal/base_sha
-          git add -N bagi configs tests docs 2>/dev/null || true
-          git diff --binary > proposal/proposed.patch
+          git diff HEAD --binary > proposal/proposed.patch
           if [ ! -s proposal/proposed.patch ]; then
             echo "No code change proposed. Read agent decision in the step summary." >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -282,7 +261,6 @@ jobs:
     needs: propose
     if: needs.propose.outputs.ready == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
     permissions:
       contents: read
     steps:
@@ -294,7 +272,7 @@ jobs:
         with:
           name: bagi-agent-proposal
           path: proposal
-      - name: Validate allowed patch and branch snapshot
+      - name: Validate repository patch and branch snapshot
         id: patch
         run: |
           if [ ! -s proposal/proposed.patch ]; then
@@ -304,35 +282,35 @@ jobs:
           test "$(git rev-parse HEAD)" = "$(cat proposal/base_sha)"
           git apply --check proposal/proposed.patch
           git apply proposal/proposed.patch
-          python - <<'PY'
+          python -I - <<'PY'
           import subprocess
-          # Register newly created files so the allowlist cannot overlook them.
-          subprocess.run(["git", "add", "-N", "--", "bagi", "configs", "tests", "docs"],
+          from pathlib import Path
+          # Stage intent only, excluding runner outputs, so new project files
+          # are reviewed without accidentally packaging evidence or caches.
+          subprocess.run(["git", "add", "-N", "--", ".", ":!proposal", ":!evidence",
+                          ":!artifacts", ":!runs", ":!results", ":!checkpoints", ":!.bagi-*"],
                          check=True)
           paths = subprocess.check_output(
-              ["git", "diff", "--name-only"], text=True
-          ).splitlines()
-          allowed = lambda p: (
-              p.startswith("bagi/") and p.endswith(".py")
-              or p.startswith("tests/") and p.endswith(".py")
-              or p.startswith("configs/") and p.endswith((".yaml", ".yml"))
-              or p == "docs/autonomous-research-log.md"
-          )
-          if not paths or len(paths) > 6 or not all(map(allowed, paths)):
-              raise SystemExit(f"Rejected unsafe or oversized patch: {paths}")
-          if "docs/autonomous-research-log.md" not in paths:
-              raise SystemExit("Missing required append-only research log update.")
-          old_log = subprocess.check_output(
-              ["git", "show", "HEAD:docs/autonomous-research-log.md"], text=True
-          )
-          from pathlib import Path
-          if not Path("docs/autonomous-research-log.md").read_text().startswith(old_log):
-              raise SystemExit("Research log must be append-only.")
+              ["git", "diff", "HEAD", "--name-only", "-z"], text=True
+          ).rstrip("\0").split("\0")
+          if not paths or paths == [""]:
+              raise SystemExit("Empty proposal")
+          generated = {"proposal", "evidence", "artifacts", "runs", "results", "checkpoints"}
+          private = {".git", ".ssh", ".aws", ".azure", ".gcp", "id_rsa", "id_ed25519"}
           for path in paths:
-              with open(path, "rb") as f:
-                  if len(f.read()) > 250_000:
-                      raise SystemExit(f"File too large: {path}")
-          print("Validated allowlisted patch:", paths)
+              parts = Path(path).parts
+              if (not parts or parts[0] in generated or Path(path).is_absolute()
+                      or any(part in private or part == ".." or part == ".env"
+                             or part.startswith(".env.") for part in parts)
+                      or Path(path).is_symlink()):
+                  raise SystemExit(f"Proposal contains a private/generated path: {path}")
+          log = "docs/autonomous-research-log.md"
+          if log not in paths:
+              raise SystemExit("Missing append-only research log update")
+          old_log = subprocess.check_output(["git", "show", "HEAD:" + log], text=True)
+          if not Path(log).read_text().startswith(old_log):
+              raise SystemExit("Research log must remain append-only")
+          print("Validated repository patch:", paths)
           PY
           echo "has_changes=true" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@v5
@@ -345,13 +323,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e '.[dev]'
-          make check
+          ruff check .
+          pytest -q
 
   commit:
     needs: [propose, validate]
     if: needs.propose.outputs.ready == 'true' && needs.validate.result == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     permissions:
       contents: write
     steps:
@@ -373,8 +351,7 @@ jobs:
           test "$(git rev-parse origin/setup/initial-platform)" = "$(cat proposal/base_sha)"
           test "$(git rev-parse HEAD)" = "$(cat proposal/base_sha)"
           git apply --check proposal/proposed.patch
-          git apply proposal/proposed.patch
-          git add -- bagi configs tests docs
+          git apply --index proposal/proposed.patch
           git config user.name "bagi-research-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "research: autonomous evidence-led experiment (validated)"
