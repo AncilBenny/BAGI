@@ -16,13 +16,13 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     # PyYAML may parse the YAML 1.1 key "on" as the boolean True.
     triggers = workflow.get("on", workflow.get(True))
     dispatch = triggers["workflow_dispatch"]["inputs"]["study"]
-    assert dispatch["options"] == ["legacy", "m1"]
+    assert dispatch["options"] == ["legacy", "m1", "m2"]
     assert dispatch["default"] == "legacy"
     assert dispatch["required"] is True
     assert triggers["schedule"] == [{"cron": "17 * * * *"}]
     assert triggers["push"] == {
         "branches": ["setup/initial-platform"],
-        "paths": [".github/bagi-m1-once.json"],
+        "paths": [".github/bagi-m1-once.json", ".github/bagi-m2-once.json"],
     }
     jobs = workflow["jobs"]
     assert list(jobs) == ["audit", "research"]
@@ -31,8 +31,12 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     assert jobs["research"]["if"] == "needs.audit.result == 'success'"
     assert triggers["workflow_dispatch"]["inputs"]["force_retrain"]["type"] == "boolean"
     assert jobs["research"]["env"]["BAGI_RESEARCH_STUDY"] == (
-        "${{ github.event_name == 'push' && 'm1' || inputs.study || 'legacy' }}"
+        "${{ needs.audit.outputs.study }}"
     )
+    assert jobs["audit"]["outputs"]["study"] == "${{ steps.mode.outputs.study }}"
+    assert next(step for step in jobs["audit"]["steps"]
+                if step["name"] == "Fail closed on missing or unknown manual study"
+                )["id"] == "mode"
     assert "budget" not in jobs
     assert jobs["research"]["env"]["BAGI_RESEARCH_SOURCE_SHA"] == "${{ needs.audit.outputs.research_sha }}"
     assert "ci_snapshot(api, sha)" in str(jobs["audit"]["steps"])
@@ -52,6 +56,11 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     assert "--execute" in m1["run"]
     install = steps["Install BAGI with pinned existing RL implementations (M1)"]
     assert "env.BAGI_RESEARCH_STUDY == 'm1'" in install["if"]
+    assert "env.BAGI_RESEARCH_STUDY == 'm2'" in install["if"]
+    m2 = steps["Run admitted M2 extended goal-learning and sampling diagnostic"]
+    assert "env.BAGI_RESEARCH_STUDY == 'm2'" in m2["if"]
+    assert "configs/m2_goal_learning.yaml" in m2["run"]
+    assert "--execute" in m2["run"]
     assert "pip install -e '.[dev,rl]'" in install["run"]
     for name in (
         "Restore causal-v2 checkpoint cache",
@@ -74,6 +83,8 @@ def test_outputs_preserve_source_provenance_partial_evidence_and_study_cache():
     artifact = steps["Upload research results"]["with"]
     assert "runs/m1_goal_learning/*.npz" in artifact["path"]
     assert "runs/m1_goal_learning/progress.json" in artifact["path"]
+    assert "runs/m2_goal_learning/progress.json" in artifact["path"]
+    assert "runs/m2_goal_learning/*.npz" in artifact["path"]
     restore = next(row for row in workflow["jobs"]["research"]["steps"]
                    if row.get("id") == "evaluated")
     assert "env.BAGI_RESEARCH_STUDY" in restore["with"]["key"]
@@ -100,6 +111,7 @@ def test_dispatch_guard_selects_study_before_training():
         ("schedule", "", "refs/heads/main", True),
         ("workflow_dispatch", "legacy", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "m1", "refs/heads/setup/initial-platform", True),
+        ("workflow_dispatch", "m2", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "", "refs/heads/setup/initial-platform", False),
         ("workflow_dispatch", "unregistered", "refs/heads/setup/initial-platform", False),
         ("workflow_dispatch", "m1", "refs/heads/main", False),
@@ -172,4 +184,66 @@ def test_one_shot_push_request_rejects_modified_or_misbound_files(tmp_path):
     event_file.write_text(json.dumps({
         "ref": ref, "before": "f" * 40, "after": sha,
     }), encoding="utf-8")
+    assert invoke().returncode == 2
+
+
+def test_one_shot_m2_request_requires_exact_source_and_expected_payload(tmp_path):
+    import json
+    import os
+    import subprocess
+    import sys
+
+    script = WORKFLOW.parents[2] / "scripts" / "bagi_research_dispatch.py"
+
+    def git(*args):
+        return subprocess.check_output(
+            ["git", *args], cwd=tmp_path, text=True, timeout=5
+        ).strip()
+
+    git("init", "-q")
+    git("config", "user.name", "BAGI source regression")
+    git("config", "user.email", "noreply@example.invalid")
+    (tmp_path / "README.md").write_text("test\n", encoding="utf-8")
+    git("add", "README.md")
+    git("commit", "-qm", "test parent")
+    parent = git("rev-parse", "HEAD")
+    one_shot = tmp_path / ".github" / "bagi-m2-once.json"
+    one_shot.parent.mkdir()
+    payload = {
+        "study": "m2",
+        "force_retrain": True,
+        "expected_parent_sha": parent,
+        "request_id": "BAGI-M2-2026-11-11",
+    }
+    one_shot.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    git("add", ".github/bagi-m2-once.json")
+    git("commit", "-qm", "research(m2): request fresh extended fit")
+    sha = git("rev-parse", "HEAD")
+    event = tmp_path / "event.json"
+    event.write_text(json.dumps({
+        "ref": "refs/heads/setup/initial-platform",
+        "before": parent, "after": sha,
+    }), encoding="utf-8")
+    env = {
+        **os.environ,
+        "GITHUB_EVENT_NAME": "push",
+        "GITHUB_REF": "refs/heads/setup/initial-platform",
+        "GITHUB_SHA": sha, "GITHUB_EVENT_PATH": str(event),
+        "GITHUB_OUTPUT": str(tmp_path / "output.txt"),
+    }
+
+    def invoke():
+        return subprocess.run(
+            [sys.executable, str(script)], cwd=tmp_path, env=env,
+            capture_output=True, text=True, timeout=6, check=False
+        )
+
+    assert invoke().returncode == 0
+    assert (tmp_path / "output.txt").read_text() == "study=m2\n"
+    payload["request_id"] = "unauthorized-repeat"
+    one_shot.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    assert invoke().returncode == 2
+    payload["request_id"] = "BAGI-M2-2026-11-11"
+    one_shot.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    env["GITHUB_REF"] = "refs/heads/main"
     assert invoke().returncode == 2

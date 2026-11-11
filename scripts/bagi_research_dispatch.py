@@ -8,7 +8,10 @@ import sys
 from pathlib import Path
 
 RESEARCH_REF = "refs/heads/setup/initial-platform"
-REQUEST_PATH = Path(".github/bagi-m1-once.json")
+REQUEST_PATHS = {
+    ".github/bagi-m1-once.json": ("m1", "BAGI-M1-2026-11-11"),
+    ".github/bagi-m2-once.json": ("m2", "BAGI-M2-2026-11-11"),
+}
 
 
 def selected_study(event: str, study: str, ref: str) -> str:
@@ -19,7 +22,7 @@ def selected_study(event: str, study: str, ref: str) -> str:
         return "legacy"
     if event != "workflow_dispatch":
         raise ValueError("Unregistered research trigger")
-    if study not in ("legacy", "m1"):
+    if study not in ("legacy", "m1", "m2"):
         raise ValueError("Manual research dispatch requires an explicit registered study")
     if ref != RESEARCH_REF:
         raise ValueError("Manual research dispatch must target the protected research branch")
@@ -34,7 +37,6 @@ def push_request_study() -> str:
     if not event_path:
         raise ValueError("M1 push event provenance missing")
     event = json.loads(Path(event_path).read_text(encoding="utf-8"))
-    request = json.loads(REQUEST_PATH.read_text(encoding="utf-8"))
     actual = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], text=True, timeout=5
     ).strip()
@@ -50,16 +52,23 @@ def push_request_study() -> str:
             or os.environ.get("GITHUB_SHA") != actual
             or event.get("before") != parent):
         raise ValueError("M1 push commit/event/parent mismatch")
-    if changed != f"A{chr(9)}{REQUEST_PATH.as_posix()}":
-        raise ValueError("M1 request commit must add only its one-shot file")
+    matches = [
+        (path, study, request_id)
+        for path, (study, request_id) in REQUEST_PATHS.items()
+        if changed == f"A{chr(9)}{path}"
+    ]
+    if len(matches) != 1:
+        raise ValueError("Research request commit must add one registered file")
+    path, study, request_id = matches[0]
+    request = json.loads(Path(path).read_text(encoding="utf-8"))
     if request != {
-        "study": "m1",
+        "study": study,
         "force_retrain": True,
         "expected_parent_sha": parent,
-        "request_id": "BAGI-M1-2026-11-11",
+        "request_id": request_id,
     }:
-        raise ValueError("M1 request metadata invalid or not fresh")
-    return "m1"
+        raise ValueError("Research request metadata invalid or not fresh")
+    return study
 
 
 def main() -> int:
@@ -76,6 +85,10 @@ def main() -> int:
         print(f"BAGI research dispatch HOLD: {exc}", file=sys.stderr)
         return 2
     print(f"BAGI research dispatch admitted mode: {mode}")
+    output_path = os.environ.get("GITHUB_OUTPUT")
+    if output_path:
+        with open(output_path, "a", encoding="utf-8") as output:
+            output.write("study=" + mode + chr(10))
     return 0
 
 

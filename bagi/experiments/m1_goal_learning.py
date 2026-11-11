@@ -33,6 +33,9 @@ MAX_EVAL_TOTAL = 17280
 MAX_EVAL_EPISODE_STEPS = 120
 FROZEN_EVAL_SEEDS = (92001, 92002, 92003, 92004, 92005, 92006)
 FROZEN_TRANSFER_SEEDS = (93001, 93002, 93003, 93004, 93005, 93006)
+M2_EVAL_SEEDS = (94001, 94002, 94003, 94004, 94005, 94006)
+M2_TRANSFER_SEEDS = (95001, 95002, 95003, 95004, 95005, 95006)
+M2_TRAIN_STEPS = 65536
 
 
 class PublicExecutedActions(gym.Wrapper):
@@ -139,9 +142,21 @@ def validate_config(c):
         raise ValueError("PPO requires at least two rollout/batch samples")
     if c.get("max_eval_steps") != MAX_EVAL_EPISODE_STEPS:
         raise ValueError("Evaluation episode definition changed")
+    study = c.get("registered_study", "m1")
+    if study == "m1":
+        expected_eval, expected_transfer = FROZEN_EVAL_SEEDS, FROZEN_TRANSFER_SEEDS
+    elif study == "m2":
+        expected_eval, expected_transfer = M2_EVAL_SEEDS, M2_TRANSFER_SEEDS
+        if (c["train_steps_per_arm_seed"] != M2_TRAIN_STEPS
+                or c["rollout_steps"] != 128 or c["batch_size"] != 64
+                or c["epochs_per_rollout"] != 2
+                or c.get("output_dir") != "runs/m2_goal_learning"):
+            raise ValueError("M2 registered training and output contract changed")
+    else:
+        raise ValueError("Unknown registered research study")
     train = set(c["training_seeds"])
     first, transfer = c.get("evaluation_seeds"), c.get("transfer_seeds")
-    if first != list(FROZEN_EVAL_SEEDS) or transfer != list(FROZEN_TRANSFER_SEEDS):
+    if first != list(expected_eval) or transfer != list(expected_transfer):
         raise ValueError("Frozen evaluation or transfer seed set changed")
     if any(not isinstance(s, list) or len(s) != 6 or
            any(type(n) is not int for n in s) or len(set(s)) != 6
@@ -223,7 +238,7 @@ def numeric_state(agent, path: Path):
             "members": entries, "allow_pickle": False}
 
 
-def evaluate_goal_agent(agent, task, evaluation_seeds, env_factory):
+def evaluate_goal_agent(agent, task, evaluation_seeds, env_factory, *, deterministic=True):
     """Native goal success requires positive reward AND actual termination."""
     results = []
     for seed in evaluation_seeds:
@@ -231,6 +246,8 @@ def evaluate_goal_agent(agent, task, evaluation_seeds, env_factory):
         try:
             env.action_space.seed(seed)
             observation, _ = env.reset(seed=seed)
+            if not deterministic:
+                torch.manual_seed(seed)
             lstm_states = None
             episode_start = np.array([True], dtype=bool)
             total_reward = 0.0
@@ -239,7 +256,7 @@ def evaluate_goal_agent(agent, task, evaluation_seeds, env_factory):
             for _ in range(MAX_EVAL_EPISODE_STEPS):
                 action, lstm_states = agent.predict(
                     observation, state=lstm_states,
-                    episode_start=episode_start, deterministic=True,
+                    episode_start=episode_start, deterministic=deterministic,
                 )
                 observation, reward, terminated, truncated, _ = env.step(
                     int(np.asarray(action).item())
@@ -255,6 +272,7 @@ def evaluate_goal_agent(agent, task, evaluation_seeds, env_factory):
                 raise ValueError("Native evaluation action/reset count disagreement")
             results.append({
                 "seed": seed, "reward": total_reward,
+                "deterministic": bool(deterministic),
                 "goal_success": int(bool(terminated) and total_reward > 0.0),
                 "terminated": bool(terminated), "truncated": bool(truncated),
                 "evaluation_real_steps": steps,
@@ -323,6 +341,8 @@ def run(config: Path, output: Path):
         raise FileExistsError("Refusing to overwrite previous M1 evidence")
     raw_config = config.read_bytes()
     c = validate_config(yaml.safe_load(raw_config))
+    study = c.get("registered_study", "m1")
+    is_m2 = study == "m2"
     config_digest = hashlib.sha256(raw_config).hexdigest()
     source_commit = admitted_source_commit()
     requested_steps = c["train_steps_per_arm_seed"]
@@ -332,8 +352,11 @@ def run(config: Path, output: Path):
     actual_steps_per_model = ((requested_steps + rollout_steps - 1)
                               // rollout_steps) * rollout_steps
     expected_training_total = len(ARMS) * len(c["training_seeds"]) * actual_steps_per_model
-    expected_evaluation_total = (len(ARMS) * len(c["training_seeds"]) * 3
-                                 * len(c["evaluation_seeds"]) * MAX_EVAL_EPISODE_STEPS)
+    evaluation_conditions = 5 if is_m2 else 3
+    expected_evaluation_total = (
+        len(ARMS) * len(c["training_seeds"]) * evaluation_conditions
+        * len(c["evaluation_seeds"]) * MAX_EVAL_EPISODE_STEPS
+    )
     if output.parent.as_posix() != c["output_dir"]:
         raise ValueError("Unregistered M1 output path")
     from sb3_contrib import RecurrentPPO
@@ -393,8 +416,22 @@ def run(config: Path, output: Path):
                 after = evaluate_goal_agent(agent, TRAIN_TASK, c["evaluation_seeds"], factory)
                 phase = "transfer_evaluation"
                 transfer = evaluate_goal_agent(agent, TRANSFER_TASK, c["transfer_seeds"], factory)
-                total_eval = sum(x["evaluation_real_steps"] for x in
-                                 (before, after, transfer))
+                sampled = {}
+                if is_m2:
+                    phase = "sampled_after_evaluation"
+                    sampled["after_sampled"] = evaluate_goal_agent(
+                        agent, TRAIN_TASK, c["evaluation_seeds"], factory,
+                        deterministic=False,
+                    )
+                    phase = "sampled_transfer_evaluation"
+                    sampled["transfer_sampled"] = evaluate_goal_agent(
+                        agent, TRANSFER_TASK, c["transfer_seeds"], factory,
+                        deterministic=False,
+                    )
+                total_eval = sum(
+                    item["evaluation_real_steps"]
+                    for item in (before, after, transfer, *sampled.values())
+                )
                 phase = "numeric_export"
                 state = numeric_state(agent, output.parent / f"{arm}-seed{seed}.npz")
                 phase = "completed_model_record"
@@ -410,7 +447,7 @@ def run(config: Path, output: Path):
                     "optimizer_step_calls": count["calls"],
                     "evaluation_real_actions": total_eval,
                     "before": before, "after": after, "transfer": transfer,
-                    "numeric_policy": state,
+                    **sampled, "numeric_policy": state,
                 })
                 training += env.native_steps
                 evaluation += total_eval
@@ -431,8 +468,11 @@ def run(config: Path, output: Path):
                     "optimizer_step_calls": optimizer, "records": records,
                 }
                 save_progress(output.parent / "progress.json", progress)
-                print(f"{arm} seed={seed}: {before['successes']}/6 -> "
-                      f"{after['successes']}/6; transfer={transfer['successes']}/6")
+                print(f"{study} {arm} seed={seed}: {before['successes']}/6 -> "
+                      f"{after['successes']}/6; transfer={transfer['successes']}/6"
+                      + (f"; sampled={sampled['after_sampled']['successes']}/6"
+                         f"; sampled-transfer={sampled['transfer_sampled']['successes']}/6"
+                         if is_m2 else ""), flush=True)
             except BaseException as failure:
                 # The completed-model ledger intentionally excludes in-flight
                 # work. Preserve separately observed actions/updates on failure.
@@ -480,14 +520,20 @@ def run(config: Path, output: Path):
         raise ValueError("Training did not match configured study accounting")
     output.parent.mkdir(parents=True, exist_ok=True)
     result = {
-        "study": "BAGI-M1 goal learning using established PPO and recurrent PPO",
-        "status": "exploratory_training",
+        "study": ("BAGI-M2 extended learning and policy-sampling diagnostic"
+                  if is_m2 else
+                  "BAGI-M1 goal learning using established PPO and recurrent PPO"),
+        "status": "exploratory_extended_training" if is_m2 else "exploratory_training",
+        "registered_study": study,
         "requested_training_steps_per_model": requested_steps,
         "expected_actual_steps_per_model": actual_steps_per_model,
-        "protocol_variant": ("original_pilot_settings" if
-                             (requested_steps, rollout_steps, c["batch_size"],
-                              c["epochs_per_rollout"]) == (8192, 128, 64, 2)
-                             else "modified_exploratory_settings"),
+        "protocol_variant": (
+            "preregistered_m2_extended_sampled_action_diagnostic" if is_m2
+            else ("original_pilot_settings" if
+                  (requested_steps, rollout_steps, c["batch_size"],
+                   c["epochs_per_rollout"]) == (8192, 128, 64, 2)
+                  else "modified_exploratory_settings")
+        ),
         "source_commit": source_commit,
         "config_sha256": config_digest,
         "versions": {name: version(name) for name in
@@ -510,6 +556,11 @@ def run(config: Path, output: Path):
             "This is public-image goal learning, not general intelligence.",
             "Training uses only MemoryS7; MemoryS13Random is a separate zero-shot test.",
             "Parameter counts differ; native interaction budgets match.",
+            *([
+                "M2 is exploratory after viewing M1; no paired gain "
+                "can be concluded from different test seeds.",
+                "Sampled actions are diagnostic, not policy selection.",
+            ] if is_m2 else []),
             "No evaluation feedback is used for model selection or tuning.",
             "No Workshop P0B diagnostic/heldout/size13 data are accessed.",
         ],

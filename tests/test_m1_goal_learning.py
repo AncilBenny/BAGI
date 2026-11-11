@@ -439,3 +439,51 @@ def test_interrupted_training_writes_provenance_bound_partial_ledger(
     assert not Path("runs/m1_goal_learning/progress.json.pending").exists()
     with pytest.raises(FileExistsError, match="Refusing to overwrite"):
         m1.run(conf, output)
+
+
+def test_m2_extended_study_preserves_independent_frozen_seed_contract():
+    longer = {
+        **config(),
+        "registered_study": "m2",
+        "train_steps_per_arm_seed": 65536,
+        "evaluation_seeds": list(m1.M2_EVAL_SEEDS),
+        "transfer_seeds": list(m1.M2_TRANSFER_SEEDS),
+        "output_dir": "runs/m2_goal_learning",
+    }
+    assert m1.validate_config(longer)["registered_study"] == "m2"
+    for change in (
+        {"registered_study": "m3"},
+        {"train_steps_per_arm_seed": 8192},
+        {"output_dir": "runs/m1_goal_learning"},
+        {"epochs_per_rollout": 3},
+        {"evaluation_seeds": list(m1.FROZEN_EVAL_SEEDS)},
+        {"transfer_seeds": list(m1.FROZEN_TRANSFER_SEEDS)},
+        {"evaluation_seeds": [94000, 94002, 94003, 94004, 94005, 94006]},
+        {"transfer_seeds": [95000, 95002, 95003, 95004, 95005, 95006]},
+    ):
+        with pytest.raises(ValueError):
+            m1.validate_config({**longer, **change})
+
+
+def test_sampled_policy_evaluation_is_reproducible_public_goal_scoring():
+    class SampledPolicy:
+        def __init__(self):
+            self.modes = []
+            self.starts = []
+
+        def predict(self, _observation, *, state, episode_start, deterministic):
+            self.modes.append(deterministic)
+            self.starts.append(bool(episode_start[0]))
+            return np.array(0), state
+
+    agent = SampledPolicy()
+    stats = m1.evaluate_goal_agent(
+        agent, "mock", [94001, 94002],
+        env_factory=lambda _task: m1.CountNativeSteps(TinyPublic()),
+        deterministic=False,
+    )
+    assert stats["successes"] == 2
+    assert stats["evaluation_real_steps"] == 4
+    assert agent.modes == [False] * 4
+    assert agent.starts == [True, False, True, False]
+    assert all(not row["deterministic"] for row in stats["episode_results"])

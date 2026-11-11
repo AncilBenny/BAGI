@@ -1,0 +1,16 @@
+# BAGI-M2: exploratory follow-up after M1 negative result; frozen NEW test seeds.
+# Upstream PPO/RecurrentPPO and input-control contracts remain unchanged.
+# 8x more TRAIN interactions; report deterministic AND sampled policy evaluations.
+registered_study: m2
+train_task: MiniGrid-MemoryS7-v0
+transfer_task: MiniGrid-MemoryS13Random-v0
+arms: [reactive, action4, frame4, recurrent]
+training_seeds: [17, 29]
+train_steps_per_arm_seed: 65536
+rollout_steps: 128
+batch_size: 64
+epochs_per_rollout: 2
+evaluation_seeds: [94001, 94002, 94003, 94004, 94005, 94006]
+transfer_seeds: [95001, 95002, 95003, 95004, 95005, 95006]
+max_eval_steps: 120
+output_dir: runs/m2_goal_learning
