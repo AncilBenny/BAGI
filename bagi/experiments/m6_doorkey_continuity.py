@@ -14,7 +14,6 @@ from importlib.metadata import version
 from pathlib import Path
 
 import gymnasium as gym
-import numpy as np
 import torch
 import yaml
 
@@ -29,8 +28,8 @@ from bagi.experiments.m5_continual_retention import (
     DOORKEY,
     EVAL_HORIZON,
     PublicGoalActions,
-    evaluate as evaluate_door,
 )
+from bagi.experiments.m5_continual_retention import evaluate as evaluate_door
 
 ARMS = ("reset128", "continue_episode")
 SEEDS = (97, 109)
@@ -69,7 +68,7 @@ class NativeDoorTraining(CountNativeSteps):
         if self.first_reset_seed is None:
             self.first_reset_seed = seed
         self.last_reset_seed = seed
-        self.seed_hash.update(f"{seed}\n".encode("utf-8"))
+        self.seed_hash.update(f"{seed}\n".encode())
         self.episode_length = 0
         self.episode_ended = False
         kwargs["seed"] = seed
