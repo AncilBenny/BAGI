@@ -15,6 +15,7 @@ REQUEST_PATHS = {
     ".github/bagi-m4-once.json": ("m4", "BAGI-M4-2026-11-11"),
     ".github/bagi-m5-once.json": ("m5", "BAGI-M5-2026-11-11"),
     ".github/bagi-m6-once.json": ("m6", "BAGI-M6-2026-11-11"),
+    ".github/bagi-m6-repair-once.json": ("m6", "BAGI-M6-REPAIR-2026-11-11"),
 }
 
 

@@ -155,4 +155,30 @@ def test_m6_reuses_exact_public_evaluator_and_no_training_private_state():
     assert source.index("continuity = compare_reset_integrity(records)") < (
         source.index('phase = "independent_heldout"')
     )
-    assert "force_reset=(arm == \"reset128\")" in source
+    assert "agent.set_env(agent.get_env(), force_reset=(arm == \"reset128\"))" in source
+
+
+def test_m6_pinned_sb3_vecenv_rebinding_preserves_continuous_rollout():
+    # Optional in lightweight default CI, REQUIRED when the admitted research
+    # workflow installs [dev,rl] and runs its platform tests before fitting.
+    sb3 = pytest.importorskip("stable_baselines3")
+    for arm in m6.ARMS:
+        env = m6.NativeDoorTraining(TinyPublic(), model_seed=97)
+        try:
+            agent = sb3.PPO(
+                "MlpPolicy", env, seed=97, device="cpu",
+                n_steps=8, batch_size=4, n_epochs=1,
+                policy_kwargs={"net_arch": {"pi": [8], "vf": [8]}}, verbose=0,
+            )
+            for _ in range(2):
+                agent.set_env(agent.get_env(), force_reset=(arm == "reset128"))
+                agent.learn(total_timesteps=8, reset_num_timesteps=False)
+            assert env.native_steps == agent.num_timesteps == 16
+            if arm == "reset128":
+                assert env.incomplete_episode_resets >= 1
+                assert env.max_episode_length <= 8
+            else:
+                assert env.incomplete_episode_resets == 0
+                assert env.max_episode_length == 16
+        finally:
+            env.close()

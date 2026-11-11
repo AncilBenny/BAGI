@@ -224,6 +224,8 @@ def run(config_path: Path, output: Path) -> dict:
     phase = "preflight"
     in_flight_environment = None
     in_flight_updates = None
+    in_flight_monitor_before = None
+    in_flight_monitor_after = None
     counted = {"training_actions": 0, "optimizer_updates": 0,
                "evaluation_actions": 0, "evaluation_resets": 0}
     try:
@@ -247,10 +249,13 @@ def run(config_path: Path, output: Path) -> dict:
                 optimizer = count_optimizer_steps(agent)
                 in_flight_updates = optimizer
                 initial = evaluate_door(agent, DOORKEY, MONITOR)
+                in_flight_monitor_before = initial
                 for block in range(TRAIN_BLOCKS):
                     # Identical per-block rebind and learn in both arms.
                     # The only intervention is force_reset's Boolean value.
-                    agent.set_env(env, force_reset=(arm == "reset128"))
+                    # Rebind the EXISTING VecEnv rather than wrapping a fresh
+                    # Monitor every block: the latter is unreset when continuing.
+                    agent.set_env(agent.get_env(), force_reset=(arm == "reset128"))
                     agent.learn(total_timesteps=ROLLOUT, reset_num_timesteps=False)
                 if (env.native_steps != TRAIN_STEPS
                         or agent.num_timesteps != TRAIN_STEPS
@@ -261,6 +266,7 @@ def run(config_path: Path, output: Path) -> dict:
                     raise ValueError("M6 training action histogram disagrees")
                 phase = f"monitor-{arm}-{seed}"
                 after = evaluate_door(agent, DOORKEY, MONITOR)
+                in_flight_monitor_after = after
                 phase = f"export-{arm}-{seed}"
                 checkpoint = numeric_state(
                     agent, output.parent / f"{arm}-seed{seed}.npz"
@@ -279,6 +285,8 @@ def run(config_path: Path, output: Path) -> dict:
                 env.close()
                 in_flight_environment = None
                 in_flight_updates = None
+                in_flight_monitor_before = None
+                in_flight_monitor_after = None
                 counted["training_actions"] += row["training_real_actions"]
                 counted["optimizer_updates"] += optimizer["calls"]
                 for stage in ("monitor_before", "monitor_after"):
@@ -329,6 +337,14 @@ def run(config_path: Path, output: Path) -> dict:
             ),
             "in_flight_optimizer_updates": (
                 in_flight_updates["calls"] if in_flight_updates is not None else 0
+            ),
+            "in_flight_completed_monitor_before_actions": (
+                in_flight_monitor_before["evaluation_real_actions"]
+                if in_flight_monitor_before is not None else 0
+            ),
+            "in_flight_completed_monitor_after_actions": (
+                in_flight_monitor_after["evaluation_real_actions"]
+                if in_flight_monitor_after is not None else 0
             ),
             "records": records,
             "elapsed_seconds": round(time.monotonic() - started, 3),

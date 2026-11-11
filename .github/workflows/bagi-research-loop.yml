@@ -33,6 +33,7 @@ on:
       - .github/bagi-m4-once.json
       - .github/bagi-m5-once.json
       - .github/bagi-m6-once.json
+      - .github/bagi-m6-repair-once.json
 
 permissions:
   contents: read
