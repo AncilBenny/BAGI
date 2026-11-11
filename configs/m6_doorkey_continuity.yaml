@@ -1,0 +1,13 @@
+# BAGI-M6 controlled native episode-continuity ablation, no prior heldout seeds reused.
+registered_study: m6
+task: MiniGrid-DoorKey-8x8-v0
+arms: [reset128, continue_episode]
+training_seeds: [97, 109]
+train_steps_per_fit: 65536
+rollout_steps: 128
+batch_size: 64
+epochs_per_rollout: 2
+max_episode_steps: 256
+monitor_seeds: [108001, 108002, 108003, 108004, 108005, 108006]
+heldout_seeds: [106001, 106002, 106003, 106004, 106005, 106006, 106007, 106008, 106009, 106010, 106011, 106012]
+output_dir: runs/m6_doorkey_continuity

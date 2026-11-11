@@ -20,6 +20,7 @@ on:
           - m3
           - m4
           - m5
+          - m6
   schedule:
     - cron: "17 * * * *"
   # Branch-only explicit one-shot studies; no duplicate workflow.
@@ -31,6 +32,7 @@ on:
       - .github/bagi-m3-once.json
       - .github/bagi-m4-once.json
       - .github/bagi-m5-once.json
+      - .github/bagi-m6-once.json
 
 permissions:
   contents: read
@@ -167,7 +169,7 @@ jobs:
           pip install -e '.[dev]'
 
       - name: Install BAGI with pinned existing RL implementations (M1)
-        if: steps.evaluated.outputs.cache-hit != 'true' && (env.BAGI_RESEARCH_STUDY == 'm1' || env.BAGI_RESEARCH_STUDY == 'm2' || env.BAGI_RESEARCH_STUDY == 'm3' || env.BAGI_RESEARCH_STUDY == 'm4' || env.BAGI_RESEARCH_STUDY == 'm5')
+        if: steps.evaluated.outputs.cache-hit != 'true' && (env.BAGI_RESEARCH_STUDY == 'm1' || env.BAGI_RESEARCH_STUDY == 'm2' || env.BAGI_RESEARCH_STUDY == 'm3' || env.BAGI_RESEARCH_STUDY == 'm4' || env.BAGI_RESEARCH_STUDY == 'm5' || env.BAGI_RESEARCH_STUDY == 'm6')
         run: |
           python -m pip install --upgrade pip
           pip install -e '.[dev,rl]'
@@ -211,6 +213,11 @@ jobs:
         run: |
           python -m bagi.experiments.m5_continual_retention --config configs/m5_continual_retention.yaml --output runs/m5_continual_retention/summary.json --execute
 
+      - name: Run admitted M6 DoorKey episode-continuity ablation
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm6'
+        run: |
+          python -m bagi.experiments.m6_doorkey_continuity --config configs/m6_doorkey_continuity.yaml --output runs/m6_doorkey_continuity/summary.json --execute
+
       - name: Restore causal-v2 checkpoint cache
         if: inputs.force_retrain != true && steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'legacy'
         id: causal-cache
@@ -252,7 +259,8 @@ jobs:
             runs/m2_goal_learning/summary.json \
             runs/m3_goal_learning/summary.json \
             runs/m4_frozen_policy/summary.json \
-            runs/m5_continual_retention/summary.json; do
+            runs/m5_continual_retention/summary.json \
+            runs/m6_doorkey_continuity/summary.json; do
             if [ -f "$path" ]; then
               cp "$path" "artifacts/research-loop/$(basename "$(dirname "$path")")-$(basename "$path")"
             fi
@@ -274,6 +282,8 @@ jobs:
             runs/m4_frozen_policy/progress.json
             runs/m5_continual_retention/progress.json
             runs/m5_continual_retention/*.npz
+            runs/m6_doorkey_continuity/progress.json
+            runs/m6_doorkey_continuity/*.npz
           if-no-files-found: warn
           retention-days: 30
 
