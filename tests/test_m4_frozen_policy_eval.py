@@ -104,7 +104,7 @@ def test_m4_native_goal_scoring_counts_actions_and_resets(monkeypatch):
             return np.array([2]), None
 
     for reward, success in ((1.0, 1), (0.0, 0)):
-        monkeypatch.setattr(m4, "make_task", lambda *args, **kwargs: Env(reward))
+        monkeypatch.setattr(m4, "make_task", lambda *args, reward=reward, **kwargs: Env(reward))
         meter = {"independent_actions": 0, "independent_resets": 0}
         episode = m4.evaluate_episode(
             Agent(), "reactive", m4.TRAIN_TASK, 98001,
