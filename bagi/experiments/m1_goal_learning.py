@@ -557,8 +557,8 @@ def run(config: Path, output: Path):
             "Training uses only MemoryS7; MemoryS13Random is a separate zero-shot test.",
             "Parameter counts differ; native interaction budgets match.",
             *([
-                "M2 is exploratory after viewing M1; no paired gain "
-                "can be concluded from different test seeds.",
+                ("M2 is exploratory after viewing M1; no paired gain "
+                 "can be concluded from different test seeds."),
                 "Sampled actions are diagnostic, not policy selection.",
             ] if is_m2 else []),
             "No evaluation feedback is used for model selection or tuning.",
