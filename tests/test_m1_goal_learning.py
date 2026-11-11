@@ -487,3 +487,51 @@ def test_sampled_policy_evaluation_is_reproducible_public_goal_scoring():
     assert agent.modes == [False] * 4
     assert agent.starts == [True, False, True, False]
     assert all(not row["deterministic"] for row in stats["episode_results"])
+
+
+def test_m3_independent_replication_enforces_frozen_training_and_heldout_seeds():
+    replicate = {
+        **config(),
+        "registered_study": "m3",
+        "training_seeds": list(m1.M3_TRAIN_SEEDS),
+        "train_steps_per_arm_seed": 65536,
+        "evaluation_seeds": list(m1.M3_EVAL_SEEDS),
+        "transfer_seeds": list(m1.M3_TRANSFER_SEEDS),
+        "output_dir": "runs/m3_goal_learning",
+    }
+    assert m1.validate_config(replicate)["registered_study"] == "m3"
+    assert not set(replicate["evaluation_seeds"]) & set(m1.M2_EVAL_SEEDS)
+    assert not set(replicate["transfer_seeds"]) & set(m1.M2_TRANSFER_SEEDS)
+    for override in (
+        {"registered_study": "unregistered"},
+        {"training_seeds": [17, 29]},
+        {"training_seeds": [37, 37]},
+        {"train_steps_per_arm_seed": 8192},
+        {"output_dir": "runs/m2_goal_learning"},
+        {"epochs_per_rollout": 4},
+        {"evaluation_seeds": list(m1.M2_EVAL_SEEDS)},
+        {"transfer_seeds": list(m1.M2_TRANSFER_SEEDS)},
+        {"evaluation_seeds": [96000, 96002, 96003, 96004, 96005, 96006]},
+        {"transfer_seeds": [97000, 97002, 97003, 97004, 97005, 97006]},
+    ):
+        with pytest.raises(ValueError):
+            m1.validate_config({**replicate, **override})
+
+
+def test_replication_goal_score_checks_new_model_seed_provenance():
+    records = [
+        {
+            "arm": arm,
+            "model_seed": seed,
+            "before": {"successes": 0},
+            "after": {"successes": 3 if arm == "recurrent" else 1},
+            "transfer": {"successes": 4 if arm == "recurrent" else 1},
+        }
+        for seed in m1.M3_TRAIN_SEEDS
+        for arm in m1.ARMS
+    ]
+    scored = m1.score_goal_milestone(records, training_seeds=m1.M3_TRAIN_SEEDS)
+    assert scored["per_arm"]["recurrent"]["transfer_goals_of_12"] == 8
+    assert scored["recurrent_transfer_minus_best_control"] == 6
+    with pytest.raises(ValueError):
+        m1.score_goal_milestone(records)

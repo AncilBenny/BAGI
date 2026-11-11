@@ -36,6 +36,9 @@ FROZEN_TRANSFER_SEEDS = (93001, 93002, 93003, 93004, 93005, 93006)
 M2_EVAL_SEEDS = (94001, 94002, 94003, 94004, 94005, 94006)
 M2_TRANSFER_SEEDS = (95001, 95002, 95003, 95004, 95005, 95006)
 M2_TRAIN_STEPS = 65536
+M3_TRAIN_SEEDS = (37, 53)
+M3_EVAL_SEEDS = (96001, 96002, 96003, 96004, 96005, 96006)
+M3_TRANSFER_SEEDS = (97001, 97002, 97003, 97004, 97005, 97006)
 
 
 class PublicExecutedActions(gym.Wrapper):
@@ -132,8 +135,8 @@ def make_task(task: str, arm: str, *, max_native_steps: int | None = None):
 def validate_config(c):
     if (c.get("train_task"), c.get("transfer_task")) != (TRAIN_TASK, TRANSFER_TASK):
         raise ValueError("Task or transfer contract changed")
-    if c.get("arms") != list(ARMS) or c.get("training_seeds") != [17, 29]:
-        raise ValueError("Model comparison and seeds must remain frozen")
+    if c.get("arms") != list(ARMS):
+        raise ValueError("Model comparison and arms must remain frozen")
     for name in ("train_steps_per_arm_seed", "rollout_steps", "batch_size",
                  "epochs_per_rollout"):
         if type(c.get(name)) is not int or c[name] < 1:
@@ -145,15 +148,22 @@ def validate_config(c):
     study = c.get("registered_study", "m1")
     if study == "m1":
         expected_eval, expected_transfer = FROZEN_EVAL_SEEDS, FROZEN_TRANSFER_SEEDS
-    elif study == "m2":
-        expected_eval, expected_transfer = M2_EVAL_SEEDS, M2_TRANSFER_SEEDS
+        expected_train = (17, 29)
+    elif study in ("m2", "m3"):
+        expected_eval, expected_transfer = (
+            (M2_EVAL_SEEDS, M2_TRANSFER_SEEDS) if study == "m2"
+            else (M3_EVAL_SEEDS, M3_TRANSFER_SEEDS)
+        )
+        expected_train = (17, 29) if study == "m2" else M3_TRAIN_SEEDS
         if (c["train_steps_per_arm_seed"] != M2_TRAIN_STEPS
                 or c["rollout_steps"] != 128 or c["batch_size"] != 64
                 or c["epochs_per_rollout"] != 2
-                or c.get("output_dir") != "runs/m2_goal_learning"):
-            raise ValueError("M2 registered training and output contract changed")
+                or c.get("output_dir") != f"runs/{study}_goal_learning"):
+            raise ValueError("Extended-study training and output contract changed")
     else:
         raise ValueError("Unknown registered research study")
+    if c.get("training_seeds") != list(expected_train):
+        raise ValueError("Model training seeds differ from registered study")
     train = set(c["training_seeds"])
     first, transfer = c.get("evaluation_seeds"), c.get("transfer_seeds")
     if first != list(expected_eval) or transfer != list(expected_transfer):
@@ -290,13 +300,13 @@ def evaluate_goal_agent(agent, task, evaluation_seeds, env_factory, *, determini
     }
 
 
-def score_goal_milestone(records):
+def score_goal_milestone(records, training_seeds=(17, 29)):
     """Post-hoc arithmetic on frozen goal metrics; no training/selection."""
     arms = {}
     for arm in ARMS:
         rows = [row for row in records if row["arm"] == arm]
-        if len(rows) != 2 or {row["model_seed"] for row in rows} != {17, 29}:
-            raise ValueError("Expected two independent model seeds for each arm")
+        if len(rows) != 2 or {row["model_seed"] for row in rows} != set(training_seeds):
+            raise ValueError("Expected registered independent model seeds for each arm")
         before = sum(row["before"]["successes"] for row in rows)
         after = sum(row["after"]["successes"] for row in rows)
         transfer = sum(row["transfer"]["successes"] for row in rows)
@@ -343,6 +353,8 @@ def run(config: Path, output: Path):
     c = validate_config(yaml.safe_load(raw_config))
     study = c.get("registered_study", "m1")
     is_m2 = study == "m2"
+    is_m3 = study == "m3"
+    extended = is_m2 or is_m3
     config_digest = hashlib.sha256(raw_config).hexdigest()
     source_commit = admitted_source_commit()
     requested_steps = c["train_steps_per_arm_seed"]
@@ -352,7 +364,7 @@ def run(config: Path, output: Path):
     actual_steps_per_model = ((requested_steps + rollout_steps - 1)
                               // rollout_steps) * rollout_steps
     expected_training_total = len(ARMS) * len(c["training_seeds"]) * actual_steps_per_model
-    evaluation_conditions = 5 if is_m2 else 3
+    evaluation_conditions = 5 if extended else 3
     expected_evaluation_total = (
         len(ARMS) * len(c["training_seeds"]) * evaluation_conditions
         * len(c["evaluation_seeds"]) * MAX_EVAL_EPISODE_STEPS
@@ -417,7 +429,7 @@ def run(config: Path, output: Path):
                 phase = "transfer_evaluation"
                 transfer = evaluate_goal_agent(agent, TRANSFER_TASK, c["transfer_seeds"], factory)
                 sampled = {}
-                if is_m2:
+                if extended:
                     phase = "sampled_after_evaluation"
                     sampled["after_sampled"] = evaluate_goal_agent(
                         agent, TRAIN_TASK, c["evaluation_seeds"], factory,
@@ -472,7 +484,7 @@ def run(config: Path, output: Path):
                       f"{after['successes']}/6; transfer={transfer['successes']}/6"
                       + (f"; sampled={sampled['after_sampled']['successes']}/6"
                          f"; sampled-transfer={sampled['transfer_sampled']['successes']}/6"
-                         if is_m2 else ""), flush=True)
+                         if extended else ""), flush=True)
             except BaseException as failure:
                 # The completed-model ledger intentionally excludes in-flight
                 # work. Preserve separately observed actions/updates on failure.
@@ -520,25 +532,33 @@ def run(config: Path, output: Path):
         raise ValueError("Training did not match configured study accounting")
     output.parent.mkdir(parents=True, exist_ok=True)
     result = {
-        "study": ("BAGI-M2 extended learning and policy-sampling diagnostic"
+        "study": (
+            "BAGI-M3 independent memory-transfer replication" if is_m3
+            else ("BAGI-M2 extended learning and policy-sampling diagnostic"
                   if is_m2 else
-                  "BAGI-M1 goal learning using established PPO and recurrent PPO"),
-        "status": "exploratory_extended_training" if is_m2 else "exploratory_training",
+                  "BAGI-M1 goal learning using established PPO and recurrent PPO")
+        ),
+        "status": "independent_replication" if is_m3 else (
+            "exploratory_extended_training" if is_m2 else "exploratory_training"
+        ),
         "registered_study": study,
         "requested_training_steps_per_model": requested_steps,
         "expected_actual_steps_per_model": actual_steps_per_model,
         "protocol_variant": (
-            "preregistered_m2_extended_sampled_action_diagnostic" if is_m2
-            else ("original_pilot_settings" if
+            "preregistered_m3_independent_seed_replication" if is_m3
+            else ("preregistered_m2_extended_sampled_action_diagnostic" if is_m2
+                  else ("original_pilot_settings" if
                   (requested_steps, rollout_steps, c["batch_size"],
                    c["epochs_per_rollout"]) == (8192, 128, 64, 2)
-                  else "modified_exploratory_settings")
+                  else "modified_exploratory_settings"))
         ),
         "source_commit": source_commit,
         "config_sha256": config_digest,
         "versions": {name: version(name) for name in
                      ("gymnasium", "minigrid", "stable-baselines3", "sb3-contrib")},
-        "records": records, "milestone_pilot_gates": score_goal_milestone(records),
+        "records": records, "milestone_pilot_gates": score_goal_milestone(
+            records, training_seeds=tuple(c["training_seeds"])
+        ),
         "training_real_actions": training,
         "evaluation_real_actions": evaluation,
         "training_positive_reward_steps": training_positive_rewards,
@@ -561,6 +581,14 @@ def run(config: Path, output: Path):
                  "can be concluded from different test seeds."),
                 "Sampled actions are diagnostic, not policy selection.",
             ] if is_m2 else []),
+            *([
+                ("M3 independently changes training and evaluation seeds, not "
+                 "the published M2 model/optimizer/training protocol."),
+                ("Two initialization seeds and six episodes per condition "
+                 "are insufficient for strong generalization claims."),
+                ("M3 replication targets only the single MiniGrid Memory "
+                 "task family; no task-independent continual learning."),
+            ] if is_m3 else []),
             "No evaluation feedback is used for model selection or tuning.",
             "No Workshop P0B diagnostic/heldout/size13 data are accessed.",
         ],
