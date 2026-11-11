@@ -98,6 +98,7 @@ def test_task_local_train_stream_rejects_heldout_and_is_deterministic():
         provenance = env.provenance()
         assert provenance["native_actions"] == 1
         assert provenance["native_resets"] == 2
+        assert provenance["public_reward_sum"] == 0.0
         assert provenance["reset_seed_stream_sha256"]
     finally:
         env.close()
