@@ -71,7 +71,7 @@ class NativeDoorKeyAudit:
         if type(action) is not int or not 0 <= action <= 6:
             raise ValueError("expected native MiniGrid integer action")
         result = self.env.step(action)
-        observation, reward, terminated, truncated, info = result
+        _, reward, terminated, truncated, _ = result
         after = snapshot_doorkey(self.env)
         if after.door_cell != self._before.door_cell:
             raise ValueError("target door identity changed within episode")
