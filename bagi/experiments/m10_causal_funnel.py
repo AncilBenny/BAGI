@@ -5,9 +5,9 @@ native action. Do not pass these snapshots, counts or private state into PPO.
 """
 from __future__ import annotations
 
+import math
 from collections import Counter
 from dataclasses import dataclass, field
-import math
 
 
 @dataclass(frozen=True)
