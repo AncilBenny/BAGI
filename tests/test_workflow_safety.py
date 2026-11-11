@@ -16,7 +16,10 @@ class ScheduledSafetyTests(unittest.TestCase):
             with self.subTest(workflow=filename):
                 data = yaml.safe_load((ROOT / '.github/workflows' / filename).read_text())
                 triggers = data.get('on', data.get(True))
-                self.assertEqual(set(triggers), {'schedule', 'workflow_dispatch'})
+                expected_triggers = {'schedule', 'workflow_dispatch'}
+                if filename == 'bagi-research-loop.yml':
+                    expected_triggers.add('push')
+                self.assertEqual(set(triggers), expected_triggers)
                 self.assertEqual(triggers['schedule'], [{'cron': cron}])
                 self.assertEqual(data['jobs'][blocked]['needs'], 'audit')
                 self.assertEqual(data['jobs'][blocked]['if'],
@@ -26,7 +29,7 @@ class ScheduledSafetyTests(unittest.TestCase):
                     self.assertNotIn('timeout-minutes', job)
                 audit = data['jobs']['audit']
                 self.assertEqual(audit['permissions'], {'contents': 'read', 'actions': 'read'})
-                expected_steps = 3 if filename == 'bagi-research-loop.yml' else 2
+                expected_steps = 4 if filename == 'bagi-research-loop.yml' else 2
                 self.assertEqual(len(audit['steps']), expected_steps)
                 self.assertEqual(audit['steps'][0]['uses'], 'actions/checkout@v4')
                 self.assertFalse(audit['steps'][0]['with']['persist-credentials'])

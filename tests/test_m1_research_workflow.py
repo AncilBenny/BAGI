@@ -20,18 +20,24 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     assert dispatch["default"] == "legacy"
     assert dispatch["required"] is True
     assert triggers["schedule"] == [{"cron": "17 * * * *"}]
+    assert triggers["push"] == {
+        "branches": ["setup/initial-platform"],
+        "paths": [".github/bagi-m1-once.json"],
+    }
     jobs = workflow["jobs"]
     assert list(jobs) == ["audit", "research"]
     assert jobs["research"]["needs"] == "audit"
     assert "timeout-minutes" not in jobs["research"]
     assert jobs["research"]["if"] == "needs.audit.result == 'success'"
     assert triggers["workflow_dispatch"]["inputs"]["force_retrain"]["type"] == "boolean"
-    assert jobs["research"]["env"]["BAGI_RESEARCH_STUDY"].endswith(
-        "inputs.study || 'legacy' }}"
+    assert jobs["research"]["env"]["BAGI_RESEARCH_STUDY"] == (
+        "${{ github.event_name == 'push' && 'm1' || inputs.study || 'legacy' }}"
     )
     assert "budget" not in jobs
     assert jobs["research"]["env"]["BAGI_RESEARCH_SOURCE_SHA"] == "${{ needs.audit.outputs.research_sha }}"
     assert "ci_snapshot(api, sha)" in str(jobs["audit"]["steps"])
+    assert "bagi_wait_for_research_ci.py" in str(jobs["audit"]["steps"])
+    assert workflow["jobs"]["audit"]["steps"][0]["with"]["fetch-depth"] == 2
     assert "ci_snapshot(api, sha)" in str(jobs["research"]["steps"])
 
 
@@ -106,3 +112,64 @@ def test_dispatch_guard_selects_study_before_training():
                              capture_output=True, text=True, timeout=5, check=False)
         assert (run.returncode == 0) is admitted
         assert ("BAGI research dispatch HOLD" in run.stderr) is not admitted
+
+def test_one_shot_push_request_rejects_modified_or_misbound_files(tmp_path):
+    import json
+    import os
+    import subprocess
+    import sys
+
+    script = WORKFLOW.parents[2] / "scripts" / "bagi_research_dispatch.py"
+    ref = "refs/heads/setup/initial-platform"
+
+    def git(*args):
+        return subprocess.check_output(
+            ["git", *args], cwd=tmp_path, text=True, timeout=5
+        ).strip()
+
+    git("init", "-q")
+    git("config", "user.name", "BAGI source regression")
+    git("config", "user.email", "noreply@example.invalid")
+    (tmp_path / "README.md").write_text("test\n", encoding="utf-8")
+    git("add", "README.md")
+    git("commit", "-qm", "test parent")
+    parent = git("rev-parse", "HEAD")
+    request_file = tmp_path / ".github" / "bagi-m1-once.json"
+    request_file.parent.mkdir()
+    request = {
+        "study": "m1", "force_retrain": True,
+        "expected_parent_sha": parent,
+        "request_id": "BAGI-M1-2026-11-11",
+    }
+    request_file.write_text(json.dumps(request) + "\n", encoding="utf-8")
+    git("add", ".github/bagi-m1-once.json")
+    git("commit", "-qm", "research(m1): request one fresh fit")
+    sha = git("rev-parse", "HEAD")
+    event_file = tmp_path / "event.json"
+    event_file.write_text(json.dumps({
+        "ref": ref, "before": parent, "after": sha,
+    }), encoding="utf-8")
+    env = {
+        **os.environ, "GITHUB_EVENT_NAME": "push", "GITHUB_REF": ref,
+        "GITHUB_SHA": sha, "GITHUB_EVENT_PATH": str(event_file),
+        "BAGI_DISPATCH_STUDY": "",
+    }
+    def invoke():
+        return subprocess.run(
+            [sys.executable, str(script)], env=env, cwd=tmp_path,
+            capture_output=True, text=True, check=False, timeout=6
+        )
+
+    assert invoke().returncode == 0
+    request["force_retrain"] = False
+    request_file.write_text(json.dumps(request), encoding="utf-8")
+    assert invoke().returncode == 2
+    request["force_retrain"] = True
+    request_file.write_text(json.dumps(request), encoding="utf-8")
+    env["GITHUB_SHA"] = "a" * 40
+    assert invoke().returncode == 2
+    env["GITHUB_SHA"] = sha
+    event_file.write_text(json.dumps({
+        "ref": ref, "before": "f" * 40, "after": sha,
+    }), encoding="utf-8")
+    assert invoke().returncode == 2

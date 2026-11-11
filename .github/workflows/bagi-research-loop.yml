@@ -18,6 +18,11 @@ on:
           - m1
   schedule:
     - cron: "17 * * * *"
+  # Branch-only, explicitly requested one-shot fresh M1 fit; no duplicate workflow.
+  push:
+    branches: [setup/initial-platform]
+    paths:
+      - .github/bagi-m1-once.json
 
 permissions:
   contents: read
@@ -39,10 +44,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 2
       - name: Fail closed on missing or unknown manual study
         env:
           BAGI_DISPATCH_STUDY: ${{ inputs.study }}
         run: python3 scripts/bagi_research_dispatch.py
+
+      - name: Await new exact-HEAD CI for one-shot push
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEST_SHA: ${{ github.sha }}
+        run: python3 scripts/bagi_wait_for_research_ci.py
 
       - name: Check both CI events and the current PR merge
         id: verify
@@ -83,7 +96,7 @@ jobs:
     if: needs.audit.result == 'success'
     runs-on: ubuntu-latest
     env:
-      BAGI_RESEARCH_STUDY: ${{ inputs.study || 'legacy' }}
+      BAGI_RESEARCH_STUDY: ${{ github.event_name == 'push' && 'm1' || inputs.study || 'legacy' }}
       BAGI_RESEARCH_SOURCE_SHA: ${{ needs.audit.outputs.research_sha }}
     permissions:
       contents: read
@@ -119,7 +132,7 @@ jobs:
           echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
       - name: Reuse any successful evaluation of this exact revision
-        if: inputs.force_retrain != true
+        if: github.event_name != 'push' && inputs.force_retrain != true
         id: evaluated
         uses: actions/cache/restore@v4
         with:
