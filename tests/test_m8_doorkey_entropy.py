@@ -125,7 +125,7 @@ def test_preheldout_gate_and_both_seed_success_rule():
     rows[2]["training"]["incomplete_episode_resets"] = 1
     integrity = m8.preheldout_integrity(rows)
     assert not integrity["bonus_entropy:127"]
-    with pytest.raises(ValueError, match="four"):
+    with pytest.raises(ValueError, match="missing or duplicated fresh fits"):
         m8.preheldout_integrity(rows[:-1])
 
 
