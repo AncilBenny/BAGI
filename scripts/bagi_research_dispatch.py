@@ -50,7 +50,7 @@ def push_request_study() -> str:
             or os.environ.get("GITHUB_SHA") != actual
             or event.get("before") != parent):
         raise ValueError("M1 push commit/event/parent mismatch")
-    if changed != f"A\\t{REQUEST_PATH.as_posix()}".replace("\\\\t", "\\t"):
+    if changed != f"A{chr(9)}{REQUEST_PATH.as_posix()}":
         raise ValueError("M1 request commit must add only its one-shot file")
     if request != {
         "study": "m1",
