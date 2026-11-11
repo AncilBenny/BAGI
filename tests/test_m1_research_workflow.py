@@ -16,7 +16,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     # PyYAML may parse the YAML 1.1 key "on" as the boolean True.
     triggers = workflow.get("on", workflow.get(True))
     dispatch = triggers["workflow_dispatch"]["inputs"]["study"]
-    assert dispatch["options"] == ["legacy", "m1", "m2", "m3"]
+    assert dispatch["options"] == ["legacy", "m1", "m2", "m3", "m4"]
     assert dispatch["default"] == "legacy"
     assert dispatch["required"] is True
     assert triggers["schedule"] == [{"cron": "17 * * * *"}]
@@ -26,6 +26,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
             ".github/bagi-m1-once.json",
             ".github/bagi-m2-once.json",
             ".github/bagi-m3-once.json",
+            ".github/bagi-m4-once.json",
         ],
     }
     jobs = workflow["jobs"]
@@ -62,6 +63,7 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     assert "env.BAGI_RESEARCH_STUDY == 'm1'" in install["if"]
     assert "env.BAGI_RESEARCH_STUDY == 'm2'" in install["if"]
     assert "env.BAGI_RESEARCH_STUDY == 'm3'" in install["if"]
+    assert "env.BAGI_RESEARCH_STUDY == 'm4'" in install["if"]
     m2 = steps["Run admitted M2 extended goal-learning and sampling diagnostic"]
     assert "env.BAGI_RESEARCH_STUDY == 'm2'" in m2["if"]
     assert "configs/m2_goal_learning.yaml" in m2["run"]
@@ -69,6 +71,13 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     m3 = steps["Run admitted M3 independent goal-memory replication"]
     assert "env.BAGI_RESEARCH_STUDY == 'm3'" in m3["if"]
     assert "configs/m3_goal_learning.yaml" in m3["run"]
+    m4 = steps["Run admitted M4 evaluation-only frozen policy diagnostic"]
+    assert "env.BAGI_RESEARCH_STUDY == 'm4'" in m4["if"]
+    assert "m4_frozen_policy_eval" in m4["run"]
+    assert "--execute" in m4["run"]
+    assert "sha256sum -c -" in steps[
+        "Retrieve verified M3 numeric checkpoint artifact for M4"
+    ]["run"]
     assert "--execute" in m3["run"]
     assert "pip install -e '.[dev,rl]'" in install["run"]
     for name in (
@@ -97,6 +106,8 @@ def test_outputs_preserve_source_provenance_partial_evidence_and_study_cache():
     assert "runs/m3_goal_learning/progress.json" in artifact["path"]
     assert "runs/m3_goal_learning/*.npz" in artifact["path"]
     assert "runs/m3_goal_learning/summary.json" in steps["Capture research metadata"]["run"]
+    assert "runs/m4_frozen_policy/summary.json" in steps["Capture research metadata"]["run"]
+    assert "runs/m4_frozen_policy/progress.json" in artifact["path"]
     restore = next(row for row in workflow["jobs"]["research"]["steps"]
                    if row.get("id") == "evaluated")
     assert "env.BAGI_RESEARCH_STUDY" in restore["with"]["key"]
@@ -125,6 +136,7 @@ def test_dispatch_guard_selects_study_before_training():
         ("workflow_dispatch", "m1", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "m2", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "m3", "refs/heads/setup/initial-platform", True),
+        ("workflow_dispatch", "m4", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "", "refs/heads/setup/initial-platform", False),
         ("workflow_dispatch", "unregistered", "refs/heads/setup/initial-platform", False),
         ("workflow_dispatch", "m1", "refs/heads/main", False),
@@ -317,5 +329,63 @@ def test_one_shot_m3_push_is_bound_to_request_only_new_commit(tmp_path):
     assert invoke().returncode == 2
     payload["force_retrain"] = True
     request.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    env["GITHUB_REF"] = "refs/heads/main"
+    assert invoke().returncode == 2
+
+
+def test_one_shot_m4_push_is_add_only_and_exact_commit_bound(tmp_path):
+    import json
+    import os
+    import subprocess
+    import sys
+
+    script = WORKFLOW.parents[2] / "scripts" / "bagi_research_dispatch.py"
+
+    def git(*args):
+        return subprocess.check_output(
+            ["git", *args], cwd=tmp_path, text=True, timeout=5
+        ).strip()
+
+    git("init", "-q")
+    git("config", "user.name", "BAGI M4 test")
+    git("config", "user.email", "noreply@example.invalid")
+    (tmp_path / "README.md").write_text("base\n", encoding="utf-8")
+    git("add", "README.md")
+    git("commit", "-qm", "base")
+    parent = git("rev-parse", "HEAD")
+    request_path = tmp_path / ".github" / "bagi-m4-once.json"
+    request_path.parent.mkdir()
+    payload = {
+        "study": "m4", "force_retrain": True,
+        "expected_parent_sha": parent, "request_id": "BAGI-M4-2026-11-11",
+    }
+    request_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    git("add", ".github/bagi-m4-once.json")
+    git("commit", "-qm", "M4 frozen evaluation request")
+    sha = git("rev-parse", "HEAD")
+    event_path = tmp_path / "event.json"
+    event_path.write_text(json.dumps({
+        "ref": "refs/heads/setup/initial-platform", "before": parent, "after": sha,
+    }), encoding="utf-8")
+    env = {
+        **os.environ, "GITHUB_EVENT_NAME": "push",
+        "GITHUB_REF": "refs/heads/setup/initial-platform",
+        "GITHUB_SHA": sha, "GITHUB_EVENT_PATH": str(event_path),
+        "GITHUB_OUTPUT": str(tmp_path / "output.txt"),
+    }
+
+    def invoke():
+        return subprocess.run(
+            [sys.executable, str(script)], cwd=tmp_path, env=env,
+            capture_output=True, text=True, timeout=6, check=False,
+        )
+
+    assert invoke().returncode == 0
+    assert (tmp_path / "output.txt").read_text() == "study=m4\n"
+    payload["force_retrain"] = False
+    request_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    assert invoke().returncode == 2
+    payload["force_retrain"] = True
+    request_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
     env["GITHUB_REF"] = "refs/heads/main"
     assert invoke().returncode == 2
