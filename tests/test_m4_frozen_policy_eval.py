@@ -160,3 +160,63 @@ def test_m4_recurrent_episode_state_resets_then_carries(monkeypatch):
     assert result["goal_success"] == 1
     assert agent.seen == [(True, None), (False, 1)]
     assert meter == {"reference_actions": 2, "reference_resets": 1}
+
+
+def test_m4_replay_preflight_must_pass_all_models_before_any_independent_seed(
+    monkeypatch, tmp_path,
+):
+    import json
+    import sys
+    import types
+
+    class DummyEnv:
+        def close(self):
+            pass
+
+    class DummyPolicy:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    ppo = types.ModuleType("stable_baselines3")
+    ppo.PPO = DummyPolicy
+    recurrent = types.ModuleType("sb3_contrib")
+    recurrent.RecurrentPPO = DummyPolicy
+    monkeypatch.setitem(sys.modules, "stable_baselines3", ppo)
+    monkeypatch.setitem(sys.modules, "sb3_contrib", recurrent)
+    monkeypatch.setattr(m4, "admitted_source_commit", lambda: "test-source")
+    monkeypatch.setattr(m4, "make_task", lambda *args, **kwargs: DummyEnv())
+    monkeypatch.setattr(m4, "restore_numeric_policy", lambda *args: "test-hash")
+    models = {
+        (arm, seed): {
+            "arm": arm, "model_seed": seed,
+            "numeric_policy": {"file": f"{arm}-seed{seed}.npz"},
+        }
+        for arm in m4.ARMS for seed in m4.MODEL_SEEDS
+    }
+    monkeypatch.setattr(m4, "read_m3_manifest", lambda _: ({}, models))
+
+    def replay(agent, arm, row, meter):
+        meter["reference_resets"] += 1
+        if arm == "recurrent" and row["model_seed"] == 53:
+            raise ValueError("intentional final checkpoint replay failure")
+        return 6
+
+    monkeypatch.setattr(m4, "verify_reference", replay)
+
+    def forbidden_evaluation(*args):
+        raise AssertionError("Independent M4 episodes must not start before preflight")
+
+    monkeypatch.setattr(m4, "evaluate_split", forbidden_evaluation)
+    with open("configs/m4_frozen_policy.yaml", encoding="utf-8") as file:
+        source = file.read()
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(source, encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    output = Path("runs/m4_frozen_policy/summary.json")
+    with pytest.raises(ValueError, match="intentional final checkpoint"):
+        m4.run(config_path, tmp_path / "frozen", output)
+    assert not output.exists()
+    progress = json.loads((output.parent / "progress.json").read_text())
+    assert progress["independent_actions"] == 0
+    assert progress["completed_models"] == 0
+    assert progress["phase"] == "replay-recurrent-53"

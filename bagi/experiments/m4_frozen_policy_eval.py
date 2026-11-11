@@ -237,6 +237,9 @@ def run(config_path: Path, artifact_root: Path, output: Path) -> dict:
     stage = "initializing"
     start_time = time.monotonic()
     try:
+        # Validate EVERY frozen model against the archived M3 reference split
+        # before touching ANY new M4 episode seed.
+        verified_models = {}
         for arm in ARMS:
             for model_seed in MODEL_SEEDS:
                 stage = f"restore-{arm}-{model_seed}"
@@ -260,25 +263,32 @@ def run(config_path: Path, artifact_root: Path, output: Path) -> dict:
                     sha = restore_numeric_policy(agent, checkpoint, row["numeric_policy"])
                     stage = f"replay-{arm}-{model_seed}"
                     verified = verify_reference(agent, arm, row, meter)
-                    stage = f"evaluate-{arm}-{model_seed}"
-                    same = evaluate_split(agent, arm, model_seed, TRAIN_TASK,
-                                          EVAL_SEEDS, meter)
-                    transfer = evaluate_split(agent, arm, model_seed, TRANSFER_TASK,
-                                              TRANSFER_SEEDS, meter)
-                    records.append({
-                        "arm": arm, "model_seed": model_seed,
-                        "m3_checkpoint_sha256": sha,
-                        "m3_reference_episodes_replayed": verified,
-                        "same_task": same, "transfer": transfer,
-                    })
-                    save_progress(output.parent / "progress.json", {
-                        "status": "partial_not_a_completed_study",
-                        "source_commit": source, "phase": stage,
-                        "completed_models": len(records),
-                        "optimizer_step_calls": 0, **meter, "records": records,
-                    })
+                    verified_models[(arm, model_seed)] = (agent, sha, verified)
                 finally:
                     env.close()
+        if len(verified_models) != len(ARMS) * len(MODEL_SEEDS):
+            raise ValueError("Not all frozen M3 models passed reference preflight")
+
+        for arm in ARMS:
+            for model_seed in MODEL_SEEDS:
+                stage = f"evaluate-{arm}-{model_seed}"
+                agent, sha, verified = verified_models[(arm, model_seed)]
+                same = evaluate_split(agent, arm, model_seed, TRAIN_TASK,
+                                      EVAL_SEEDS, meter)
+                transfer = evaluate_split(agent, arm, model_seed, TRANSFER_TASK,
+                                          TRANSFER_SEEDS, meter)
+                records.append({
+                    "arm": arm, "model_seed": model_seed,
+                    "m3_checkpoint_sha256": sha,
+                    "m3_reference_episodes_replayed": verified,
+                    "same_task": same, "transfer": transfer,
+                })
+                save_progress(output.parent / "progress.json", {
+                    "status": "partial_not_a_completed_study",
+                    "source_commit": source, "phase": stage,
+                    "completed_models": len(records),
+                    "optimizer_step_calls": 0, **meter, "records": records,
+                })
     except BaseException as error:
         save_progress(output.parent / "progress.json", {
             "status": "interrupted_not_a_completed_study",
