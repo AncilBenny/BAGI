@@ -35,7 +35,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     )
     assert jobs["audit"]["outputs"]["study"] == "${{ steps.mode.outputs.study }}"
     assert next(step for step in jobs["audit"]["steps"]
-                if step["name"] == "Fail closed on missing or unknown manual study"
+                if step.get("name") == "Fail closed on missing or unknown manual study"
                 )["id"] == "mode"
     assert "budget" not in jobs
     assert jobs["research"]["env"]["BAGI_RESEARCH_SOURCE_SHA"] == "${{ needs.audit.outputs.research_sha }}"
