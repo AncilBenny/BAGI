@@ -45,10 +45,13 @@ HELDOUT = tuple(range(106001, 106013))
 class NativeDoorTraining(CountNativeSteps):
     """Track real task-local episode lengths, natural endings and forced resets."""
 
-    def __init__(self, env, *, model_seed: int):
-        if model_seed not in SEEDS:
-            raise ValueError("Only preregistered M6 initialization seeds")
-        super().__init__(env, max_native_steps=TRAIN_STEPS)
+    def __init__(
+        self, env, *, model_seed: int, allowed_seeds: tuple[int, ...] = SEEDS,
+        max_native_steps: int = TRAIN_STEPS,
+    ):
+        if model_seed not in allowed_seeds:
+            raise ValueError("Only preregistered study initialization seeds")
+        super().__init__(env, max_native_steps=max_native_steps)
         self.model_seed = model_seed
         self.seed_hash = hashlib.sha256()
         self.first_reset_seed = None

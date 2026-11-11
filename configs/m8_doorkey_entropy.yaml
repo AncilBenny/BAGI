@@ -1,0 +1,16 @@
+registered_study: m8
+task: MiniGrid-DoorKey-8x8-v0
+arms: [standard_entropy, bonus_entropy]
+entropy_coefficients:
+  standard_entropy: 0.0
+  bonus_entropy: 0.02
+model_seeds: [127, 139]
+train_steps_per_fit: 131072
+rollout_steps: 128
+batch_size: 64
+epochs_per_rollout: 2
+evaluation_horizon: 256
+monitor_seeds: [114001, 114002, 114003, 114004, 114005, 114006]
+heldout_seeds: [112001, 112002, 112003, 112004, 112005, 112006, 112007, 112008, 112009, 112010, 112011, 112012]
+sampled_repeats: 3
+output_dir: runs/m8_doorkey_entropy
