@@ -119,8 +119,12 @@ def test_preheldout_gate_and_both_seed_success_rule():
     assert not m8.score(rows, integrity)["primary_gate_pass"]
     rows[-1]["independent"]["sampled_totals"]["verified_physical_goals"] = 2
     rows[0]["training"]["incomplete_episode_resets"] = 1
+    with pytest.raises(ValueError, match="control interrupted native episodes"):
+        m8.preheldout_integrity(rows)
+    rows[0]["training"]["incomplete_episode_resets"] = 0
+    rows[2]["training"]["incomplete_episode_resets"] = 1
     integrity = m8.preheldout_integrity(rows)
-    assert not integrity["standard_entropy:127"]
+    assert not integrity["bonus_entropy:127"]
     with pytest.raises(ValueError, match="four"):
         m8.preheldout_integrity(rows[:-1])
 
