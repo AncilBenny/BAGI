@@ -306,7 +306,7 @@ def score_goal_milestone(records, training_seeds=(17, 29)):
     for arm in ARMS:
         rows = [row for row in records if row["arm"] == arm]
         if len(rows) != 2 or {row["model_seed"] for row in rows} != set(training_seeds):
-            raise ValueError("Expected registered independent model seeds for each arm")
+            raise ValueError("Expected two independent registered model seeds for each arm")
         before = sum(row["before"]["successes"] for row in rows)
         after = sum(row["after"]["successes"] for row in rows)
         transfer = sum(row["transfer"]["successes"] for row in rows)
