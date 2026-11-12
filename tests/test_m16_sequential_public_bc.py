@@ -9,7 +9,7 @@ import pytest
 import torch
 import yaml
 
-from bagi.experiments.m15_public_action_bc import BCPolicy, WIDTH
+from bagi.experiments.m15_public_action_bc import WIDTH, BCPolicy
 from bagi.experiments.m16_sequential_public_bc import (
     ARMS,
     FINAL,
