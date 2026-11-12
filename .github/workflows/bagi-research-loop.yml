@@ -31,6 +31,7 @@ on:
           - m13
           - m14
           - m15
+          - m16
   schedule:
     - cron: "17 * * * *"
   # Branch-only explicit one-shot studies; no duplicate workflow.
@@ -55,6 +56,7 @@ on:
       - .github/bagi-m14-once.json
       - .github/bagi-m15-once.json
       - .github/bagi-m15-repair-once.json
+      - .github/bagi-m16-once.json
 
 permissions:
   contents: read
@@ -186,6 +188,12 @@ jobs:
 
       - name: Install BAGI (legacy study)
         if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'legacy'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI sequential public behavior cloning (M16)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm16'
         run: |
           python -m pip install --upgrade pip
           pip install -e '.[dev]'
@@ -330,6 +338,11 @@ jobs:
         run: |
           python -m bagi.experiments.m15_public_action_bc --config configs/m15_public_bc.yaml --output runs/m15_public_action_bc/summary.json --execute
 
+      - name: Run admitted M16 sequential physical public BC retention
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm16'
+        run: |
+          python -m bagi.experiments.m16_sequential_public_bc --config configs/m16_sequential_public_bc.yaml --output runs/m16_sequential_public_bc/summary.json --execute
+
       - name: Restore causal-v2 checkpoint cache
         if: inputs.force_retrain != true && steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'legacy'
         id: causal-cache
@@ -382,7 +395,8 @@ jobs:
             runs/m12_public_front_effect/summary.json \
             runs/m13_public_interaction_coverage/summary.json \
             runs/m14_public_open_door/summary.json \
-            runs/m15_public_action_bc/summary.json; do
+            runs/m15_public_action_bc/summary.json \
+            runs/m16_sequential_public_bc/summary.json; do
             if [ -f "$path" ]; then
               cp "$path" "artifacts/research-loop/$(basename "$(dirname "$path")")-$(basename "$path")"
             fi
@@ -423,6 +437,8 @@ jobs:
             runs/m14_public_open_door/progress.json
             runs/m15_public_action_bc/progress.json
             runs/m15_public_action_bc/*.npz
+            runs/m16_sequential_public_bc/progress.json
+            runs/m16_sequential_public_bc/*.npz
           if-no-files-found: warn
           retention-days: 30
 
