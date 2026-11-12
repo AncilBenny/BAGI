@@ -18,7 +18,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     dispatch = triggers["workflow_dispatch"]["inputs"]["study"]
     assert dispatch["options"] == [
         "legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7",
-        "m8", "m9", "m10", "m10p1", "m11", "m12", "m13", "m14", "m15", "m16",
+        "m8", "m9", "m10", "m10p1", "m11", "m12", "m13", "m14", "m15", "m16", "m17",
     ]
     assert dispatch["default"] == "legacy"
     assert dispatch["required"] is True
@@ -45,6 +45,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
             ".github/bagi-m15-once.json",
             ".github/bagi-m15-repair-once.json",
             ".github/bagi-m16-once.json",
+            ".github/bagi-m17-once.json",
         ],
     }
     jobs = workflow["jobs"]
@@ -133,6 +134,12 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     m14 = steps["Run admitted M14 public native open-door goal replication"]
     assert "m14_public_open_door" in m14["run"]
     assert "--execute" in m14["run"]
+    m17 = steps["Run admitted M17 matched source versus target replay study"]
+    assert "configs/m17_matched_replay.yaml" in m17["run"]
+    assert "--execute" in m17["run"]
+    assert "env.BAGI_RESEARCH_STUDY == 'm17'" in steps[
+        "Install BAGI matched extra-label replay study (M17)"
+    ]["if"]
     m16 = steps["Run admitted M16 sequential physical public BC retention"]
     assert "m16_sequential_public_bc" in m16["run"]
     assert "--execute" in m16["run"]
@@ -251,6 +258,11 @@ def test_outputs_preserve_source_provenance_partial_evidence_and_study_cache():
     ]["run"]
     assert "runs/m16_sequential_public_bc/progress.json" in artifact["path"]
     assert "runs/m16_sequential_public_bc/*.npz" in artifact["path"]
+    assert "runs/m17_matched_replay/summary.json" in steps[
+        "Capture research metadata"
+    ]["run"]
+    assert "runs/m17_matched_replay/progress.json" in artifact["path"]
+    assert "runs/m17_matched_replay/*.npz" in artifact["path"]
     assert "runs/m7_frozen_doorkey_sampling/summary.json" in steps[
         "Capture research metadata"
     ]["run"]
@@ -296,6 +308,7 @@ def test_dispatch_guard_selects_study_before_training():
         ("workflow_dispatch", "m14", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "m15", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "m16", "refs/heads/setup/initial-platform", True),
+        ("workflow_dispatch", "m17", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "", "refs/heads/setup/initial-platform", False),
         ("workflow_dispatch", "unregistered", "refs/heads/setup/initial-platform", False),
         ("workflow_dispatch", "m1", "refs/heads/main", False),
@@ -851,3 +864,64 @@ def test_m16_add_only_request_is_exact_parent_bound_and_replay_resistant(tmp_pat
     request_file.write_text(json.dumps(payload) + "\n", encoding="utf-8")
     env["GITHUB_SHA"] = "f" * 40
     assert invoke().returncode == 2
+
+
+def test_m17_exact_parent_bound_one_shot_request(tmp_path):
+    import json
+    import os
+    import subprocess
+    import sys
+
+    script = WORKFLOW.parents[2] / "scripts" / "bagi_research_dispatch.py"
+
+    def git(*args):
+        return subprocess.check_output(
+            ["git", *args], cwd=tmp_path, text=True, timeout=5
+        ).strip()
+
+    git("init", "-q")
+    git("config", "user.name", "BAGI M17 regression")
+    git("config", "user.email", "noreply@example.invalid")
+    (tmp_path / "README.md").write_text("test\n", encoding="utf-8")
+    git("add", "README.md")
+    git("commit", "-qm", "parent")
+    parent = git("rev-parse", "HEAD")
+    request_path = ".github/bagi-m17-once.json"
+    request_file = tmp_path / request_path
+    request_file.parent.mkdir()
+    metadata = {
+        "study": "m17", "force_retrain": True,
+        "expected_parent_sha": parent,
+        "request_id": "BAGI-M17-2026-11-13",
+    }
+    request_file.write_text(json.dumps(metadata) + "\n", encoding="utf-8")
+    git("add", request_path)
+    git("commit", "-qm", "m17 request")
+    head = git("rev-parse", "HEAD")
+    event = tmp_path / "event.json"
+    event.write_text(json.dumps({
+        "ref": "refs/heads/setup/initial-platform",
+        "before": parent, "after": head,
+    }), encoding="utf-8")
+    env = {
+        **os.environ, "GITHUB_EVENT_NAME": "push",
+        "GITHUB_REF": "refs/heads/setup/initial-platform",
+        "GITHUB_SHA": head, "GITHUB_EVENT_PATH": str(event),
+        "GITHUB_OUTPUT": str(tmp_path / "output.txt"),
+    }
+
+    def call():
+        return subprocess.run(
+            [sys.executable, str(script)], cwd=tmp_path, env=env,
+            capture_output=True, text=True, timeout=6, check=False
+        )
+
+    assert call().returncode == 0
+    assert (tmp_path / "output.txt").read_text() == "study=m17\n"
+    metadata["request_id"] = "replay-rejected"
+    request_file.write_text(json.dumps(metadata) + "\n", encoding="utf-8")
+    assert call().returncode == 2
+    metadata["request_id"] = "BAGI-M17-2026-11-13"
+    request_file.write_text(json.dumps(metadata) + "\n", encoding="utf-8")
+    env["GITHUB_SHA"] = "f" * 40
+    assert call().returncode == 2
