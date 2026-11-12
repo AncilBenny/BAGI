@@ -11,7 +11,7 @@ import torch
 import yaml
 from minigrid.core.constants import COLOR_TO_IDX, OBJECT_TO_IDX
 
-from bagi.experiments.m15_public_action_bc import BCPolicy, WIDTH
+from bagi.experiments.m15_public_action_bc import WIDTH, BCPolicy
 from bagi.experiments.m18_matched_replay import (
     ARMS,
     FINAL,

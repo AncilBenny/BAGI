@@ -14,7 +14,7 @@ def requested_color(observation: dict) -> str:
     """Parse the native public mission; no privileged target state."""
     mission = observation["mission"]
     if not isinstance(mission, str):
-        raise ValueError("GoToDoor public mission must be text")
+        raise TypeError("GoToDoor public mission must be text")
     words = mission.strip().lower().split()
     if (len(words) != 5 or words[:3] != ["go", "to", "the"]
             or words[4] != "door" or words[3] not in COLOR_TO_IDX):
