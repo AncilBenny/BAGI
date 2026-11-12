@@ -50,6 +50,7 @@ class NativeGoToDoorAudit:
         self.native_actions = 0
         self.action_counts = {str(i): 0 for i in range(7)}
         self.forward_actions = 0
+        self.effective_forward_movements = 0
         self.native_rewarded = 0
         self.target_done = 0
         self.adjacent_target_done_attempts = 0
@@ -92,17 +93,22 @@ class NativeGoToDoorAudit:
             raise ValueError("M18 native action must be an integer 0..6")
         # World position and target matching are never returned to actor/teacher.
         adjacent = self._adjacent()
+        before_position = tuple(int(v) for v in self.env.unwrapped.agent_pos)
         self.action_counts[str(action)] += 1
         self.native_actions += 1
         self.forward_actions += int(action == 2)
         self.adjacent_target_done_attempts += int(action == 6 and adjacent)
         outcome = self.env.step(action)
         _, reward, terminated, truncated, _ = outcome
+        after_position = tuple(int(v) for v in self.env.unwrapped.agent_pos)
+        self.effective_forward_movements += int(
+            action == 2 and before_position != after_position
+        )
         self.native_rewarded += int(terminated and reward > 0)
         if action == 6 and adjacent and terminated:
             self.target_done += 1
             self.full_physical_goal = (
-                not self.initially_adjacent and self.forward_actions > 0
+                not self.initially_adjacent and self.effective_forward_movements > 0
             )
         self.finished = bool(terminated or truncated)
         return outcome
@@ -120,4 +126,5 @@ class NativeGoToDoorAudit:
             "correct_target_done_events": self.target_done,
             "adjacent_target_done_attempts": self.adjacent_target_done_attempts,
             "initially_adjacent_target_door": self.initially_adjacent,
+            "effective_forward_movements": self.effective_forward_movements,
         }
