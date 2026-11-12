@@ -273,7 +273,12 @@ def training_integrity(records: list[dict]) -> dict:
 
 
 def score(records: list[dict], checks: dict) -> dict:
+    expected = {(arm, seed) for arm in ARMS for seed in SEEDS}
     models = {(r["arm"], r["model_seed"]): r for r in records}
+    if (len(records) != len(expected) or set(models) != expected
+            or set(checks) != {f"{arm}:{seed}" for arm, seed in expected}
+            or not all(checks.values())):
+        raise ValueError("M10 score requires six valid fresh models")
 
     def goals(arm, seed, mode):
         return models[(arm, seed)]["independent"][mode]["totals"][

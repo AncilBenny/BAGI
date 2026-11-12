@@ -16,7 +16,10 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     # PyYAML may parse the YAML 1.1 key "on" as the boolean True.
     triggers = workflow.get("on", workflow.get(True))
     dispatch = triggers["workflow_dispatch"]["inputs"]["study"]
-    assert dispatch["options"] == ["legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m10p1"]
+    assert dispatch["options"] == [
+        "legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7",
+        "m8", "m9", "m10", "m10p1",
+    ]
     assert dispatch["default"] == "legacy"
     assert dispatch["required"] is True
     assert triggers["schedule"] == [{"cron": "17 * * * *"}]
