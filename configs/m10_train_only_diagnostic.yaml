@@ -1,0 +1,13 @@
+registered_study: m10
+phase: train_only_causal_diagnostic
+task: MiniGrid-DoorKey-8x8-v0
+model_seeds: [181, 197]
+monitor_seeds: [119001, 119002, 119003, 119004, 119005, 119006, 119007, 119008, 119009, 119010, 119011, 119012]
+train_steps_per_fit: 131072
+rollout_steps: 128
+batch_size: 64
+epochs_per_rollout: 2
+evaluation_horizon: 256
+policy: public_raw_codes_and_executed_history
+control: uniform_native_random
+output_dir: runs/m10_train_only_diagnostic

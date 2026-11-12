@@ -19,6 +19,7 @@ REQUEST_PATHS = {
     ".github/bagi-m7-once.json": ("m7", "BAGI-M7-2026-11-11"),
     ".github/bagi-m8-once.json": ("m8", "BAGI-M8-2026-11-11"),
     ".github/bagi-m9-once.json": ("m9", "BAGI-M9-2026-11-11"),
+    ".github/bagi-m10-once.json": ("m10", "BAGI-M10-D3-2026-11-12"),
 }
 
 
@@ -30,7 +31,7 @@ def selected_study(event: str, study: str, ref: str) -> str:
         return "legacy"
     if event != "workflow_dispatch":
         raise ValueError("Unregistered research trigger")
-    if study not in ("legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9"):
+    if study not in ("legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10"):
         raise ValueError("Manual research dispatch requires an explicit registered study")
     if ref != RESEARCH_REF:
         raise ValueError("Manual research dispatch must target the protected research branch")
@@ -38,9 +39,9 @@ def selected_study(event: str, study: str, ref: str) -> str:
 
 
 def push_request_study() -> str:
-    """Accept only one new, source-bound M1 request file from a branch push."""
+    """Accept only one new, source-bound study request file from a branch push."""
     if os.environ.get("GITHUB_REF") != RESEARCH_REF:
-        raise ValueError("M1 push must target the research branch")
+        raise ValueError("Research push must target the research branch")
     event_path = os.environ.get("GITHUB_EVENT_PATH")
     if not event_path:
         raise ValueError("M1 push event provenance missing")
@@ -59,7 +60,7 @@ def push_request_study() -> str:
             or event.get("after") != actual
             or os.environ.get("GITHUB_SHA") != actual
             or event.get("before") != parent):
-        raise ValueError("M1 push commit/event/parent mismatch")
+        raise ValueError("Research push commit/event/parent mismatch")
     matches = [
         (path, study, request_id)
         for path, (study, request_id) in REQUEST_PATHS.items()

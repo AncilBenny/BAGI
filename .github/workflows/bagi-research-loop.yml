@@ -24,6 +24,7 @@ on:
           - m7
           - m8
           - m9
+          - m10
   schedule:
     - cron: "17 * * * *"
   # Branch-only explicit one-shot studies; no duplicate workflow.
@@ -40,6 +41,7 @@ on:
       - .github/bagi-m7-once.json
       - .github/bagi-m8-once.json
       - .github/bagi-m9-once.json
+      - .github/bagi-m10-once.json
 
 permissions:
   contents: read
@@ -176,7 +178,7 @@ jobs:
           pip install -e '.[dev]'
 
       - name: Install BAGI with pinned existing RL implementations (M1)
-        if: steps.evaluated.outputs.cache-hit != 'true' && (env.BAGI_RESEARCH_STUDY == 'm1' || env.BAGI_RESEARCH_STUDY == 'm2' || env.BAGI_RESEARCH_STUDY == 'm3' || env.BAGI_RESEARCH_STUDY == 'm4' || env.BAGI_RESEARCH_STUDY == 'm5' || env.BAGI_RESEARCH_STUDY == 'm6' || env.BAGI_RESEARCH_STUDY == 'm7' || env.BAGI_RESEARCH_STUDY == 'm8' || env.BAGI_RESEARCH_STUDY == 'm9')
+        if: steps.evaluated.outputs.cache-hit != 'true' && (env.BAGI_RESEARCH_STUDY == 'm1' || env.BAGI_RESEARCH_STUDY == 'm2' || env.BAGI_RESEARCH_STUDY == 'm3' || env.BAGI_RESEARCH_STUDY == 'm4' || env.BAGI_RESEARCH_STUDY == 'm5' || env.BAGI_RESEARCH_STUDY == 'm6' || env.BAGI_RESEARCH_STUDY == 'm7' || env.BAGI_RESEARCH_STUDY == 'm8' || env.BAGI_RESEARCH_STUDY == 'm9' || env.BAGI_RESEARCH_STUDY == 'm10')
         run: |
           python -m pip install --upgrade pip
           pip install -e '.[dev,rl]'
@@ -250,6 +252,11 @@ jobs:
         run: |
           python -m bagi.experiments.m9_recurrent_doorkey --config configs/m9_recurrent_doorkey.yaml --output runs/m9_recurrent_doorkey/summary.json --execute
 
+      - name: Run admitted M10 fresh train-only physical-action diagnostic
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm10'
+        run: |
+          python -m bagi.experiments.m10_train_only_diagnostic --config configs/m10_train_only_diagnostic.yaml --output runs/m10_train_only_diagnostic/summary.json --execute
+
       - name: Restore causal-v2 checkpoint cache
         if: inputs.force_retrain != true && steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'legacy'
         id: causal-cache
@@ -295,7 +302,8 @@ jobs:
             runs/m6_doorkey_continuity/summary.json \
             runs/m7_frozen_doorkey_sampling/summary.json \
             runs/m8_doorkey_entropy/summary.json \
-            runs/m9_recurrent_doorkey/summary.json; do
+            runs/m9_recurrent_doorkey/summary.json \
+            runs/m10_train_only_diagnostic/summary.json; do
             if [ -f "$path" ]; then
               cp "$path" "artifacts/research-loop/$(basename "$(dirname "$path")")-$(basename "$path")"
             fi
@@ -324,6 +332,8 @@ jobs:
             runs/m8_doorkey_entropy/*.npz
             runs/m9_recurrent_doorkey/progress.json
             runs/m9_recurrent_doorkey/*.npz
+            runs/m10_train_only_diagnostic/progress.json
+            runs/m10_train_only_diagnostic/*.npz
           if-no-files-found: warn
           retention-days: 30
 
