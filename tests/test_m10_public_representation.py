@@ -10,6 +10,7 @@ import pytest
 import yaml
 from minigrid.core.constants import COLOR_TO_IDX, OBJECT_TO_IDX, STATE_TO_IDX
 
+from bagi.experiments.m5_continual_retention import DOORKEY
 from bagi.experiments.m10_public_representation import (
     ARMS,
     EXPECTED_SHAPES,
@@ -25,7 +26,6 @@ from bagi.experiments.m10_public_representation import (
     training_integrity,
     validate_config,
 )
-from bagi.experiments.m5_continual_retention import DOORKEY
 
 
 def test_m10p1_config_seed_isolation_and_fixed_episode_denominators():

@@ -70,7 +70,7 @@ class PublicDirectionalActions(gym.Wrapper):
         if image_shape not in ((7, 7, 3), (7, 7, 20)):
             raise ValueError("Unregistered MiniGrid public image representation")
         if not isinstance(env.action_space, gym.spaces.Discrete):
-            raise ValueError("M10 requires discrete native MiniGrid actions")
+            raise TypeError("M10 requires discrete native MiniGrid actions")
         self.n_actions = int(env.action_space.n)
         if self.n_actions != 7:
             raise ValueError("M10 requires exactly seven native actions")
