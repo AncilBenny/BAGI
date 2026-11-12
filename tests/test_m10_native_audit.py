@@ -61,6 +61,14 @@ class FakeDoorKey:
         return {}, .9 if success else 0.0, success, self.n >= 4, {}
 
 
+class FakeGoalAtTimeLimit(FakeDoorKey):
+    """Model a native goal on the last externally time-limited step."""
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = super().step(action)
+        return obs, reward, terminated, truncated or terminated, info
+
+
 @pytest.fixture(autouse=True)
 def mock_minigrid(monkeypatch):
     package = types.ModuleType("minigrid")
@@ -87,6 +95,19 @@ def test_native_key_door_goal_sequence():
     assert summary["valid_toggle_opportunities"] == 1
     assert summary["valid_toggle_attempts"] == 1
     assert summary["native_actions"] == 3
+    with pytest.raises(RuntimeError):
+        audit.step(0)
+
+
+def test_native_adapter_preserves_goal_on_simultaneous_time_limit():
+    audit = NativeDoorKeyAudit(FakeGoalAtTimeLimit())
+    audit.reset(seed=432)
+    for action in (3, 5, 2):
+        _, reward, terminated, truncated, _ = audit.step(action)
+    assert reward == .9
+    assert terminated and truncated
+    assert audit.summary()["native_actions"] == 3
+    assert audit.summary()["full_physical_goal"] is True
     with pytest.raises(RuntimeError):
         audit.step(0)
 

@@ -43,6 +43,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
             ".github/bagi-m13-once.json",
             ".github/bagi-m14-once.json",
             ".github/bagi-m15-once.json",
+            ".github/bagi-m15-repair-once.json",
         ],
     }
     jobs = workflow["jobs"]
@@ -711,4 +712,65 @@ def test_one_shot_m6_repair_is_new_add_only_request_and_source_bound(tmp_path):
     payload["request_id"] = "BAGI-M6-REPAIR-2026-11-11"
     payload["force_retrain"] = False
     request.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    assert invoke().returncode == 2
+
+
+def test_m15_repair_request_keeps_same_add_only_dispatch_contract(tmp_path):
+    import json
+    import os
+    import subprocess
+    import sys
+
+    script = WORKFLOW.parents[2] / "scripts" / "bagi_research_dispatch.py"
+
+    def git(*args):
+        return subprocess.check_output(
+            ["git", *args], cwd=tmp_path, text=True, timeout=5
+        ).strip()
+
+    git("init", "-q")
+    git("config", "user.name", "BAGI source regression")
+    git("config", "user.email", "noreply@example.invalid")
+    (tmp_path / "README.md").write_text("test\n", encoding="utf-8")
+    git("add", "README.md")
+    git("commit", "-qm", "test parent")
+    parent = git("rev-parse", "HEAD")
+    request_path = ".github/bagi-m15-repair-once.json"
+    request_file = tmp_path / request_path
+    request_file.parent.mkdir()
+    request = {
+        "study": "m15", "force_retrain": True,
+        "expected_parent_sha": parent,
+        "request_id": "BAGI-M15-REPAIR-2026-11-12",
+    }
+    request_file.write_text(json.dumps(request) + "\n", encoding="utf-8")
+    git("add", request_path)
+    git("commit", "-qm", "test repair request")
+    sha = git("rev-parse", "HEAD")
+    event = tmp_path / "event.json"
+    event.write_text(json.dumps({
+        "ref": "refs/heads/setup/initial-platform",
+        "before": parent, "after": sha,
+    }), encoding="utf-8")
+    env = {
+        **os.environ, "GITHUB_EVENT_NAME": "push",
+        "GITHUB_REF": "refs/heads/setup/initial-platform",
+        "GITHUB_SHA": sha, "GITHUB_EVENT_PATH": str(event),
+        "GITHUB_OUTPUT": str(tmp_path / "output.txt"),
+    }
+
+    def invoke():
+        return subprocess.run(
+            [sys.executable, str(script)], cwd=tmp_path, env=env,
+            capture_output=True, text=True, timeout=6, check=False
+        )
+
+    assert invoke().returncode == 0
+    assert (tmp_path / "output.txt").read_text() == "study=m15\n"
+    request["request_id"] = "unregistered-replay"
+    request_file.write_text(json.dumps(request) + "\n", encoding="utf-8")
+    assert invoke().returncode == 2
+    request["request_id"] = "BAGI-M15-REPAIR-2026-11-12"
+    request_file.write_text(json.dumps(request) + "\n", encoding="utf-8")
+    env["GITHUB_SHA"] = "f" * 40
     assert invoke().returncode == 2

@@ -47,8 +47,8 @@ class EpisodeFunnel:
             after, PhysicalSnapshot
         ):
             raise TypeError("auditor snapshots are required")
-        if terminated and truncated:
-            raise ValueError("episode cannot terminate and truncate simultaneously")
+        # A native goal on the last TimeLimit step may terminate AND truncate.
+        # Preserve both signals and audit actual physical outcomes unchanged.
         if not isinstance(reward, (int, float)) or not math.isfinite(
             reward
         ) or not 0 <= reward <= 1:

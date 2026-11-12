@@ -29,6 +29,31 @@ def test_real_sequence_and_native_action_accounting():
     )] == [1, 2, 3]
 
 
+def test_goal_at_native_time_limit_preserves_physical_success():
+    meter = EpisodeFunnel()
+    meter.observe(s(visible=True), 3, s(key=True), reward=0,
+                  terminated=False, truncated=False)
+    meter.observe(s(key=True, front=True), 5, s(key=True, opened=True),
+                  reward=0, terminated=False, truncated=False)
+    meter.observe(s(key=True, opened=True), 2,
+                  s(key=True, opened=True, goal=True), reward=.9,
+                  terminated=True, truncated=True)
+    result = meter.summary()
+    assert result["native_actions"] == 3
+    assert result["rewarded_terminations"] == 1
+    assert result["full_physical_goal"] is True
+
+
+def test_dual_flag_without_real_goal_is_not_physical_success():
+    meter = EpisodeFunnel()
+    meter.observe(s(), 2, s(), reward=0,
+                  terminated=True, truncated=True)
+    result = meter.summary()
+    assert result["native_actions"] == 1
+    assert result["rewarded_terminations"] == 0
+    assert result["full_physical_goal"] is False
+
+
 def test_invalid_toggle_does_not_count_as_opportunity():
     meter = EpisodeFunnel()
     meter.observe(s(), 5, s(), reward=0, terminated=False, truncated=False)

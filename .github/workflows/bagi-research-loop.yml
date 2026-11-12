@@ -54,6 +54,7 @@ on:
       - .github/bagi-m13-once.json
       - .github/bagi-m14-once.json
       - .github/bagi-m15-once.json
+      - .github/bagi-m15-repair-once.json
 
 permissions:
   contents: read
