@@ -24,8 +24,8 @@ from torch import nn
 from bagi.experiments.m1_goal_learning import admitted_source_commit, save_progress
 from bagi.experiments.m5_continual_retention import mission_vector
 from bagi.experiments.m10_native_audit import NativeDoorKeyAudit
-from bagi.experiments.m14_public_open_door import TASKS, TraversableOpenDoorController
 from bagi.experiments.m13_public_interaction_coverage import Controller
+from bagi.experiments.m14_public_open_door import TASKS, TraversableOpenDoorController
 
 SEEDS = (521, 533)
 ARMS = ("ordinary_bc", "balanced_bc")
@@ -125,7 +125,7 @@ def teacher_episode(task: str, seed: int) -> dict:
         for _ in range(HORIZON):
             xs.append(features(obs, controller.key_observed_after_pickup))
             actual = controller.choose(obs, rng)
-            successor, reward, terminated, truncated, _ = audited.step(actual)
+            successor, _reward, terminated, truncated, _ = audited.step(actual)
             controller.update(obs, actual, successor)
             ys.append(actual)
             obs = successor
@@ -261,7 +261,7 @@ def policy_episode(task: str, layout: int, mode: str,
     )
     mode_id = (
         0 if mode == "teacher" else 1 if mode == "uniform"
-        else 2 + list(f"{arm}_{seed}" for arm in ARMS for seed in SEEDS).index(mode)
+        else 2 + [f"{arm}_{seed}" for arm in ARMS for seed in SEEDS].index(mode)
     )
     rng_seed = 19_000_000 + 10 * layout + mode_id
     rng = np.random.default_rng(rng_seed)
