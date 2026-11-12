@@ -88,7 +88,9 @@ class PublicDirectionalActions(gym.Wrapper):
         if image.shape != self.image_shape:
             raise ValueError("Unexpected public image shape")
         heading = raw["direction"]
-        if type(heading) not in (int, np.int64, np.int32) or not 0 <= heading < 4:
+        if isinstance(heading, (bool, np.bool_)) or not isinstance(
+            heading, (int, np.integer)
+        ) or not 0 <= heading < 4:
             raise ValueError("Public direction must be an integer 0..3")
         directions = np.zeros(4, dtype=np.float32)
         directions[int(heading)] = 1
@@ -260,7 +262,7 @@ def training_integrity(records: list[dict]) -> dict:
             and training["incomplete_episode_resets"] == 0
             and training["max_episode_native_actions"] <= EVAL_HORIZON
             and sum(training["executed_action_histogram"]) == TRAIN_STEPS
-            and training["first_reset_seed"] == 1_000_000 + seed * 500_000 + 1
+            and training["first_reset_seed"] == 1_000_000 + seed * 500_000
             and row["policy_parameters"] > 0
             and row["numeric_policy"]["allow_pickle"] is False
             and bool(row["numeric_policy"]["sha256"])
