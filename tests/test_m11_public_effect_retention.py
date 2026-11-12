@@ -10,6 +10,7 @@ import pytest
 import torch
 import yaml
 
+from bagi.experiments.m5_continual_retention import PublicGoalActions
 from bagi.experiments.m11_public_effect_retention import (
     FINAL,
     SEEDS,
@@ -24,7 +25,6 @@ from bagi.experiments.m11_public_effect_retention import (
     public_label,
     validate_config,
 )
-from bagi.experiments.m5_continual_retention import PublicGoalActions
 
 
 def test_fixed_untouched_episode_split_and_protocol():
