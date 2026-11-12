@@ -33,6 +33,7 @@ on:
           - m15
           - m16
           - m17
+          - m18
   schedule:
     - cron: "17 * * * *"
   # Branch-only explicit one-shot studies; no duplicate workflow.
@@ -59,6 +60,7 @@ on:
       - .github/bagi-m15-repair-once.json
       - .github/bagi-m16-once.json
       - .github/bagi-m17-once.json
+      - .github/bagi-m18-once.json
 
 permissions:
   contents: read
@@ -190,6 +192,12 @@ jobs:
 
       - name: Install BAGI (legacy study)
         if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'legacy'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI cross-objective BC study (M18)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm18'
         run: |
           python -m pip install --upgrade pip
           pip install -e '.[dev]'
@@ -351,6 +359,11 @@ jobs:
         run: |
           python -m bagi.experiments.m16_sequential_public_bc --config configs/m16_sequential_public_bc.yaml --output runs/m16_sequential_public_bc/summary.json --execute
 
+      - name: Run admitted M18 cross-objective physical BC transfer
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm18'
+        run: |
+          python -m bagi.experiments.m18_matched_replay --config configs/m18_matched_replay.yaml --output runs/m18_matched_replay/summary.json --execute
+
       - name: Run admitted M17 matched source versus target replay study
         if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm17'
         run: |
@@ -410,7 +423,8 @@ jobs:
             runs/m14_public_open_door/summary.json \
             runs/m15_public_action_bc/summary.json \
             runs/m16_sequential_public_bc/summary.json \
-            runs/m17_matched_replay/summary.json; do
+            runs/m17_matched_replay/summary.json \
+            runs/m18_matched_replay/summary.json; do
             if [ -f "$path" ]; then
               cp "$path" "artifacts/research-loop/$(basename "$(dirname "$path")")-$(basename "$path")"
             fi
@@ -455,6 +469,8 @@ jobs:
             runs/m16_sequential_public_bc/*.npz
             runs/m17_matched_replay/progress.json
             runs/m17_matched_replay/*.npz
+            runs/m18_matched_replay/progress.json
+            runs/m18_matched_replay/*.npz
           if-no-files-found: warn
           retention-days: 30
 
