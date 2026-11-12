@@ -9,7 +9,6 @@ import pytest
 import torch
 import yaml
 
-from bagi.experiments.m5_continual_retention import DOORKEY, MEMORY
 from bagi.experiments.m12_public_front_effect import (
     FEATURES,
     FINAL,
