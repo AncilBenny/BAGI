@@ -16,7 +16,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     # PyYAML may parse the YAML 1.1 key "on" as the boolean True.
     triggers = workflow.get("on", workflow.get(True))
     dispatch = triggers["workflow_dispatch"]["inputs"]["study"]
-    assert dispatch["options"] == ["legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10"]
+    assert dispatch["options"] == ["legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m10p1"]
     assert dispatch["default"] == "legacy"
     assert dispatch["required"] is True
     assert triggers["schedule"] == [{"cron": "17 * * * *"}]
@@ -34,6 +34,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
             ".github/bagi-m8-once.json",
             ".github/bagi-m9-once.json",
             ".github/bagi-m10-once.json",
+            ".github/bagi-m10p1-once.json",
         ],
     }
     jobs = workflow["jobs"]
@@ -77,6 +78,7 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     assert "env.BAGI_RESEARCH_STUDY == 'm8'" in install["if"]
     assert "env.BAGI_RESEARCH_STUDY == 'm9'" in install["if"]
     assert "env.BAGI_RESEARCH_STUDY == 'm10'" in install["if"]
+    assert "env.BAGI_RESEARCH_STUDY == 'm10p1'" in install["if"]
     m2 = steps["Run admitted M2 extended goal-learning and sampling diagnostic"]
     assert "env.BAGI_RESEARCH_STUDY == 'm2'" in m2["if"]
     assert "configs/m2_goal_learning.yaml" in m2["run"]
@@ -106,6 +108,9 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     m10 = steps["Run admitted M10 fresh train-only physical-action diagnostic"]
     assert "m10_train_only_diagnostic" in m10["run"]
     assert "--execute" in m10["run"]
+    m10p1 = steps["Run admitted M10-P1 fresh public representation PPO comparison"]
+    assert "m10_public_representation" in m10p1["run"]
+    assert "--execute" in m10p1["run"]
     assert "sha256sum -c -" in steps[
         "Retrieve verified M6 numeric checkpoint artifact for M7"
     ]["run"]
@@ -167,6 +172,11 @@ def test_outputs_preserve_source_provenance_partial_evidence_and_study_cache():
     assert "runs/m10_train_only_diagnostic/summary.json" in steps[
         "Capture research metadata"
     ]["run"]
+    assert "runs/m10_public_representation/progress.json" in artifact["path"]
+    assert "runs/m10_public_representation/*.npz" in artifact["path"]
+    assert "runs/m10_public_representation/summary.json" in steps[
+        "Capture research metadata"
+    ]["run"]
     assert "runs/m7_frozen_doorkey_sampling/summary.json" in steps[
         "Capture research metadata"
     ]["run"]
@@ -205,6 +215,7 @@ def test_dispatch_guard_selects_study_before_training():
         ("workflow_dispatch", "m8", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "m9", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "m10", "refs/heads/setup/initial-platform", True),
+        ("workflow_dispatch", "m10p1", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "", "refs/heads/setup/initial-platform", False),
         ("workflow_dispatch", "unregistered", "refs/heads/setup/initial-platform", False),
         ("workflow_dispatch", "m1", "refs/heads/main", False),
