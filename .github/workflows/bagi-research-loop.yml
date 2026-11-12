@@ -28,6 +28,7 @@ on:
           - m10p1
           - m11
           - m12
+          - m13
   schedule:
     - cron: "17 * * * *"
   # Branch-only explicit one-shot studies; no duplicate workflow.
@@ -48,6 +49,7 @@ on:
       - .github/bagi-m10p1-once.json
       - .github/bagi-m11-once.json
       - .github/bagi-m12-once.json
+      - .github/bagi-m13-once.json
 
 permissions:
   contents: read
@@ -183,6 +185,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e '.[dev]'
 
+      - name: Install BAGI native physical coverage study (M13)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm13'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
       - name: Install BAGI for public front-cell calibration (M12)
         if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm12'
         run: |
@@ -290,6 +298,11 @@ jobs:
         run: |
           python -m bagi.experiments.m12_public_front_effect --config configs/m12_public_front_effect.yaml --output runs/m12_public_front_effect/summary.json --execute
 
+      - name: Run admitted M13 public-only native physical-interaction coverage
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm13'
+        run: |
+          python -m bagi.experiments.m13_public_interaction_coverage --config configs/m13_public_interaction_coverage.yaml --output runs/m13_public_interaction_coverage/summary.json --execute
+
       - name: Restore causal-v2 checkpoint cache
         if: inputs.force_retrain != true && steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'legacy'
         id: causal-cache
@@ -339,7 +352,8 @@ jobs:
             runs/m10_train_only_diagnostic/summary.json \
             runs/m10_public_representation/summary.json \
             runs/m11_public_effect_retention/summary.json \
-            runs/m12_public_front_effect/summary.json; do
+            runs/m12_public_front_effect/summary.json \
+            runs/m13_public_interaction_coverage/summary.json; do
             if [ -f "$path" ]; then
               cp "$path" "artifacts/research-loop/$(basename "$(dirname "$path")")-$(basename "$path")"
             fi
@@ -376,6 +390,7 @@ jobs:
             runs/m11_public_effect_retention/*.npz
             runs/m12_public_front_effect/progress.json
             runs/m12_public_front_effect/*.npz
+            runs/m13_public_interaction_coverage/progress.json
           if-no-files-found: warn
           retention-days: 30
 

@@ -18,7 +18,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     dispatch = triggers["workflow_dispatch"]["inputs"]["study"]
     assert dispatch["options"] == [
         "legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7",
-        "m8", "m9", "m10", "m10p1", "m11", "m12",
+        "m8", "m9", "m10", "m10p1", "m11", "m12", "m13",
     ]
     assert dispatch["default"] == "legacy"
     assert dispatch["required"] is True
@@ -40,6 +40,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
             ".github/bagi-m10p1-once.json",
             ".github/bagi-m11-once.json",
             ".github/bagi-m12-once.json",
+            ".github/bagi-m13-once.json",
         ],
     }
     jobs = workflow["jobs"]
@@ -122,6 +123,12 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     m12 = steps["Run admitted M12 public native forward-effect prediction"]
     assert "m12_public_front_effect" in m12["run"]
     assert "--execute" in m12["run"]
+    m13 = steps["Run admitted M13 public-only native physical-interaction coverage"]
+    assert "m13_public_interaction_coverage" in m13["run"]
+    assert "--execute" in m13["run"]
+    assert "env.BAGI_RESEARCH_STUDY == 'm13'" in steps[
+        "Install BAGI native physical coverage study (M13)"
+    ]["if"]
     assert "env.BAGI_RESEARCH_STUDY == 'm12'" in steps[
         "Install BAGI for public front-cell calibration (M12)"
     ]["if"]
@@ -204,6 +211,10 @@ def test_outputs_preserve_source_provenance_partial_evidence_and_study_cache():
     assert "runs/m12_public_front_effect/summary.json" in steps[
         "Capture research metadata"
     ]["run"]
+    assert "runs/m13_public_interaction_coverage/progress.json" in artifact["path"]
+    assert "runs/m13_public_interaction_coverage/summary.json" in steps[
+        "Capture research metadata"
+    ]["run"]
     assert "runs/m7_frozen_doorkey_sampling/summary.json" in steps[
         "Capture research metadata"
     ]["run"]
@@ -245,6 +256,7 @@ def test_dispatch_guard_selects_study_before_training():
         ("workflow_dispatch", "m10p1", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "m11", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "m12", "refs/heads/setup/initial-platform", True),
+        ("workflow_dispatch", "m13", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "", "refs/heads/setup/initial-platform", False),
         ("workflow_dispatch", "unregistered", "refs/heads/setup/initial-platform", False),
         ("workflow_dispatch", "m1", "refs/heads/main", False),
