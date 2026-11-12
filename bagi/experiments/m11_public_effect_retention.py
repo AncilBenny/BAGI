@@ -18,8 +18,8 @@ import gymnasium as gym
 import minigrid  # noqa: F401
 import numpy as np
 import torch
-from torch import nn
 import yaml
+from torch import nn
 
 from bagi.experiments.m1_goal_learning import admitted_source_commit, save_progress
 from bagi.experiments.m5_continual_retention import DOORKEY, MEMORY, PublicGoalActions

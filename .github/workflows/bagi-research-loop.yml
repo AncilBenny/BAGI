@@ -26,6 +26,7 @@ on:
           - m9
           - m10
           - m10p1
+          - m11
   schedule:
     - cron: "17 * * * *"
   # Branch-only explicit one-shot studies; no duplicate workflow.
@@ -44,6 +45,7 @@ on:
       - .github/bagi-m9-once.json
       - .github/bagi-m10-once.json
       - .github/bagi-m10p1-once.json
+      - .github/bagi-m11-once.json
 
 permissions:
   contents: read
@@ -179,6 +181,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e '.[dev]'
 
+      - name: Install BAGI with maintained public-effect GRU (M11)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm11'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
       - name: Install BAGI with pinned existing RL implementations (M1)
         if: steps.evaluated.outputs.cache-hit != 'true' && (env.BAGI_RESEARCH_STUDY == 'm1' || env.BAGI_RESEARCH_STUDY == 'm2' || env.BAGI_RESEARCH_STUDY == 'm3' || env.BAGI_RESEARCH_STUDY == 'm4' || env.BAGI_RESEARCH_STUDY == 'm5' || env.BAGI_RESEARCH_STUDY == 'm6' || env.BAGI_RESEARCH_STUDY == 'm7' || env.BAGI_RESEARCH_STUDY == 'm8' || env.BAGI_RESEARCH_STUDY == 'm9' || env.BAGI_RESEARCH_STUDY == 'm10' || env.BAGI_RESEARCH_STUDY == 'm10p1')
         run: |
@@ -264,6 +272,11 @@ jobs:
         run: |
           python -m bagi.experiments.m10_public_representation --config configs/m10_public_representation.yaml --output runs/m10_public_representation/summary.json --execute
 
+      - name: Run admitted M11 fresh public-effect retention study
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm11'
+        run: |
+          python -m bagi.experiments.m11_public_effect_retention --config configs/m11_public_effect_retention.yaml --output runs/m11_public_effect_retention/summary.json --execute
+
       - name: Restore causal-v2 checkpoint cache
         if: inputs.force_retrain != true && steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'legacy'
         id: causal-cache
@@ -311,7 +324,8 @@ jobs:
             runs/m8_doorkey_entropy/summary.json \
             runs/m9_recurrent_doorkey/summary.json \
             runs/m10_train_only_diagnostic/summary.json \
-            runs/m10_public_representation/summary.json; do
+            runs/m10_public_representation/summary.json \
+            runs/m11_public_effect_retention/summary.json; do
             if [ -f "$path" ]; then
               cp "$path" "artifacts/research-loop/$(basename "$(dirname "$path")")-$(basename "$path")"
             fi
@@ -344,6 +358,8 @@ jobs:
             runs/m10_train_only_diagnostic/*.npz
             runs/m10_public_representation/progress.json
             runs/m10_public_representation/*.npz
+            runs/m11_public_effect_retention/progress.json
+            runs/m11_public_effect_retention/*.npz
           if-no-files-found: warn
           retention-days: 30
 
