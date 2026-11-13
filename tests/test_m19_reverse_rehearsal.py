@@ -8,17 +8,28 @@ import pytest
 import torch
 import yaml
 
-from bagi.experiments.m15_public_action_bc import BCPolicy, WIDTH
-from bagi.experiments.m19_reverse_rehearsal import (
-    ARMS, FINAL, MONITOR, SEEDS, TASKS, TRAIN, collect_episode,
-    evaluate_episode, fit_phase, make_audit, make_teacher, registered_gates,
-    validate_config,
-)
-from bagi.experiments.m18_public_door_selection import (
-    NativeGoToDoorAudit, PublicGoToDoorTeacher,
-)
 from bagi.experiments.m10_native_audit import NativeDoorKeyAudit
 from bagi.experiments.m14_public_open_door import TraversableOpenDoorController
+from bagi.experiments.m15_public_action_bc import WIDTH, BCPolicy
+from bagi.experiments.m18_public_door_selection import (
+    NativeGoToDoorAudit,
+    PublicGoToDoorTeacher,
+)
+from bagi.experiments.m19_reverse_rehearsal import (
+    ARMS,
+    FINAL,
+    MONITOR,
+    SEEDS,
+    TASKS,
+    TRAIN,
+    collect_episode,
+    evaluate_episode,
+    fit_phase,
+    make_audit,
+    make_teacher,
+    registered_gates,
+    validate_config,
+)
 
 
 def test_reversed_native_task_order_and_sealed_layout_streams():
