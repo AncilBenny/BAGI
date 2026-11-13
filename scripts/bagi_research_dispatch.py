@@ -32,6 +32,7 @@ REQUEST_PATHS = {
     ".github/bagi-m18-once.json": ("m18", "BAGI-M18-2026-11-13"),
     ".github/bagi-m19-once.json": ("m19", "BAGI-M19-2026-11-13"),
     ".github/bagi-m20-once.json": ("m20", "BAGI-M20-2026-11-14"),
+    ".github/bagi-m21-once.json": ("m21", "BAGI-M21-2026-11-14"),
 }
 
 
@@ -43,7 +44,7 @@ def selected_study(event: str, study: str, ref: str) -> str:
         return "legacy"
     if event != "workflow_dispatch":
         raise ValueError("Unregistered research trigger")
-    if study not in ("legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m10p1", "m11", "m12", "m13", "m14", "m15", "m16", "m17", "m18", "m19", "m20"):
+    if study not in ("legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m10p1", "m11", "m12", "m13", "m14", "m15", "m16", "m17", "m18", "m19", "m20", "m21"):
         raise ValueError("Manual research dispatch requires an explicit registered study")
     if ref != RESEARCH_REF:
         raise ValueError("Manual research dispatch must target the protected research branch")
