@@ -420,8 +420,8 @@ def run(config: Path, output: Path) -> dict:
                 "gates": {"train_teacher_feasibility_pass": False,
                           "primary_cross_mechanics_gate_pass": False},
                 "limitations": [
-                    "Public Fetch teacher below 8/48 TRAIN-only "
-                    "nonvacuous pickup feasibility threshold.",
+                    ("Public Fetch teacher below 8/48 TRAIN-only "
+                     "nonvacuous pickup feasibility threshold."),
                     "No model fitted or independent final layout opened.",
                 ],
             }
