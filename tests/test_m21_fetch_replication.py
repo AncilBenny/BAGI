@@ -111,7 +111,8 @@ def test_m21_identical_gate_thresholds_are_conjunctive():
                 "episodes": 32, "full_physical_goal_episodes": goals,
             }}
     assert registered_gates(scores)["primary_cross_mechanics_gate_pass"]
-    scores[f"{TASKS[1]}:naive_{SEEDS[0]}"]["totals"][
-        "full_physical_goal_episodes"
-    ] = 14
+    for seed in SEEDS[:2]:
+        scores[f"{TASKS[1]}:naive_{seed}"]["totals"][
+            "full_physical_goal_episodes"
+        ] = 14
     assert not registered_gates(scores)["primary_cross_mechanics_gate_pass"]
