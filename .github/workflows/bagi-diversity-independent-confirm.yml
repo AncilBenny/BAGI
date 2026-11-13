@@ -1,0 +1,61 @@
+name: BAGI REUSE-37 Independent Diverse Physical Demo Confirmation
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_diversity_confirmation.py"
+      - "tests/test_xland_diversity_confirmation.py"
+      - ".github/workflows/bagi-diversity-independent-confirm.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  confirm-diverse-bc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+      OMP_NUM_THREADS: "1"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Recover SHA256-verified original 291-row source and frozen physical demo archives
+        run: |
+          mkdir -p runs/reuse37_source runs/reuse37_original_teacher runs/reuse37_diverse_teacher
+          gh run download 39637067506 --repo AncilBenny/BAGI --name bagi-dagger-action-provenance --dir runs/reuse37_source
+          gh run download 40101923830 --repo AncilBenny/BAGI --name bagi-reuse33-complete-demo-bc --dir runs/reuse37_original_teacher
+          gh run download 40110945017 --repo AncilBenny/BAGI --name bagi-reuse36-diverse-physical-training --dir runs/reuse37_diverse_teacher
+          test -f runs/reuse37_source/action_provenance_seed17.npz
+          test -f runs/reuse37_source/action_provenance_seed29.npz
+          test -f runs/reuse37_original_teacher/train_source_complete_demos.npz
+          test -f runs/reuse37_diverse_teacher/diverse_train_physical.npz
+      - name: Install unchanged upstream XLand and imitation.BC CPU dependencies
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir -r requirements/xland-reuse31.txt
+          python -m pip check
+      - name: Verify untouched layouts and archived sampled-training metadata
+        run: |
+          ruff check bagi/experiments/xland_diversity_confirmation.py tests/test_xland_diversity_confirmation.py
+          python -m pytest -q tests/test_xland_diversity_confirmation.py tests/test_xland_diverse_physical_demos.py
+      - name: Independently replay exact frozen source training and native BLUE outcome gate
+        run: |
+          python -m bagi.experiments.xland_diversity_confirmation --source-dir runs/reuse37_source --old-teacher-dir runs/reuse37_original_teacher --diverse-dir runs/reuse37_diverse_teacher --output-dir runs/reuse37_confirmation
+      - name: Archive learner-only fresh-layout evidence including partial failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-reuse37-independent-diversity-confirmation
+          path: runs/reuse37_confirmation/summary.json
+          retention-days: 30
+          if-no-files-found: warn

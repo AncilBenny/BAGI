@@ -1,0 +1,15 @@
+# REUSE-25: original REAL learner wrong-object pocket recovery, not training.
+environment: XLand-MiniGrid-R1-9x9
+task: putdown
+model_seed: 29
+condition: real_executed_action_history
+reference_seed: 9604
+failure_seed: 9708
+episode_cap: 40
+epochs: 12
+batch_size: 32
+source_run_id: 39637067506
+policy_run_id: 39644180240
+source_numeric_dir: runs/reuse19_recovery_data
+source_policy_dir: runs/reuse23_recovery_anchor
+output_dir: runs/xland_wrong_object_recovery

@@ -1,0 +1,47 @@
+name: BAGI DAgger Executed Action Audit
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_action_provenance.py"
+      - "tests/test_xland_action_provenance.py"
+      - "configs/xland_action_provenance.yaml"
+      - ".github/workflows/bagi-action-provenance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  executed-action-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install unchanged upstream DAgger and XLand
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir "xminigrid==0.9.3" "imitation==1.0.1" "pyyaml>=6" "pytest>=8" "ruff>=0.6"
+      - name: Lint and prove no current label enters action history
+        run: |
+          ruff check bagi/experiments/xland_action_provenance.py tests/test_xland_action_provenance.py
+          python -m pytest -q tests/test_xland_action_provenance.py
+      - name: Measure actual action provenance under DAgger beta scheduling
+        run: python -m bagi.experiments.xland_action_provenance --config configs/xland_action_provenance.yaml
+      - name: Save source evidence and safe numeric records
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-dagger-action-provenance
+          path: runs/xland_action_provenance/
+          if-no-files-found: warn
+          retention-days: 30

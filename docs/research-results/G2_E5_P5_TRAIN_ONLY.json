@@ -1,0 +1,104 @@
+{
+  "datasets": {
+    "e1_workshop_train": {
+      "next_public_history_bits_excluded": 0,
+      "train_episodes": 20,
+      "train_rows": 340,
+      "variants": {
+        "executed_history_0": {
+          "ambiguous_key_rows": 0,
+          "ambiguous_keys": 0,
+          "cross_episode_ambiguous_keys": 0,
+          "cross_episode_ambiguous_rows": 0,
+          "repeated_key_rows": 325,
+          "unique_public_action_keys": 64
+        },
+        "executed_history_4": {
+          "ambiguous_key_rows": 0,
+          "ambiguous_keys": 0,
+          "cross_episode_ambiguous_keys": 0,
+          "cross_episode_ambiguous_rows": 0,
+          "repeated_key_rows": 175,
+          "unique_public_action_keys": 190
+        }
+      }
+    },
+    "e1_xland_train": {
+      "next_public_history_bits_excluded": 28,
+      "train_episodes": 180,
+      "train_rows": 3064,
+      "variants": {
+        "executed_history_0": {
+          "ambiguous_key_rows": 87,
+          "ambiguous_keys": 29,
+          "cross_episode_ambiguous_keys": 29,
+          "cross_episode_ambiguous_rows": 87,
+          "repeated_key_rows": 525,
+          "unique_public_action_keys": 2708
+        },
+        "executed_history_4": {
+          "ambiguous_key_rows": 87,
+          "ambiguous_keys": 29,
+          "cross_episode_ambiguous_keys": 29,
+          "cross_episode_ambiguous_rows": 87,
+          "repeated_key_rows": 525,
+          "unique_public_action_keys": 2708
+        }
+      }
+    },
+    "e2_workshop_dqn_train_seed17": {
+      "next_public_history_bits_excluded": 0,
+      "train_episodes": 52,
+      "train_rows": 2048,
+      "variants": {
+        "executed_history_0": {
+          "ambiguous_key_rows": 27,
+          "ambiguous_keys": 1,
+          "cross_episode_ambiguous_keys": 1,
+          "cross_episode_ambiguous_rows": 27,
+          "repeated_key_rows": 2023,
+          "unique_public_action_keys": 118
+        },
+        "executed_history_4": {
+          "ambiguous_key_rows": 2,
+          "ambiguous_keys": 1,
+          "cross_episode_ambiguous_keys": 1,
+          "cross_episode_ambiguous_rows": 2,
+          "repeated_key_rows": 737,
+          "unique_public_action_keys": 1572
+        }
+      }
+    },
+    "e2_workshop_dqn_train_seed29": {
+      "next_public_history_bits_excluded": 0,
+      "train_episodes": 52,
+      "train_rows": 2048,
+      "variants": {
+        "executed_history_0": {
+          "ambiguous_key_rows": 29,
+          "ambiguous_keys": 1,
+          "cross_episode_ambiguous_keys": 1,
+          "cross_episode_ambiguous_rows": 29,
+          "repeated_key_rows": 2035,
+          "unique_public_action_keys": 102
+        },
+        "executed_history_4": {
+          "ambiguous_key_rows": 6,
+          "ambiguous_keys": 2,
+          "cross_episode_ambiguous_keys": 2,
+          "cross_episode_ambiguous_rows": 6,
+          "repeated_key_rows": 710,
+          "unique_public_action_keys": 1577
+        }
+      }
+    }
+  },
+  "limitation": "Observed ambiguity requires repeated public-action keys; absence of conflicts cannot establish full observability, learned beliefs, policy improvement or transfer.",
+  "model_updates": 0,
+  "native_actions": 0,
+  "native_resets": 0,
+  "status": "descriptive_train_only",
+  "study": "G2-E5-P5",
+  "teacher_queries": 0,
+  "test_reads": 0
+}

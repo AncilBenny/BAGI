@@ -1,0 +1,23 @@
+# E10: pre-registered replication of E9's exploratory early-stage effect.
+# All planner seeds are held out from E9 (101, 202, 303).
+# Compare ONLY the E9 baseline and E9's strongest previously tested weight.
+environment:
+  size: 9
+  max_steps: 100
+  view_size: 5
+model:
+  actions: 4
+  cell_values: 9
+  hidden: 192
+  checkpoint: runs/sample_efficiency_causal_v2/guided_050/world_model/world_model.pt
+planning:
+  horizon: 8
+  candidates: 128
+  gamma: 0.97
+  event_weights: [0.05, 0.10, 0.20, 1.00]
+evaluation:
+  planner_seeds: [404, 505, 606, 707, 808, 909, 1001, 1102, 1203, 1304, 1405, 1506]
+  evaluation_seed_base: 50042
+  episodes_per_seed: 3
+  uncertainty_weights: [0.0, 1.0]
+  output_dir: runs/planner_uncertainty_replication

@@ -1,0 +1,61 @@
+name: BAGI REUSE-34 Independent Physical Placement Confirmation
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_complete_demo_confirmation.py"
+      - "tests/test_xland_complete_demo_confirmation.py"
+      - ".github/workflows/bagi-complete-demo-confirmation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  independent-confirmation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+      OMP_NUM_THREADS: "1"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Restore original verified REUSE-19 and frozen REUSE-33 TRAIN data
+        run: |
+          mkdir -p runs/reuse34_source runs/reuse34_teacher
+          gh run download 39637067506 --repo AncilBenny/BAGI --name bagi-dagger-action-provenance --dir runs/reuse34_source
+          gh run download 40101923830 --repo AncilBenny/BAGI --name bagi-reuse33-complete-demo-bc --dir runs/reuse34_teacher
+          test -f runs/reuse34_source/summary.json
+          test -f runs/reuse34_source/action_provenance_seed17.npz
+          test -f runs/reuse34_source/action_provenance_seed29.npz
+          test -f runs/reuse34_teacher/summary.json
+          test -f runs/reuse34_teacher/train_source_complete_demos.npz
+      - name: Install unchanged established CPU XLand and imitation BC packages
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir -r requirements/xland-reuse31.txt
+          python -m pip check
+      - name: Validate frozen confirmation and provenance contracts
+        run: |
+          ruff check bagi/experiments/xland_complete_demo_confirmation.py tests/test_xland_complete_demo_confirmation.py
+          python -m pytest -q tests/test_xland_complete_demo_bc.py tests/test_xland_complete_demo_confirmation.py
+      - name: Confirm original learned policy on 10700-10709 without new teacher labels
+        run: |
+          python -m bagi.experiments.xland_complete_demo_confirmation --source-dir runs/reuse34_source --teacher-dir runs/reuse34_teacher --output-dir runs/reuse34_confirmation
+      - name: Archive all independent native evidence even after a failed gate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-reuse34-independent-physical-confirmation
+          path: runs/reuse34_confirmation/summary.json
+          if-no-files-found: warn
+          retention-days: 30

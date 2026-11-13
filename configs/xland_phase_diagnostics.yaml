@@ -1,0 +1,13 @@
+# REUSE-18: no new teacher queries; same exact verified BC policies/rollouts.
+environment: XLand-MiniGrid-R1-9x9
+training_tasks: [hold, near, putdown]
+model_seeds: [17, 29]
+original_seeds: [9100, 9101, 9102]
+replicated_seeds: [9200, 9201, 9202, 9203, 9204, 9205]
+source_run_id: 39619756922
+replication_run_id: 39621044776
+source_dir: runs/reuse16_phase_data
+batch_size: 32
+epochs: 12
+episode_cap: 40
+output_dir: runs/xland_phase_diagnostics

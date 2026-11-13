@@ -1,0 +1,15 @@
+registered_study: m9
+task: MiniGrid-DoorKey-8x8-v0
+arms: [reactive_history, recurrent_history]
+model_seeds: [151, 167]
+train_steps_per_fit: 131072
+rollout_steps: 128
+batch_size: 64
+epochs_per_rollout: 2
+lstm_hidden_size: 32
+lstm_layers: 1
+evaluation_horizon: 256
+monitor_seeds: [117001, 117002, 117003, 117004, 117005, 117006]
+heldout_seeds: [118001, 118002, 118003, 118004, 118005, 118006, 118007, 118008, 118009, 118010, 118011, 118012]
+sampled_repeats: 3
+output_dir: runs/m9_recurrent_doorkey

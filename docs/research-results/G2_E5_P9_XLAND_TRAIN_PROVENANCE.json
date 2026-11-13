@@ -1,0 +1,51 @@
+{
+  "authorized_to_evaluate_native_p9": false,
+  "bc_actor_reconstruction_fits_per_two_seeds_and_two_arms": 4,
+  "bc_fits_performed": 0,
+  "frozen_bc_weight_files_in_sources": 0,
+  "inner_file_sha256": {
+    "reuse19": {
+      "action_provenance_seed17.npz": "25d24168163fbc189f1afbd8454e3948deae73d4924cfc83f49ba35ebb5b4882",
+      "action_provenance_seed29.npz": "66d5a546875e8b373f5ec42926b46b683e0f29c885a24f207f66386f1dfa4607",
+      "summary.json": "71c8c72e31574289447b399c21e475e523e5d4eccceea998cc7ddd9ef7105892"
+    },
+    "reuse33": {
+      "summary.json": "eaf2f99a2dae59f3e4fe78a1f296edf72afbe09bc107cbeb382fcb69f3eaf57d",
+      "train_source_complete_demos.npz": "b405e1ba816f424179dbf65a93a31e5a5db5b471bd8079671ecfd99215688efd"
+    },
+    "reuse36": {
+      "diverse_train_physical.npz": "e6c605bc9a109e2e366eb50635361bae9cd4c93563c282d787640694280d75da",
+      "summary.json": "a178131f01724a9c14cd1ea16e45b8bd62eb17e447b6e751e2297264402277af"
+    }
+  },
+  "native_actions": 0,
+  "native_resets": 0,
+  "optimizer_steps": 0,
+  "original_eval_arrays_accessed": 0,
+  "outer_zip_sha256": {
+    "reuse19": "5992e5f3a14d8acf1d625b6df34f7ae1f8d18043d0ebfedf11353b71f0e6efd7",
+    "reuse33": "adbbb1a1d67f07fcb4efeb94d1188e6b5c793720cd6cb5c3b3cd9f506a85d80a",
+    "reuse36": "6ca2bf2d3102f3cd68c60394e8eb42af236cf47fcdd6f6e3abe5104f800d0c64"
+  },
+  "physical_teacher_train_rows": {
+    "reuse33": 248,
+    "reuse36": 707
+  },
+  "preflight": "XLand historical TRAIN provenance",
+  "source_numeric_seed_records": {
+    "17": {
+      "numeric_record_sha256": "f893dc633a14bb9347c5e12a2ac5799f450b49a2daa700e4e67845f2176dd4ba",
+      "rows": 291
+    },
+    "29": {
+      "numeric_record_sha256": "0735b160ef62a353b3fb52dd8df496630ffe5104ec10d24b1bfb2b22a9b83675",
+      "rows": 291
+    }
+  },
+  "source_summaries_with_eval_metadata_parsed": 0,
+  "status": "SOURCE_VERIFIED_WEIGHTS_UNAVAILABLE_STOP",
+  "study": "G2-E5-P9",
+  "teacher_queries": 0,
+  "total_nominal_source_exposures_if_retrained": 37776,
+  "training_source_summary_parsed": 1
+}

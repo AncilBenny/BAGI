@@ -1,0 +1,19 @@
+# REUSE-16: one upstream DAgger source pool per seed, replay two BC controls.
+# Same 12-epoch exposure count, policy architecture and evaluation seeds.
+environment: XLand-MiniGrid-R1-9x9
+dagger_config: configs/xland_existing_dagger.yaml
+bc_reference_config: configs/xland_bc_class_balance.yaml
+training_tasks: [hold, near, putdown]
+conditions: [ordinary, class_balanced]
+training_seed_base: 7500
+model_seeds: [17, 29]
+evaluation_seeds: [9100, 9101, 9102]
+episode_cap: 40
+dagger_rollout_timesteps: 256
+dagger_round_min_timesteps: 128
+dagger_round_min_episodes: 3
+dagger_bc_epochs_per_round: 4
+replay_bc_epochs: 12
+batch_size: 32
+maximum_training_interactions: 400
+output_dir: runs/xland_dagger_balance_control

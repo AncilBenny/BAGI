@@ -1,0 +1,17 @@
+# REUSE-24: frozen REUSE-23 policy on NEW layouts, phase diagnostic ONLY.
+# No novel learning method, additional teacher queries, or heldout chain.
+environment: XLand-MiniGrid-R1-9x9
+source_label_run_id: 39637067506
+source_policy_run_id: 39644180240
+source_numeric_dir: runs/reuse19_replay_numbers
+source_policy_dir: runs/reuse23_original_results
+training_tasks: [hold, near, putdown]
+conditions: [sham_action_history, real_executed_action_history]
+model_seeds: [17, 29]
+reference_seeds: [9600, 9601, 9602, 9603, 9604]
+fresh_layout_seeds: [9700, 9701, 9702, 9703, 9704, 9705, 9706, 9707, 9708, 9709]
+feature_width: 115
+episode_cap: 40
+epochs: 12
+batch_size: 32
+output_dir: runs/xland_frozen_phase_replication

@@ -16,8 +16,57 @@ on:
         options:
           - legacy
           - m1
+          - m2
+          - m3
+          - m4
+          - m5
+          - m6
+          - m7
+          - m8
+          - m9
+          - m10
+          - m10p1
+          - m11
+          - m12
+          - m13
+          - m14
+          - m15
+          - m16
+          - m17
+          - m18
+          - m19
+          - m20
+          - m21
   schedule:
     - cron: "17 * * * *"
+  # Branch-only explicit one-shot studies; no duplicate workflow.
+  push:
+    branches: [setup/initial-platform]
+    paths:
+      - .github/bagi-m1-once.json
+      - .github/bagi-m2-once.json
+      - .github/bagi-m3-once.json
+      - .github/bagi-m4-once.json
+      - .github/bagi-m5-once.json
+      - .github/bagi-m6-once.json
+      - .github/bagi-m6-repair-once.json
+      - .github/bagi-m7-once.json
+      - .github/bagi-m8-once.json
+      - .github/bagi-m9-once.json
+      - .github/bagi-m10-once.json
+      - .github/bagi-m10p1-once.json
+      - .github/bagi-m11-once.json
+      - .github/bagi-m12-once.json
+      - .github/bagi-m13-once.json
+      - .github/bagi-m14-once.json
+      - .github/bagi-m15-once.json
+      - .github/bagi-m15-repair-once.json
+      - .github/bagi-m16-once.json
+      - .github/bagi-m17-once.json
+      - .github/bagi-m18-once.json
+      - .github/bagi-m19-once.json
+      - .github/bagi-m20-once.json
+      - .github/bagi-m21-once.json
 
 permissions:
   contents: read
@@ -30,6 +79,7 @@ jobs:
   audit:
     outputs:
       research_sha: ${{ steps.verify.outputs.research_sha }}
+      study: ${{ steps.mode.outputs.study }}
     name: Verify current source and PR merge CI
     runs-on: ubuntu-latest
     permissions:
@@ -39,10 +89,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 2
       - name: Fail closed on missing or unknown manual study
+        id: mode
         env:
           BAGI_DISPATCH_STUDY: ${{ inputs.study }}
         run: python3 scripts/bagi_research_dispatch.py
+
+      - name: Await new exact-HEAD CI for one-shot push
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEST_SHA: ${{ github.sha }}
+        run: python3 scripts/bagi_wait_for_research_ci.py
 
       - name: Check both CI events and the current PR merge
         id: verify
@@ -83,7 +142,7 @@ jobs:
     if: needs.audit.result == 'success'
     runs-on: ubuntu-latest
     env:
-      BAGI_RESEARCH_STUDY: ${{ inputs.study || 'legacy' }}
+      BAGI_RESEARCH_STUDY: ${{ needs.audit.outputs.study }}
       BAGI_RESEARCH_SOURCE_SHA: ${{ needs.audit.outputs.research_sha }}
     permissions:
       contents: read
@@ -119,7 +178,7 @@ jobs:
           echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
       - name: Reuse any successful evaluation of this exact revision
-        if: inputs.force_retrain != true
+        if: github.event_name != 'push' && inputs.force_retrain != true
         id: evaluated
         uses: actions/cache/restore@v4
         with:
@@ -143,8 +202,74 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e '.[dev]'
 
+      - name: Install BAGI independent Fetch replication (M21)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm21'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI physical Fetch transfer study (M20)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm20'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI reverse-sequence rehearsal study (M19)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm19'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI cross-objective BC study (M18)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm18'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI matched extra-label replay study (M17)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm17'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI sequential public behavior cloning (M16)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm16'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI native public action cloning (M15)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm15'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI public open-door replication (M14)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm14'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI native physical coverage study (M13)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm13'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI for public front-cell calibration (M12)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm12'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI with maintained public-effect GRU (M11)
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm11'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
       - name: Install BAGI with pinned existing RL implementations (M1)
-        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm1'
+        if: steps.evaluated.outputs.cache-hit != 'true' && (env.BAGI_RESEARCH_STUDY == 'm1' || env.BAGI_RESEARCH_STUDY == 'm2' || env.BAGI_RESEARCH_STUDY == 'm3' || env.BAGI_RESEARCH_STUDY == 'm4' || env.BAGI_RESEARCH_STUDY == 'm5' || env.BAGI_RESEARCH_STUDY == 'm6' || env.BAGI_RESEARCH_STUDY == 'm7' || env.BAGI_RESEARCH_STUDY == 'm8' || env.BAGI_RESEARCH_STUDY == 'm9' || env.BAGI_RESEARCH_STUDY == 'm10' || env.BAGI_RESEARCH_STUDY == 'm10p1')
         run: |
           python -m pip install --upgrade pip
           pip install -e '.[dev,rl]'
@@ -157,6 +282,131 @@ jobs:
         if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm1'
         run: |
           python -m bagi.experiments.m1_goal_learning --config configs/m1_goal_learning.yaml --execute
+
+      - name: Run admitted M2 extended goal-learning and sampling diagnostic
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm2'
+        run: |
+          python -m bagi.experiments.m1_goal_learning --config configs/m2_goal_learning.yaml --output runs/m2_goal_learning/summary.json --execute
+
+      - name: Run admitted M3 independent goal-memory replication
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm3'
+        run: |
+          python -m bagi.experiments.m1_goal_learning --config configs/m3_goal_learning.yaml --output runs/m3_goal_learning/summary.json --execute
+
+      - name: Retrieve verified M3 numeric checkpoint artifact for M4
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm4'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p runs/m4_frozen_policy/input
+          gh api 'repos/'"$GITHUB_REPOSITORY"'/actions/artifacts/13823291153/zip' > runs/m4_frozen_policy/input/m3-artifact.zip
+          echo '4aa0656b6dd6d9aacd8a187246014100cb71368f194e5c21682182618d860739  runs/m4_frozen_policy/input/m3-artifact.zip' | sha256sum -c -
+          unzip -q runs/m4_frozen_policy/input/m3-artifact.zip -d runs/m4_frozen_policy/input
+
+      - name: Run admitted M4 evaluation-only frozen policy diagnostic
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm4'
+        run: |
+          python -m bagi.experiments.m4_frozen_policy_eval --config configs/m4_frozen_policy.yaml --artifact-root runs/m4_frozen_policy/input --output runs/m4_frozen_policy/summary.json --execute
+
+      - name: Run admitted M5 continual task-retention PPO study
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm5'
+        run: |
+          python -m bagi.experiments.m5_continual_retention --config configs/m5_continual_retention.yaml --output runs/m5_continual_retention/summary.json --execute
+
+      - name: Run admitted M6 DoorKey episode-continuity ablation
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm6'
+        run: |
+          python -m bagi.experiments.m6_doorkey_continuity --config configs/m6_doorkey_continuity.yaml --output runs/m6_doorkey_continuity/summary.json --execute
+
+      - name: Retrieve verified M6 numeric checkpoint artifact for M7
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm7'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p runs/m7_frozen_doorkey_sampling/input
+          gh api 'repos/'"$GITHUB_REPOSITORY"'/actions/artifacts/13838577607/zip' > runs/m7_frozen_doorkey_sampling/input/m6-artifact.zip
+          echo '10f425ac3fc2420a4ba970180c3947eeffab28414cad9353ebdc2558042a661b  runs/m7_frozen_doorkey_sampling/input/m6-artifact.zip' | sha256sum -c -
+          unzip -q runs/m7_frozen_doorkey_sampling/input/m6-artifact.zip -d runs/m7_frozen_doorkey_sampling/input
+
+      - name: Run admitted M7 frozen DoorKey native-action sampling diagnostic
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm7'
+        run: |
+          python -m bagi.experiments.m7_frozen_doorkey_sampling --config configs/m7_frozen_doorkey_sampling.yaml --artifact-root runs/m7_frozen_doorkey_sampling/input --output runs/m7_frozen_doorkey_sampling/summary.json --execute
+
+      - name: Run admitted M8 fresh DoorKey PPO entropy ablation
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm8'
+        run: |
+          python -m bagi.experiments.m8_doorkey_entropy --config configs/m8_doorkey_entropy.yaml --output runs/m8_doorkey_entropy/summary.json --execute
+
+      - name: Run admitted M9 fresh DoorKey recurrent PPO comparison
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm9'
+        run: |
+          python -m bagi.experiments.m9_recurrent_doorkey --config configs/m9_recurrent_doorkey.yaml --output runs/m9_recurrent_doorkey/summary.json --execute
+
+      - name: Run admitted M10 fresh train-only physical-action diagnostic
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm10'
+        run: |
+          python -m bagi.experiments.m10_train_only_diagnostic --config configs/m10_train_only_diagnostic.yaml --output runs/m10_train_only_diagnostic/summary.json --execute
+
+      - name: Run admitted M10-P1 fresh public representation PPO comparison
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm10p1'
+        run: |
+          python -m bagi.experiments.m10_public_representation --config configs/m10_public_representation.yaml --output runs/m10_public_representation/summary.json --execute
+
+      - name: Run admitted M11 fresh public-effect retention study
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm11'
+        run: |
+          python -m bagi.experiments.m11_public_effect_retention --config configs/m11_public_effect_retention.yaml --output runs/m11_public_effect_retention/summary.json --execute
+
+      - name: Run admitted M12 public native forward-effect prediction
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm12'
+        run: |
+          python -m bagi.experiments.m12_public_front_effect --config configs/m12_public_front_effect.yaml --output runs/m12_public_front_effect/summary.json --execute
+
+      - name: Run admitted M13 public-only native physical-interaction coverage
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm13'
+        run: |
+          python -m bagi.experiments.m13_public_interaction_coverage --config configs/m13_public_interaction_coverage.yaml --output runs/m13_public_interaction_coverage/summary.json --execute
+
+      - name: Run admitted M14 public native open-door goal replication
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm14'
+        run: |
+          python -m bagi.experiments.m14_public_open_door --config configs/m14_public_open_door.yaml --output runs/m14_public_open_door/summary.json --execute
+
+      - name: Run admitted M15 learned public-action behavior cloning
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm15'
+        run: |
+          python -m bagi.experiments.m15_public_action_bc --config configs/m15_public_bc.yaml --output runs/m15_public_action_bc/summary.json --execute
+
+      - name: Run admitted M16 sequential physical public BC retention
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm16'
+        run: |
+          python -m bagi.experiments.m16_sequential_public_bc --config configs/m16_sequential_public_bc.yaml --output runs/m16_sequential_public_bc/summary.json --execute
+
+      - name: Run admitted M21 independent physical Fetch replication
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm21'
+        run: |
+          python -m bagi.experiments.m21_fetch_replication --config configs/m21_fetch_replication.yaml --output runs/m21_fetch_replication/summary.json --execute
+
+      - name: Run admitted M20 DoorKey to Fetch physical-object retention
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm20'
+        run: |
+          python -m bagi.experiments.m20_fetch_rehearsal --config configs/m20_fetch_rehearsal.yaml --output runs/m20_fetch_rehearsal/summary.json --execute
+
+      - name: Run admitted M19 reverse-order native physical retention
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm19'
+        run: |
+          python -m bagi.experiments.m19_reverse_rehearsal --config configs/m19_reverse_rehearsal.yaml --output runs/m19_reverse_rehearsal/summary.json --execute
+
+      - name: Run admitted M18 cross-objective physical BC transfer
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm18'
+        run: |
+          python -m bagi.experiments.m18_matched_replay --config configs/m18_matched_replay.yaml --output runs/m18_matched_replay/summary.json --execute
+
+      - name: Run admitted M17 matched source versus target replay study
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm17'
+        run: |
+          python -m bagi.experiments.m17_matched_replay --config configs/m17_matched_replay.yaml --output runs/m17_matched_replay/summary.json --execute
 
       - name: Restore causal-v2 checkpoint cache
         if: inputs.force_retrain != true && steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'legacy'
@@ -195,7 +445,28 @@ jobs:
             runs/oracle_search_ceiling/summary.json \
             runs/causal_candidate_sweep/summary.json \
             runs/imagination_gap/summary.json \
-            runs/m1_goal_learning/summary.json; do
+            runs/m1_goal_learning/summary.json \
+            runs/m2_goal_learning/summary.json \
+            runs/m3_goal_learning/summary.json \
+            runs/m4_frozen_policy/summary.json \
+            runs/m5_continual_retention/summary.json \
+            runs/m6_doorkey_continuity/summary.json \
+            runs/m7_frozen_doorkey_sampling/summary.json \
+            runs/m8_doorkey_entropy/summary.json \
+            runs/m9_recurrent_doorkey/summary.json \
+            runs/m10_train_only_diagnostic/summary.json \
+            runs/m10_public_representation/summary.json \
+            runs/m11_public_effect_retention/summary.json \
+            runs/m12_public_front_effect/summary.json \
+            runs/m13_public_interaction_coverage/summary.json \
+            runs/m14_public_open_door/summary.json \
+            runs/m15_public_action_bc/summary.json \
+            runs/m16_sequential_public_bc/summary.json \
+            runs/m17_matched_replay/summary.json \
+            runs/m18_matched_replay/summary.json \
+            runs/m19_reverse_rehearsal/summary.json \
+             runs/m20_fetch_rehearsal/summary.json \
+             runs/m21_fetch_replication/summary.json; do
             if [ -f "$path" ]; then
               cp "$path" "artifacts/research-loop/$(basename "$(dirname "$path")")-$(basename "$path")"
             fi
@@ -210,6 +481,44 @@ jobs:
             artifacts/research-loop
             runs/m1_goal_learning/*.npz
             runs/m1_goal_learning/progress.json
+            runs/m2_goal_learning/*.npz
+            runs/m2_goal_learning/progress.json
+            runs/m3_goal_learning/*.npz
+            runs/m3_goal_learning/progress.json
+            runs/m4_frozen_policy/progress.json
+            runs/m5_continual_retention/progress.json
+            runs/m5_continual_retention/*.npz
+            runs/m6_doorkey_continuity/progress.json
+            runs/m6_doorkey_continuity/*.npz
+            runs/m7_frozen_doorkey_sampling/progress.json
+            runs/m8_doorkey_entropy/progress.json
+            runs/m8_doorkey_entropy/*.npz
+            runs/m9_recurrent_doorkey/progress.json
+            runs/m9_recurrent_doorkey/*.npz
+            runs/m10_train_only_diagnostic/progress.json
+            runs/m10_train_only_diagnostic/*.npz
+            runs/m10_public_representation/progress.json
+            runs/m10_public_representation/*.npz
+            runs/m11_public_effect_retention/progress.json
+            runs/m11_public_effect_retention/*.npz
+            runs/m12_public_front_effect/progress.json
+            runs/m12_public_front_effect/*.npz
+            runs/m13_public_interaction_coverage/progress.json
+            runs/m14_public_open_door/progress.json
+            runs/m15_public_action_bc/progress.json
+            runs/m15_public_action_bc/*.npz
+            runs/m16_sequential_public_bc/progress.json
+            runs/m16_sequential_public_bc/*.npz
+            runs/m17_matched_replay/progress.json
+            runs/m17_matched_replay/*.npz
+            runs/m18_matched_replay/progress.json
+            runs/m18_matched_replay/*.npz
+            runs/m19_reverse_rehearsal/progress.json
+            runs/m19_reverse_rehearsal/*.npz
+            runs/m20_fetch_rehearsal/progress.json
+            runs/m20_fetch_rehearsal/*.npz
+            runs/m21_fetch_replication/progress.json
+            runs/m21_fetch_replication/*.npz
           if-no-files-found: warn
           retention-days: 30
 

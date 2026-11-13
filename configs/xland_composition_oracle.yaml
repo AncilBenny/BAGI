@@ -1,0 +1,15 @@
+# Diagnostic shortest-path upper bound on the EXACT prior compositional split.
+# Never give this privileged oracle's geometry/object positions to a learned agent.
+environment: XLand-MiniGrid-R1-9x9
+tasks:
+  train:
+    - {name: blue_square_to_red_ball, source_tile: SQUARE, source_color: BLUE, result_tile: BALL, result_color: RED}
+    - {name: yellow_square_to_green_ball, source_tile: SQUARE, source_color: YELLOW, result_tile: BALL, result_color: GREEN}
+  held_out:
+    - {name: blue_square_to_green_ball, source_tile: SQUARE, source_color: BLUE, result_tile: BALL, result_color: GREEN}
+    - {name: yellow_square_to_red_ball, source_tile: SQUARE, source_color: YELLOW, result_tile: BALL, result_color: RED}
+evaluation:
+  evaluation_seed_base: 5100
+  episodes_per_task: 3
+  max_steps_per_episode: 40
+  oracle_output_dir: runs/xland_composition_oracle
