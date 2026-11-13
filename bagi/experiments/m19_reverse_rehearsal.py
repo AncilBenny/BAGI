@@ -26,7 +26,7 @@ from bagi.experiments.m10_native_audit import NativeDoorKeyAudit
 from bagi.experiments.m13_public_interaction_coverage import Controller
 from bagi.experiments.m14_public_open_door import TraversableOpenDoorController
 from bagi.experiments.m15_public_action_bc import BCPolicy, features, save_numeric
-from bagi.experiments.m19_public_door_selection import NativeGoToDoorAudit, PublicGoToDoorTeacher
+from bagi.experiments.m18_public_door_selection import NativeGoToDoorAudit, PublicGoToDoorTeacher
 
 TASKS = ("MiniGrid-GoToDoor-8x8-v0", "MiniGrid-DoorKey-6x6-v0")
 SEEDS = (701, 709, 719, 727)
