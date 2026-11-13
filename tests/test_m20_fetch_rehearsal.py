@@ -16,7 +16,7 @@ from bagi.experiments.m20_fetch_physics import (
     PublicFetchTeacher,
     fetch_request,
 )
-from bagi.experiments.m20_reverse_rehearsal import (
+from bagi.experiments.m20_fetch_rehearsal import (
     ARMS,
     FINAL,
     MONITOR,
