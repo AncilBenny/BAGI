@@ -116,7 +116,8 @@ def ci_snapshot(api: Github, sha: str) -> dict:
             "push_attempt": selected["push"]["run_attempt"], "pr_attempt": run["run_attempt"]}
 
 
-def first_valid_artifact(artifacts: list[dict], sha: str, zip_reader) -> dict | None:
+def first_valid_artifact(artifacts: list[dict], sha: str, zip_reader,
+                         compatible_source=None) -> dict | None:
     """Require the artifact's *internal* commit marker to match current HEAD."""
     for artifact in artifacts:
         if artifact.get("expired") or not isinstance(artifact.get("id"), int):
@@ -127,7 +128,8 @@ def first_valid_artifact(artifacts: list[dict], sha: str, zip_reader) -> dict | 
             marker = zip_reader(artifact["id"])
         except (GateError, OSError, ValueError, zipfile.BadZipFile):
             continue
-        if marker == sha:
+        if marker == sha or (compatible_source is not None
+                             and compatible_source(marker, sha)):
             return artifact
     return None
 
@@ -217,6 +219,44 @@ class Github:
             return marker
 
 
+# A newly published result report changes Git HEAD, but never the exact source
+# code/config used for the earlier already-completed physical study. Accept
+# that original artifact ONLY across a bounded documentation-only descendant.
+# Do not create a new same-HEAD "research" artifact or claim new training.
+SAFE_RESULT_REPORT = re.compile(r"docs/GENERAL_BRAIN_M[0-9]+_[A-Z0-9_]+_RESULT[.]md$")
+
+
+def report_only_descendant(api: Github, measured_sha: str, current_sha: str) -> bool:
+    """Fail closed on all code, config, workflow, or unbounded history changes."""
+    if not SHA.fullmatch(measured_sha) or not SHA.fullmatch(current_sha):
+        return False
+    if measured_sha == current_sha:
+        return True
+    # GitHub compare is an ancestry proof (not simply a changed-file filter).
+    # At most three commits and two result/log paths: the current report plus
+    # minor result-format corrections. Any other change demands a fresh run.
+    compare = api.request(f"compare/{measured_sha}...{current_sha}")
+    if not isinstance(compare, dict):
+        return False
+    ahead = compare.get("ahead_by")
+    changes = compare.get("files")
+    if not (compare.get("status") == "ahead" and type(ahead) is int
+            and 0 < ahead <= 3 and compare.get("behind_by") == 0
+            and compare.get("total_commits") == ahead
+            and isinstance(changes, list) and 1 <= len(changes) <= 2):
+        return False
+    for record in changes:
+        if not isinstance(record, dict):
+            return False
+        path = record.get("filename")
+        if (record.get("status") not in ("added", "modified")
+                or not isinstance(path, str)
+                or (path != "docs/autonomous-research-log.md"
+                    and not SAFE_RESULT_REPORT.fullmatch(path))):
+            return False
+    return True
+
+
 def inspect(api: Github) -> dict:
     branch = api.request("branches/" + urllib.parse.quote(BRANCH, safe=""))
     sha = branch["commit"]["sha"]
@@ -234,17 +274,28 @@ def inspect(api: Github) -> dict:
     candidates.sort(key=lambda r: (r.get("created_at", ""), r.get("id", 0)), reverse=True)
     for run in candidates[:30]:
         items = api.request(f"actions/runs/{run['id']}/artifacts")["artifacts"]
-        artifact = first_valid_artifact(items, sha, api.marker)
+        provenance = {"executed_source_sha": sha}
+        def compatible_source(old: str, new: str) -> bool:
+            if report_only_descendant(api, old, new):
+                provenance["executed_source_sha"] = old
+                return True
+            return False
+
+        artifact = first_valid_artifact(items, sha, api.marker, compatible_source)
         if artifact is not None:
             # Recheck source HEAD in case another writer moved the branch.
             again = api.request("branches/" + urllib.parse.quote(BRANCH, safe=""))["commit"]["sha"]
             if again != sha or ci_snapshot(api, sha) != snapshot:
                 raise GateError("research branch changed during preflight")
-            return {"research_sha": sha, "evidence_run_id": run["id"],
+            return {"research_sha": sha,
+                    "executed_source_sha": provenance["executed_source_sha"],
+                    "evidence_kind": ("exact_execution" if provenance["executed_source_sha"] == sha
+                                      else "verified_report_only_descendant"),
+                    "evidence_run_id": run["id"],
                     "evidence_artifact_id": artifact["id"],
                     "evidence_artifact_name": artifact["name"],
                     "cache_key": f"bagi-agent-reviewed-{sha}-{artifact['id']}"}
-    raise GateError("no successful same-commit research artifact with verified marker")
+    raise GateError("no successful same-commit or unchanged-source research artifact with verified marker")
 
 
 def main() -> int:

@@ -16,6 +16,7 @@ from bagi_evidence_gate import (
     first_valid_artifact,
     inspect,
     latest_ci_success,
+    report_only_descendant,
 )
 
 SHA = 'a' * 40
@@ -74,6 +75,8 @@ class FakeAPI:
                     'status': 'completed', 'conclusion': 'success', 'created_at': '2026-10-27'}]}
         if endpoint == 'actions/runs/123/artifacts':
             return {'artifacts': [{'id': 45, 'name': 'bagi-research-1', 'expired': False}]}
+        if endpoint.startswith('compare/'):
+            return {'status': 'diverged', 'ahead_by': 0, 'behind_by': 1, 'files': []}
         raise AssertionError(endpoint)
 
     def ci_provenance(self, run):
@@ -351,3 +354,69 @@ class MilestoneDiscoveryTests(unittest.TestCase):
             mutation(api)
             with self.assertRaises(GateError):
                 ci_snapshot(api, SHA)
+
+
+class ReportOnlyProvenanceTests(unittest.TestCase):
+    """A report commit is not fresh training; only documented unchanged source is reused."""
+
+    def test_accepts_measured_ancestor_after_only_result_and_append_only_log(self):
+        api = FakeAPI(artifact_sha=OLD)
+        original = api.request
+        def request(endpoint, **kwargs):
+            if endpoint == f"compare/{OLD}...{SHA}":
+                return {'status': 'ahead', 'ahead_by': 2, 'behind_by': 0,
+                        'total_commits': 2,
+                        'files': [
+                            {'filename': 'docs/GENERAL_BRAIN_M18_CROSS_OBJECTIVE_RESULT.md',
+                             'status': 'added'},
+                            {'filename': 'docs/autonomous-research-log.md',
+                             'status': 'modified'},
+                        ]}
+            return original(endpoint, **kwargs)
+        api.request = request
+        result = inspect(api)
+        self.assertEqual(result['research_sha'], SHA)
+        self.assertEqual(result['executed_source_sha'], OLD)
+        self.assertEqual(result['evidence_kind'], 'verified_report_only_descendant')
+        self.assertEqual(result['evidence_run_id'], 123)
+        self.assertIn(f"compare/{OLD}...{SHA}", api.requests)
+
+    def test_rejects_modified_training_sources_and_workflows(self):
+        for changed in ('bagi/experiments/m18_matched_replay.py',
+                        'configs/m18_matched_replay.yaml',
+                        '.github/workflows/bagi-research-loop.yml',
+                        'scripts/bagi_evidence_gate.py',
+                        'docs/GENERAL_BRAIN_M18_CROSS_OBJECTIVE_PREREG.md'):
+            with self.subTest(changed=changed):
+                api = FakeAPI()
+                api.request = lambda endpoint, changed=changed: {
+                    'status': 'ahead', 'ahead_by': 1, 'behind_by': 0,
+                    'total_commits': 1,
+                    'files': [{'filename': changed, 'status': 'modified'}],
+                }
+                self.assertFalse(report_only_descendant(api, OLD, SHA))
+
+    def test_rejects_missing_anachronistic_or_unbounded_ancestry(self):
+        bad = (
+            {'status': 'diverged', 'ahead_by': 1, 'behind_by': 1,
+             'total_commits': 2, 'files': [{'filename': 'docs/autonomous-research-log.md',
+                                            'status': 'modified'}]},
+            {'status': 'ahead', 'ahead_by': 4, 'behind_by': 0,
+             'total_commits': 4, 'files': [{'filename': 'docs/autonomous-research-log.md',
+                                            'status': 'modified'}]},
+            {'status': 'ahead', 'ahead_by': 1, 'behind_by': 0,
+             'total_commits': 1, 'files': []},
+            {'status': 'ahead', 'ahead_by': 1, 'behind_by': 0,
+             'total_commits': 1, 'files': [{'filename': 'docs/autonomous-research-log.md',
+                                            'status': 'removed'}]},
+            {'status': 'ahead', 'ahead_by': 1, 'behind_by': 0,
+             'total_commits': 1, 'files': [{'filename': 'docs/autonomous-research-log.md',
+                                            'status': 'modified'}] * 301},
+        )
+        for case in bad:
+            api = FakeAPI()
+            api.request = lambda _endpoint, case=case: case
+            self.assertFalse(report_only_descendant(api, OLD, SHA))
+        self.assertFalse(report_only_descendant(FakeAPI(), 'x' * 40, SHA))
+
+
