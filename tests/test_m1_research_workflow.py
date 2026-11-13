@@ -19,7 +19,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     assert dispatch["options"] == [
         "legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7",
         "m8", "m9", "m10", "m10p1", "m11", "m12", "m13", "m14", "m15", "m16", "m17",
-        "m18", "m19",
+        "m18", "m19", "m20",
     ]
     assert dispatch["default"] == "legacy"
     assert dispatch["required"] is True
@@ -49,6 +49,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
             ".github/bagi-m17-once.json",
             ".github/bagi-m18-once.json",
             ".github/bagi-m19-once.json",
+            ".github/bagi-m20-once.json",
         ],
     }
     jobs = workflow["jobs"]
@@ -137,6 +138,12 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     m14 = steps["Run admitted M14 public native open-door goal replication"]
     assert "m14_public_open_door" in m14["run"]
     assert "--execute" in m14["run"]
+    m20 = steps["Run admitted M20 DoorKey to Fetch physical-object retention"]
+    assert "configs/m20_fetch_rehearsal.yaml" in m20["run"]
+    assert "--execute" in m20["run"]
+    assert "env.BAGI_RESEARCH_STUDY == 'm20'" in steps[
+        "Install BAGI physical Fetch transfer study (M20)"
+    ]["if"]
     m19 = steps["Run admitted M19 reverse-order native physical retention"]
     assert "configs/m19_reverse_rehearsal.yaml" in m19["run"]
     assert "--execute" in m19["run"]
@@ -273,6 +280,11 @@ def test_outputs_preserve_source_provenance_partial_evidence_and_study_cache():
     ]["run"]
     assert "runs/m16_sequential_public_bc/progress.json" in artifact["path"]
     assert "runs/m16_sequential_public_bc/*.npz" in artifact["path"]
+    assert "runs/m20_fetch_rehearsal/summary.json" in steps[
+        "Capture research metadata"
+    ]["run"]
+    assert "runs/m20_fetch_rehearsal/progress.json" in artifact["path"]
+    assert "runs/m20_fetch_rehearsal/*.npz" in artifact["path"]
     assert "runs/m19_reverse_rehearsal/summary.json" in steps[
         "Capture research metadata"
     ]["run"]
@@ -336,6 +348,7 @@ def test_dispatch_guard_selects_study_before_training():
         ("workflow_dispatch", "m17", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "m18", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "m19", "refs/heads/setup/initial-platform", True),
+        ("workflow_dispatch", "m20", "refs/heads/setup/initial-platform", True),
         ("workflow_dispatch", "", "refs/heads/setup/initial-platform", False),
         ("workflow_dispatch", "unregistered", "refs/heads/setup/initial-platform", False),
         ("workflow_dispatch", "m1", "refs/heads/main", False),
