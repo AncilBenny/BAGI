@@ -36,6 +36,16 @@ from bagi.experiments.m20_fetch_rehearsal import (
 def test_reversed_native_task_order_and_sealed_layout_streams():
     config = yaml.safe_load(Path("configs/m20_fetch_rehearsal.yaml").read_text())
     assert validate_config(config) == config
+    assert config["train_seeds"] == [
+        list(range(311001, 311049)), list(range(321001, 321049))
+    ]
+    assert config["monitor_seeds"] == [
+        list(range(312001, 312013)), list(range(322001, 322013))
+    ]
+    assert config["final_seeds"] == [
+        list(range(313001, 313033)), list(range(323001, 323033))
+    ]
+    assert config["output_dir"] == "runs/m20_fetch_rehearsal"
     seeds = sum(TRAIN + MONITOR + FINAL, ())
     assert len(seeds) == len(set(seeds))
     assert TASKS == ("MiniGrid-DoorKey-6x6-v0", "MiniGrid-Fetch-5x5-N2-v0")
