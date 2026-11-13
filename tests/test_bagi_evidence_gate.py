@@ -364,6 +364,7 @@ class ReportOnlyProvenanceTests(unittest.TestCase):
         original = api.request
         def request(endpoint, **kwargs):
             if endpoint == f"compare/{OLD}...{SHA}":
+                api.requests.append(endpoint)
                 return {'status': 'ahead', 'ahead_by': 2, 'behind_by': 0,
                         'total_commits': 2,
                         'files': [
