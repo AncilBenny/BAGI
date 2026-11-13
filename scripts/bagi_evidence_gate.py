@@ -17,6 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+from functools import partial
 
 BRANCH = "setup/initial-platform"
 SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -257,6 +258,15 @@ def report_only_descendant(api: Github, measured_sha: str, current_sha: str) -> 
     return True
 
 
+def record_compatible_source(old: str, new: str, *, api: Github,
+                             provenance: dict) -> bool:
+    """Retain the executed source SHA, not the reporting revision's SHA."""
+    if not report_only_descendant(api, old, new):
+        return False
+    provenance["executed_source_sha"] = old
+    return True
+
+
 def inspect(api: Github) -> dict:
     branch = api.request("branches/" + urllib.parse.quote(BRANCH, safe=""))
     sha = branch["commit"]["sha"]
@@ -275,13 +285,10 @@ def inspect(api: Github) -> dict:
     for run in candidates[:30]:
         items = api.request(f"actions/runs/{run['id']}/artifacts")["artifacts"]
         provenance = {"executed_source_sha": sha}
-        def compatible_source(old: str, new: str) -> bool:
-            if report_only_descendant(api, old, new):
-                provenance["executed_source_sha"] = old
-                return True
-            return False
-
-        artifact = first_valid_artifact(items, sha, api.marker, compatible_source)
+        artifact = first_valid_artifact(
+            items, sha, api.marker,
+            partial(record_compatible_source, api=api, provenance=provenance),
+        )
         if artifact is not None:
             # Recheck source HEAD in case another writer moved the branch.
             again = api.request("branches/" + urllib.parse.quote(BRANCH, safe=""))["commit"]["sha"]
