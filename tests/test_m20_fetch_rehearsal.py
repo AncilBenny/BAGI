@@ -34,7 +34,7 @@ from bagi.experiments.m20_fetch_rehearsal import (
 
 
 def test_reversed_native_task_order_and_sealed_layout_streams():
-    config = yaml.safe_load(Path("configs/m20_reverse_rehearsal.yaml").read_text())
+    config = yaml.safe_load(Path("configs/m20_fetch_rehearsal.yaml").read_text())
     assert validate_config(config) == config
     seeds = sum(TRAIN + MONITOR + FINAL, ())
     assert len(seeds) == len(set(seeds))
