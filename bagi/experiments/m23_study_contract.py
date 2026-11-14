@@ -77,6 +77,7 @@ class UnlockPickupWitness:
     actual_forward_movements: int
     key_pickup_action_index: int | None
     door_unlock_action_index: int | None
+    key_drop_action_index: int | None
     correct_box_pickup_action_index: int | None
     reward_at_terminal: float
 
@@ -84,6 +85,7 @@ class UnlockPickupWitness:
         events = (
             self.key_pickup_action_index,
             self.door_unlock_action_index,
+            self.key_drop_action_index,
             self.correct_box_pickup_action_index,
         )
         return (
@@ -92,7 +94,7 @@ class UnlockPickupWitness:
             and not self.initial_goal_already_satisfied
             and self.actual_forward_movements > 0
             and all(index is not None and index >= 0 for index in events)
-            and events[0] < events[1] < events[2]
+            and events[0] < events[1] < events[2] < events[3]
             and self.reward_at_terminal > 0
         )
 
