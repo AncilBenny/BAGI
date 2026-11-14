@@ -123,14 +123,16 @@ and seed-blocked uncertainty; avoid treating shared layouts as 256 IID samples.
 **Independent evaluator-only full physical chain:** confirm that the start
 has a locked door and the target box behind it, no already-complete target,
 at least one effective forward step, actual native key acquisition, then a
-real native door-unlocking/opening effect, then correct requested box physically
-carried after an executed pickup action, in strict time order, and positive
+real native door-unlocking/opening effect, then an **effective native key drop**
+(to free the carrying slot), then correct requested box physically carried
+after an executed pickup action, in strict time order, and positive
 terminal reward. Record key/door/box native-effect event traces, actual action
 counts, imagined planning actions, reward and physical success **separately**.
-Planned actions, labels, mere reward or initially adjacent objects cannot
-substitute for witnessed effective state changes. This gate is implemented
-as a pure contract in m23_study_contract.py; the actual MiniGrid native
-witness and independent source-only feasibility tests are not implemented yet.
+Planned actions, labels, an ineffective drop, mere reward or initially adjacent objects cannot
+substitute for witnessed effective state changes. The pure gate lives in m23_study_contract.py; an evaluator-only
+native UnlockPickup witness and mock-effect tests are now implemented.
+Maintained native reset smoke and full-repository CI must still be verified;
+no native physical success or model fit is claimed from synthetic tests.
 
 **Preregistered necessary primary numerical gate, source regime B:**
 zero-shot world-model+planner must exceed **both** exposure-matched source BC
