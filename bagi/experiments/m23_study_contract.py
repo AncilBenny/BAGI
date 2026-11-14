@@ -1,0 +1,121 @@
+"""M23 preregistered study contracts; no environment or training logic.
+
+The native MiniGrid evaluator will supply witnessed causal events separately
+from the agent. This module validates the research protocol and applies an
+outcome rule; it does not create or assert physical evidence.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+SOURCE_TASKS = (
+    "MiniGrid-DoorKey-6x6-v0",
+    "MiniGrid-Fetch-5x5-N2-v0",
+    "MiniGrid-PutNear-6x6-N2-v0",
+)
+TARGET_TASK = "MiniGrid-UnlockPickup-v0"
+REPLICATION_TASK = "MiniGrid-BlockedUnlockPickup-v0"
+MODEL_SEEDS = (941, 947, 953, 967, 971, 977, 983, 991)
+ARMS = (
+    "random",
+    "source_bc",
+    "source_replay_bc",
+    "source_world_model_planner",
+    "target_scratch",
+)
+TRAIN_LAYOUTS = {
+    "doorkey": tuple(range(431001, 431129)),
+    "fetch": tuple(range(441001, 441129)),
+    "putnear": tuple(range(461001, 461129)),
+    "unlockpickup": tuple(range(451001, 451129)),
+}
+MONITOR_LAYOUTS = {
+    "doorkey": tuple(range(432001, 432017)),
+    "fetch": tuple(range(442001, 442017)),
+    "putnear": tuple(range(462001, 462017)),
+    "unlockpickup": tuple(range(452001, 452017)),
+}
+FINAL_LAYOUTS = {
+    "doorkey": tuple(range(433001, 433033)),
+    "fetch": tuple(range(443001, 443033)),
+    "putnear": tuple(range(463001, 463033)),
+    "unlockpickup": tuple(range(453001, 453033)),
+}
+
+
+def validate_split_contract() -> None:
+    """Detect accidental dataset leakage, including M20/M21 sealed finals."""
+    all_layouts = [
+        seed
+        for split in (TRAIN_LAYOUTS, MONITOR_LAYOUTS, FINAL_LAYOUTS)
+        for layouts in split.values()
+        for seed in layouts
+    ]
+    if len(all_layouts) != len(set(all_layouts)):
+        raise ValueError("M23 train/monitor/final layouts are not disjoint")
+    previous_final = set(range(313001, 313033)) | set(range(323001, 323033))
+    previous_final |= set(range(333001, 333033)) | set(range(343001, 343033))
+    if set(all_layouts) & previous_final:
+        raise ValueError("M23 overlaps an earlier closed final layout")
+    if len(MODEL_SEEDS) != len(set(MODEL_SEEDS)):
+        raise ValueError("M23 model seeds must be distinct")
+
+
+@dataclass(frozen=True)
+class UnlockPickupWitness:
+    """Evaluator-only verified events; not derived from reward or policy logits.
+
+    Event indices refer to the *native executed-action* trace, not planned
+    or teacher-labeled actions. The evaluator must establish the event flags
+    using true native state changes, without exposing them to the learner.
+    """
+
+    initially_locked: bool
+    box_initially_behind_locked_door: bool
+    initial_goal_already_satisfied: bool
+    actual_forward_movements: int
+    key_pickup_action_index: int | None
+    door_unlock_action_index: int | None
+    correct_box_pickup_action_index: int | None
+    reward_at_terminal: float
+
+    def physical_success(self) -> bool:
+        events = (
+            self.key_pickup_action_index,
+            self.door_unlock_action_index,
+            self.correct_box_pickup_action_index,
+        )
+        return (
+            self.initially_locked
+            and self.box_initially_behind_locked_door
+            and not self.initial_goal_already_satisfied
+            and self.actual_forward_movements > 0
+            and all(index is not None and index >= 0 for index in events)
+            and events[0] < events[1] < events[2]
+            and self.reward_at_terminal > 0
+        )
+
+
+def primary_zero_shot_gate(
+    model_based: tuple[int, ...],
+    source_bc: tuple[int, ...],
+    replay_bc: tuple[int, ...],
+    layouts_per_seed: int = 32,
+) -> bool:
+    """Preregistered gate; takes independent physical-success counts only.
+
+    This is a necessary numerical condition, not a confidence interval.
+    Statistical uncertainty is reported separately at the seed/layout level.
+    """
+    if any(len(x) != len(MODEL_SEEDS) for x in (model_based, source_bc, replay_bc)):
+        raise ValueError("M23 primary gate requires all eight model seeds")
+    if layouts_per_seed != len(FINAL_LAYOUTS["unlockpickup"]):
+        raise ValueError("M23 final layout contract changed")
+    if any(not 0 <= x <= layouts_per_seed for x in model_based + source_bc + replay_bc):
+        raise ValueError("M23 success counts exceed evaluated native episodes")
+    for control in (source_bc, replay_bc):
+        advantages = [a - b for a, b in zip(model_based, control, strict=True)]
+        if sum(advantages) < 16 or sum(x > 0 for x in advantages) < 6:
+            return False
+    return True
