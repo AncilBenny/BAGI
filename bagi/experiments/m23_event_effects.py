@@ -288,11 +288,11 @@ def execute(input_root: str, output: str) -> dict:
         "cached_train_artifact_id": SOURCE_ARTIFACT_ID,
         "cached_train_artifact_sha256": SOURCE_ARTIFACT_SHA256,
         "cached_train_native_actions": original["actual_native_actions"],
-        "cached_train_executed_interactions": int(len(train["proxy_labels"])),
+        "cached_train_executed_interactions": len(train["proxy_labels"]),
         "new_source_monitor_native_actions": int(sum(
             x["native_actions"] for x in recorded.values()
         )),
-        "new_source_monitor_interaction_actions": int(len(native_truth)),
+        "new_source_monitor_interaction_actions": len(native_truth),
         "monitor_native_positive_effects": positives,
         "monitor_native_no_effect_actions": negatives,
         "monitor_native_source_witnesses": recorded,
