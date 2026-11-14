@@ -18,7 +18,6 @@ import numpy as np
 from bagi.experiments.m23_study_contract import (
     BALANCE_MONITOR_LAYOUTS,
     MEMORY_MONITOR_LAYOUTS,
-    MEMORY_MONITOR_LAYOUTS,
     MONITOR_LAYOUTS,
     TRAIN_LAYOUTS,
     validate_split_contract,
