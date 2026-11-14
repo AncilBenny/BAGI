@@ -19,7 +19,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     assert dispatch["options"] == [
         "legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7",
         "m8", "m9", "m10", "m10p1", "m11", "m12", "m13", "m14", "m15", "m16", "m17",
-        "m18", "m19", "m20", "m21",
+        "m18", "m19", "m20", "m21", "m23",
     ]
     assert dispatch["default"] == "legacy"
     assert dispatch["required"] is True
@@ -51,6 +51,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
             ".github/bagi-m19-once.json",
             ".github/bagi-m20-once.json",
             ".github/bagi-m21-once.json",
+            ".github/bagi-m23-once.json",
         ],
     }
     jobs = workflow["jobs"]
@@ -139,6 +140,12 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     m14 = steps["Run admitted M14 public native open-door goal replication"]
     assert "m14_public_open_door" in m14["run"]
     assert "--execute" in m14["run"]
+    m23 = steps["Run admitted M23 TRAIN-only causal source acquisition"]
+    assert "m23_source_feasibility" in m23["run"]
+    assert "--execute" in m23["run"]
+    assert "env.BAGI_RESEARCH_STUDY == 'm23'" in steps[
+        "Install BAGI M23 source-only physical-mechanism acquisition"
+    ]["if"]
     m21 = steps["Run admitted M21 independent physical Fetch replication"]
     assert "configs/m21_fetch_replication.yaml" in m21["run"]
     assert "--execute" in m21["run"]
