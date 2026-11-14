@@ -7,7 +7,6 @@ source balance MONITOR executes new actual actions exactly once.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import time
 from importlib.metadata import version
