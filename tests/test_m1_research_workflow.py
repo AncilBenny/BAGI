@@ -19,7 +19,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     assert dispatch["options"] == [
         "legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7",
         "m8", "m9", "m10", "m10p1", "m11", "m12", "m13", "m14", "m15", "m16", "m17",
-        "m18", "m19", "m20", "m21", "m23", "m23wm", "m23balance", "m23memory",
+        "m18", "m19", "m20", "m21", "m23", "m23wm", "m23balance", "m23memory", "m23effect",
     ]
     assert dispatch["default"] == "legacy"
     assert dispatch["required"] is True
@@ -55,6 +55,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
             ".github/bagi-m23wm-once.json",
             ".github/bagi-m23balance-once.json",
             ".github/bagi-m23memory-once.json",
+            ".github/bagi-m23effect-once.json",
         ],
     }
     jobs = workflow["jobs"]
@@ -143,6 +144,15 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     m14 = steps["Run admitted M14 public native open-door goal replication"]
     assert "m14_public_open_door" in m14["run"]
     assert "--execute" in m14["run"]
+    m23effect = steps["Run admitted M23 source-only native interaction-effect prediction"]
+    assert "--execute" in m23effect["run"]
+    assert "m23_event_effects" in m23effect["run"]
+    assert "sha256sum -c -" in steps[
+        "Fetch verified M23 source TRAIN for native-effect prediction"
+    ]["run"]
+    assert "env.BAGI_RESEARCH_STUDY == 'm23effect'" in steps[
+        "Install BAGI M23 native-effect source prediction study"
+    ]["if"]
     m23memory = steps["Run admitted M23 source-only recurrent belief observation ablation"]
     assert "--execute" in m23memory["run"]
     assert "m23_belief_memory" in m23memory["run"]
