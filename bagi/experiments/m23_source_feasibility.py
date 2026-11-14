@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 
 from bagi.experiments.m23_study_contract import (
+    BALANCE_MONITOR_LAYOUTS,
     MONITOR_LAYOUTS,
     TRAIN_LAYOUTS,
     validate_split_contract,
@@ -78,9 +79,11 @@ class PublicObjectExplorer:
 
 
 def run_source_episode(task: str, seed: int, *, split: str = "train") -> tuple[dict, dict]:
-    if split not in ("train", "monitor") or task not in SOURCE_ENV_IDS:
-        raise ValueError("M23 source acquisition requires TRAIN/MONITOR source task")
-    layouts = TRAIN_LAYOUTS[task] if split == "train" else MONITOR_LAYOUTS[task]
+    registered = {"train": TRAIN_LAYOUTS, "monitor": MONITOR_LAYOUTS,
+                  "balance_monitor": BALANCE_MONITOR_LAYOUTS}
+    if split not in registered or task not in SOURCE_ENV_IDS:
+        raise ValueError("M23 source acquisition requires registered source split/task")
+    layouts = registered[split][task]
     if seed not in layouts:
         raise ValueError(f"M23 source acquisition requires registered {split.upper()} layout")
 
