@@ -19,6 +19,8 @@ from bagi.experiments.m23_study_contract import (
     BALANCE_MONITOR_LAYOUTS,
     EFFECT_MONITOR_LAYOUTS,
     MEMORY_MONITOR_LAYOUTS,
+    PROBE_MONITOR_LAYOUTS,
+    PROBE_TRAIN_LAYOUTS,
     MONITOR_LAYOUTS,
     TRAIN_LAYOUTS,
     validate_split_contract,
@@ -84,7 +86,9 @@ def run_source_episode(task: str, seed: int, *, split: str = "train") -> tuple[d
     registered = {"train": TRAIN_LAYOUTS, "monitor": MONITOR_LAYOUTS,
                   "balance_monitor": BALANCE_MONITOR_LAYOUTS,
                   "memory_monitor": MEMORY_MONITOR_LAYOUTS,
-                  "effect_monitor": EFFECT_MONITOR_LAYOUTS}
+                  "effect_monitor": EFFECT_MONITOR_LAYOUTS,
+                  "probe_train": PROBE_TRAIN_LAYOUTS,
+                  "probe_monitor": PROBE_MONITOR_LAYOUTS}
     if split not in registered or task not in SOURCE_ENV_IDS:
         raise ValueError("M23 source acquisition requires TRAIN/MONITOR/BALANCE_MONITOR/MEMORY_MONITOR source task")
     layouts = registered[split][task]
@@ -111,12 +115,19 @@ def run_source_episode(task: str, seed: int, *, split: str = "train") -> tuple[d
     effects = Counter()
     actions = []
     total_reward = 0.0
+    probe_override_count = 0
+    probe_different_count = 0
     try:
         observation, _ = env.reset(seed=seed)
         for _ in range(HORIZON):
             if set(observation) != {"image", "direction", "mission"}:
                 raise ValueError("Source observations must be public MiniGrid only")
             action = int(controller.choose(observation, rng))
+            if split in ("probe_train", "probe_monitor") and rng.random() < 0.35:
+                probed = int(rng.integers(3, 6))
+                probe_override_count += 1
+                probe_different_count += int(probed != action)
+                action = probed
             if action not in range(7):
                 raise ValueError("Invalid native executed action")
             world = env.unwrapped  # evaluator ONLY, never passed to controller
@@ -133,7 +144,7 @@ def run_source_episode(task: str, seed: int, *, split: str = "train") -> tuple[d
                     and world.grid.get(*world.front_pos) is before_carrying)
             unlock = (action == 5 and front is not None and was_locked
                       and not front.is_locked and front.is_open)
-            if split == "effect_monitor":
+            if split in ("effect_monitor", "probe_monitor"):
                 # Independent evaluator-only truth: NEVER a learned input/label.
                 rows.setdefault("evaluator_native_effect", []).append(
                     1 if pickup else 2 if drop else 3 if unlock else 0
@@ -166,6 +177,8 @@ def run_source_episode(task: str, seed: int, *, split: str = "train") -> tuple[d
         "action_histogram": [actions.count(i) for i in range(7)],
         "executed_action_sha256": hashlib.sha256(bytes(actions)).hexdigest(),
         "native_reward_sum": total_reward, "events": dict(effects),
+        "probe_override_count": probe_override_count,
+        "probe_different_from_controller_count": probe_different_count,
     }, rows
 
 
