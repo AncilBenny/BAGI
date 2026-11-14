@@ -82,7 +82,7 @@ def run_source_episode(task: str, seed: int, *, split: str = "train") -> tuple[d
     registered = {"train": TRAIN_LAYOUTS, "monitor": MONITOR_LAYOUTS,
                   "balance_monitor": BALANCE_MONITOR_LAYOUTS}
     if split not in registered or task not in SOURCE_ENV_IDS:
-        raise ValueError("M23 source acquisition requires registered source split/task")
+        raise ValueError("M23 source acquisition requires TRAIN/MONITOR/BALANCE_MONITOR source task")
     layouts = registered[split][task]
     if seed not in layouts:
         raise ValueError(f"M23 source acquisition requires registered {split.upper()} layout")
