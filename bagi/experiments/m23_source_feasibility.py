@@ -79,7 +79,7 @@ class PublicObjectExplorer:
 
 def run_source_episode(task: str, seed: int, *, split: str = "train") -> tuple[dict, dict]:
     if split not in ("train", "monitor") or task not in SOURCE_ENV_IDS:
-        raise ValueError("M23 source acquisition requires registered source split/task")
+        raise ValueError("M23 source acquisition requires TRAIN/MONITOR source task")
     layouts = TRAIN_LAYOUTS[task] if split == "train" else MONITOR_LAYOUTS[task]
     if seed not in layouts:
         raise ValueError(f"M23 source acquisition requires registered {split.upper()} layout")
