@@ -1,0 +1,6 @@
+{
+  "study": "m23probe",
+  "force_retrain": true,
+  "expected_parent_sha": "ff52e95917a50e6af0201c059233d7451ddd6923",
+  "request_id": "BAGI-M23-PROBE-2026-11-15"
+}
