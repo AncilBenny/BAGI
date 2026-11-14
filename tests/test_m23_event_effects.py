@@ -21,8 +21,8 @@ from bagi.experiments.m23_study_contract import (
     EFFECT_MONITOR_LAYOUTS,
     FINAL_LAYOUTS,
     MEMORY_MONITOR_LAYOUTS,
-    MONITOR_LAYOUTS,
     MODEL_SEEDS,
+    MONITOR_LAYOUTS,
     TRAIN_LAYOUTS,
     validate_split_contract,
 )
