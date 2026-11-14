@@ -15,7 +15,11 @@ from pathlib import Path
 
 import numpy as np
 
-from bagi.experiments.m23_study_contract import TRAIN_LAYOUTS, validate_split_contract
+from bagi.experiments.m23_study_contract import (
+    MONITOR_LAYOUTS,
+    TRAIN_LAYOUTS,
+    validate_split_contract,
+)
 
 SOURCE_ENV_IDS = {
     "doorkey": "MiniGrid-DoorKey-6x6-v0",
@@ -73,9 +77,12 @@ class PublicObjectExplorer:
             self.public_carrying_evidence = False
 
 
-def run_source_episode(task: str, seed: int) -> tuple[dict, dict]:
-    if task not in SOURCE_ENV_IDS or seed not in TRAIN_LAYOUTS[task]:
-        raise ValueError("M23 source acquisition requires registered TRAIN layout")
+def run_source_episode(task: str, seed: int, *, split: str = "train") -> tuple[dict, dict]:
+    if split not in ("train", "monitor") or task not in SOURCE_ENV_IDS:
+        raise ValueError("M23 source acquisition requires registered source split/task")
+    layouts = TRAIN_LAYOUTS[task] if split == "train" else MONITOR_LAYOUTS[task]
+    if seed not in layouts:
+        raise ValueError(f"M23 source acquisition requires registered {split.upper()} layout")
 
     import gymnasium as gym
     import minigrid  # noqa: F401
