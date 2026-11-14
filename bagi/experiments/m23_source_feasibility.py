@@ -17,6 +17,7 @@ import numpy as np
 
 from bagi.experiments.m23_study_contract import (
     BALANCE_MONITOR_LAYOUTS,
+    EFFECT_MONITOR_LAYOUTS,
     MEMORY_MONITOR_LAYOUTS,
     MONITOR_LAYOUTS,
     TRAIN_LAYOUTS,
@@ -82,7 +83,8 @@ class PublicObjectExplorer:
 def run_source_episode(task: str, seed: int, *, split: str = "train") -> tuple[dict, dict]:
     registered = {"train": TRAIN_LAYOUTS, "monitor": MONITOR_LAYOUTS,
                   "balance_monitor": BALANCE_MONITOR_LAYOUTS,
-                  "memory_monitor": MEMORY_MONITOR_LAYOUTS}
+                  "memory_monitor": MEMORY_MONITOR_LAYOUTS,
+                  "effect_monitor": EFFECT_MONITOR_LAYOUTS}
     if split not in registered or task not in SOURCE_ENV_IDS:
         raise ValueError("M23 source acquisition requires TRAIN/MONITOR/BALANCE_MONITOR/MEMORY_MONITOR source task")
     layouts = registered[split][task]
@@ -124,15 +126,23 @@ def run_source_episode(task: str, seed: int, *, split: str = "train") -> tuple[d
             following, reward, terminated, truncated, _ = env.step(action)
             actions.append(action)
             total_reward += float(reward)
-            if (action == 3 and before_carrying is None and front is not None
-                    and world.carrying is front):
-                effects[f"{front.type}_pickups"] += 1
-            if (action == 4 and before_carrying is not None
+            pickup = (action == 3 and before_carrying is None and front is not None
+                      and world.carrying is front)
+            drop = (action == 4 and before_carrying is not None
                     and world.carrying is None
-                    and world.grid.get(*world.front_pos) is before_carrying):
+                    and world.grid.get(*world.front_pos) is before_carrying)
+            unlock = (action == 5 and front is not None and was_locked
+                      and not front.is_locked and front.is_open)
+            if split == "effect_monitor":
+                # Independent evaluator-only truth: NEVER a learned input/label.
+                rows.setdefault("evaluator_native_effect", []).append(
+                    1 if pickup else 2 if drop else 3 if unlock else 0
+                )
+            if pickup:
+                effects[f"{front.type}_pickups"] += 1
+            if drop:
                 effects[f"{before_carrying.type}_drops"] += 1
-            if (action == 5 and front is not None and was_locked
-                    and not front.is_locked and front.is_open):
+            if unlock:
                 effects["effective_door_unlocks"] += 1
             rows["observation_image"].append(np.array(observation["image"], copy=True))
             rows["observation_direction"].append(int(observation["direction"]))
