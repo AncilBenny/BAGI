@@ -70,11 +70,8 @@ def encode_history(rows: dict) -> dict[str, np.ndarray]:
         frames[i, :len(window), :] = window
         if bool(rows["terminated"][i]) or bool(rows["truncated"][i]):
             history.clear()
-    if not np.array_equal(frames[:, 0, :], base["features"]):
-        # Only the earliest step of an episode has current in slot zero.
-        # This prevents treating padded windows as if all had length one.
-        if np.any(np.count_nonzero(frames, axis=(1, 2)) == 0):
-            raise ValueError("M23 sequence contained no public observation")
+    if np.any(np.count_nonzero(frames, axis=(1, 2)) == 0):
+        raise ValueError("M23 sequence contained no public observation")
     return {**base, "sequence": frames}
 
 
