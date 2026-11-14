@@ -3,8 +3,8 @@
 import pytest
 
 from bagi.experiments.m23_source_feasibility import (
-    PublicObjectExplorer,
     SOURCE_ENV_IDS,
+    PublicObjectExplorer,
     run_source_episode,
 )
 from bagi.experiments.m23_study_contract import TRAIN_LAYOUTS
