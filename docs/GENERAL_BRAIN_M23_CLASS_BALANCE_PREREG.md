@@ -50,6 +50,11 @@ native pickup/drop/unlock effects separately but never feed them into
 the learner. No UnlockPickup (target) actions, training, monitoring
 or final layouts are allowed.
 
+**Data sufficiency:** at least 16 actual executed interaction actions 3/4/5
+in this NEW source monitor set are required before interpreting the primary
+gate; otherwise report insufficient support and HOLD that inference.
+This threshold is an evaluability check, not a training ceiling.
+
 **Registered primary test:** on executed native actions 3/4/5,
 balanced_object minus ordinary next-object *macro-F1*
 (door/key/box/ball/wall) must exceed **+0.05 averaged over eight seeds**,
