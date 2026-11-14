@@ -161,8 +161,9 @@ def fit_event(rows: dict[str, np.ndarray], seed: int, *, aware: bool,
     last_loss = None
     model.train()
     for _ in range(EPOCHS):
+        shuffled = rng.permutation(len(x))
         for start in range(0, len(x), BATCH_SIZE):
-            index = torch.as_tensor(rng.permutation(len(x))[start:start + BATCH_SIZE])
+            index = torch.as_tensor(shuffled[start:start + BATCH_SIZE])
             if not len(index):
                 continue
             logits = model(x[index])
