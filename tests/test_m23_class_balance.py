@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from bagi.experiments.m23_class_balance import training_object_weights
-from bagi.experiments.m23_public_world_model import N_OBJECT
+from bagi.experiments.m23_class_balance import fit_weighted, training_object_weights
+from bagi.experiments.m23_public_world_model import N_OBJECT, encode_public_rows
 from bagi.experiments.m23_source_feasibility import run_source_episode
 from bagi.experiments.m23_study_contract import (
     BALANCE_MONITOR_LAYOUTS,
@@ -62,3 +62,19 @@ def test_invalid_weight_labels_rejected():
         training_object_weights({"next_obj": np.zeros((0, 49), dtype=np.int64)})
     with pytest.raises(ValueError):
         training_object_weights({"next_obj": np.zeros((1, 48), dtype=np.int64)})
+
+
+def test_balanced_fit_updates_real_optimizer_with_no_target_data():
+    zeros = np.zeros((3, 7, 7, 3), dtype=np.int64)
+    public = {
+        "observation_image": zeros, "observation_direction": [0, 0, 0],
+        "mission": ["get a blue ball"] * 3, "action": [3, 4, 5],
+        "next_image": zeros, "next_direction": [0, 0, 0],
+        "reward": [0.0, 0.0, 0.0], "terminated": [True, False, True],
+        "truncated": [False, False, False],
+    }
+    data = encode_public_rows(public)
+    model, report = fit_weighted(data, MODEL_SEEDS[0], training_object_weights(data))
+    assert report["optimizer_step_calls"] == 6
+    assert report["training_sample_presentations"] == 18
+    assert model.training is False
