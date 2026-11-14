@@ -23,6 +23,7 @@ def valid_witness():
         actual_forward_movements=4,
         key_pickup_action_index=5,
         door_unlock_action_index=17,
+        key_drop_action_index=20,
         correct_box_pickup_action_index=42,
         reward_at_terminal=0.8,
     )
@@ -42,6 +43,8 @@ def test_witness_requires_real_ordered_effects():
         ("key_pickup_action_index", None),
         ("door_unlock_action_index", None),
         ("correct_box_pickup_action_index", None),
+        ("key_drop_action_index", None),
+        ("key_drop_action_index", 12),
         ("reward_at_terminal", 0.0),
         ("door_unlock_action_index", 4),
         ("correct_box_pickup_action_index", 12),
