@@ -19,9 +19,13 @@ from minigrid.core.constants import COLOR_TO_IDX, OBJECT_TO_IDX, STATE_TO_IDX
 from torch import nn
 
 from bagi.experiments.m1_goal_learning import admitted_source_commit
-from bagi.experiments.m23_source_feasibility import SOURCE_ENV_IDS, run_source_episode
-from bagi.experiments.m23_study_contract import MODEL_SEEDS, MONITOR_LAYOUTS, validate_split_contract
 from bagi.experiments.m5_continual_retention import mission_vector
+from bagi.experiments.m23_source_feasibility import SOURCE_ENV_IDS, run_source_episode
+from bagi.experiments.m23_study_contract import (
+    MODEL_SEEDS,
+    MONITOR_LAYOUTS,
+    validate_split_contract,
+)
 
 TRAIN_SOURCE_COMMIT = "594c670a0d501fbd3cafe78ef47d59bef4733c0a"
 SOURCE_ARTIFACT_ID = 14127428720
