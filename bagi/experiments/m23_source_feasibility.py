@@ -22,6 +22,7 @@ from bagi.experiments.m23_study_contract import (
     MONITOR_LAYOUTS,
     PROBE_MONITOR_LAYOUTS,
     PROBE_TRAIN_LAYOUTS,
+    RULE_SHIFT_MONITOR_LAYOUTS,
     TRAIN_LAYOUTS,
     validate_split_contract,
 )
@@ -82,13 +83,34 @@ class PublicObjectExplorer:
             self.public_carrying_evidence = False
 
 
+
+def choose_public_rule_shift_probe(observation: dict, rng: np.random.Generator) -> int:
+    """A changed action-override policy; strictly public MiniGrid image only."""
+    from minigrid.core.constants import OBJECT_TO_IDX
+
+    if set(observation) != {"image", "direction", "mission"}:
+        raise ValueError("Public shifted probe requires normal MiniGrid observation")
+    image = np.asarray(observation["image"])
+    if image.shape != (7, 7, 3):
+        raise ValueError("Public shifted probe requires 7x7x3 image")
+    front_obj, front_state = (int(image[3, 5, 0]), int(image[3, 5, 2]))
+    if front_obj in {OBJECT_TO_IDX[k] for k in ("key", "ball", "box")}:
+        return 3
+    if front_obj in {OBJECT_TO_IDX[k] for k in ("empty", "floor")}:
+        return 4
+    if front_obj == OBJECT_TO_IDX["door"] and front_state == 2:
+        return 5
+    return int(rng.integers(3, 6))
+
+
 def run_source_episode(task: str, seed: int, *, split: str = "train") -> tuple[dict, dict]:
     registered = {"train": TRAIN_LAYOUTS, "monitor": MONITOR_LAYOUTS,
                   "balance_monitor": BALANCE_MONITOR_LAYOUTS,
                   "memory_monitor": MEMORY_MONITOR_LAYOUTS,
                   "effect_monitor": EFFECT_MONITOR_LAYOUTS,
                   "probe_train": PROBE_TRAIN_LAYOUTS,
-                  "probe_monitor": PROBE_MONITOR_LAYOUTS}
+                  "probe_monitor": PROBE_MONITOR_LAYOUTS,
+                  "rule_shift_monitor": RULE_SHIFT_MONITOR_LAYOUTS}
     if split not in registered or task not in SOURCE_ENV_IDS:
         raise ValueError("M23 source acquisition requires TRAIN/MONITOR/BALANCE_MONITOR/MEMORY_MONITOR source task")
     layouts = registered[split][task]
@@ -128,6 +150,11 @@ def run_source_episode(task: str, seed: int, *, split: str = "train") -> tuple[d
                 probe_override_count += 1
                 probe_different_count += int(probed != action)
                 action = probed
+            if split == "rule_shift_monitor" and rng.random() < 0.65:
+                probed = choose_public_rule_shift_probe(observation, rng)
+                probe_override_count += 1
+                probe_different_count += int(probed != action)
+                action = probed
             if action not in range(7):
                 raise ValueError("Invalid native executed action")
             world = env.unwrapped  # evaluator ONLY, never passed to controller
@@ -144,7 +171,7 @@ def run_source_episode(task: str, seed: int, *, split: str = "train") -> tuple[d
                     and world.grid.get(*world.front_pos) is before_carrying)
             unlock = (action == 5 and front is not None and was_locked
                       and not front.is_locked and front.is_open)
-            if split in ("effect_monitor", "probe_monitor"):
+            if split in ("effect_monitor", "probe_monitor", "rule_shift_monitor"):
                 # Independent evaluator-only truth: NEVER a learned input/label.
                 rows.setdefault("evaluator_native_effect", []).append(
                     1 if pickup else 2 if drop else 3 if unlock else 0
