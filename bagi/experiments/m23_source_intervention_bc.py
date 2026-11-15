@@ -102,7 +102,7 @@ def collect_base() -> tuple[np.ndarray, np.ndarray, dict]:
         raise ValueError("Stage13 initial public TRAIN features/executed labels invalid")
     return xs, ys, {
         "actual_episodes": len(rows),
-        "actual_native_steps": int(len(ys)),
+        "actual_native_steps": len(ys),
         "native_executed_action_histogram": np.bincount(ys, minlength=7).tolist(),
         "public_x_sha256": hashlib.sha256(xs.tobytes()).hexdigest(),
         "executed_y_sha256": hashlib.sha256(ys.tobytes()).hexdigest(),
