@@ -226,7 +226,7 @@ def execute(input_root: str, output: str) -> dict:
             x["actual_native_actions"] for x in source.values()
         ),
         "source_witnesses": source,
-        "new_source_interaction_attempts": int(len(truth)),
+        "new_source_interaction_attempts": len(truth),
         "rule_eligible_source_attempts": int(eligible.sum()),
         "rule_eligible_native_effect_positive": pos,
         "rule_eligible_native_ineffective": neg,
