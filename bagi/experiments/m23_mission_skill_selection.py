@@ -57,7 +57,7 @@ def mission_kind(observation: dict) -> tuple[str, tuple[str, str] | None]:
         raise ValueError("Stage9 policy requires exact public observation contract")
     mission = observation["mission"]
     if not isinstance(mission, str):
-        raise ValueError("Native mission must be public text")
+        raise TypeError("Native mission must be public text")
     normal = " ".join(mission.strip().lower().split())
     if normal.startswith("use the key to open the door") and "goal" in normal:
         return "doorkey", None
@@ -249,7 +249,7 @@ def decide(monitor: dict) -> dict:
         arms = {
             mode: monitor[f"{task}:{mode}"]["episodes"] for mode in MODES
         }
-        for mode, rows in arms.items():
+        for rows in arms.values():
             if [row["seed"] for row in rows] != list(SKILL_MONITOR_LAYOUTS[task]):
                 raise ValueError("Stage9 paired source monitor layouts mismatch")
         diffs = [

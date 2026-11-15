@@ -39,7 +39,7 @@ def test_mission_input_is_public_only_and_unknown_mission_rejected():
         mission_kind({**obs(), "carrying": "key"})
     with pytest.raises(ValueError):
         mission_kind(obs("unlock pickup the blue box"))
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         mission_kind({**obs(), "mission": 17})
 
 
