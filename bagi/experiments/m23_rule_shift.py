@@ -93,37 +93,48 @@ def source_checkpoint_manifest(root: Path) -> dict:
     return manifest
 
 
-def public_history_effect_rule(rows: dict) -> np.ndarray:
-    """Publicly inferred inventory state, NOT a native carrying-state oracle.
+class PublicEffectMemory:
+    """Public-only carried-item tracker updated by EXECUTED visible effects."""
 
-    Predictions use current public observation, attempted action, and only
-    PREVIOUS executed visible changes; updates occur AFTER each native action.
-    """
-    carried: int | None = None
+    def __init__(self) -> None:
+        self.carried: int | None = None
+
+    def predict_before(self, image: np.ndarray, action: int) -> int:
+        """Predict effect without peeking at the native world or next frame."""
+        action = int(action)
+        front, state = _front(np.asarray(image))
+        if action == 3 and front in _CARRYABLE and self.carried is None:
+            return 1
+        if action == 4 and front in (
+            OBJECT_TO_IDX["empty"], OBJECT_TO_IDX["floor"]
+        ) and self.carried is not None:
+            return 2
+        if (action == 5 and front == OBJECT_TO_IDX["door"]
+                and state == 2 and self.carried == OBJECT_TO_IDX["key"]):
+            return 3
+        return 0
+
+    def update_after(self, before: np.ndarray, action: int,
+                     after: np.ndarray) -> None:
+        """Observe only public before/after changes from a real executed action."""
+        front, _ = _front(np.asarray(before))
+        observed = public_effect_proxy(np.asarray(before), int(action),
+                                       np.asarray(after))
+        if observed == 1:
+            self.carried = front
+        elif observed == 2:
+            self.carried = None
+
+
+def public_history_effect_rule(rows: dict) -> np.ndarray:
+    """Replay public memory per episode; caller resets at native boundaries."""
+    memory = PublicEffectMemory()
     predictions = []
     for before, action, after in zip(
         rows["observation_image"], rows["action"], rows["next_image"], strict=True
     ):
-        action = int(action)
-        front, state = _front(np.asarray(before))
-        predicted = 0
-        if action == 3 and front in _CARRYABLE and carried is None:
-            predicted = 1
-        elif action == 4 and front in (
-            OBJECT_TO_IDX["empty"], OBJECT_TO_IDX["floor"]
-        ) and carried is not None:
-            predicted = 2
-        elif (action == 5 and front == OBJECT_TO_IDX["door"]
-              and state == 2 and carried == OBJECT_TO_IDX["key"]):
-            predicted = 3
-        predictions.append(predicted)
-        # This is self-observed past effect, not the independent native truth.
-        witnessed_publicly = public_effect_proxy(np.asarray(before), action,
-                                                 np.asarray(after))
-        if witnessed_publicly == 1:
-            carried = front
-        elif witnessed_publicly == 2:
-            carried = None
+        predictions.append(memory.predict_before(before, int(action)))
+        memory.update_after(before, int(action), after)
     return np.asarray(predictions, dtype=np.int64)
 
 
