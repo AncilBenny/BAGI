@@ -77,12 +77,18 @@ PROBE_MONITOR_LAYOUTS = {
     "putnear": tuple(range(592001, 592033)),
 }
 
+RULE_SHIFT_MONITOR_LAYOUTS = {
+    "doorkey": tuple(range(602001, 602033)),
+    "fetch": tuple(range(612001, 612033)),
+    "putnear": tuple(range(622001, 622033)),
+}
+
 
 def validate_split_contract() -> None:
     """Detect accidental dataset leakage, including M20/M21 sealed finals."""
     all_layouts = [
         seed
-        for split in (TRAIN_LAYOUTS, MONITOR_LAYOUTS, FINAL_LAYOUTS, BALANCE_MONITOR_LAYOUTS, MEMORY_MONITOR_LAYOUTS, EFFECT_MONITOR_LAYOUTS, PROBE_TRAIN_LAYOUTS, PROBE_MONITOR_LAYOUTS)
+        for split in (TRAIN_LAYOUTS, MONITOR_LAYOUTS, FINAL_LAYOUTS, BALANCE_MONITOR_LAYOUTS, MEMORY_MONITOR_LAYOUTS, EFFECT_MONITOR_LAYOUTS, PROBE_TRAIN_LAYOUTS, PROBE_MONITOR_LAYOUTS, RULE_SHIFT_MONITOR_LAYOUTS)
         for layouts in split.values()
         for seed in layouts
     ]
