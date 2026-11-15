@@ -19,7 +19,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     assert dispatch["options"] == [
         "legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7",
         "m8", "m9", "m10", "m10p1", "m11", "m12", "m13", "m14", "m15", "m16", "m17",
-        "m18", "m19", "m20", "m21", "m23", "m23wm", "m23balance", "m23memory", "m23effect", "m23probe",
+        "m18", "m19", "m20", "m21", "m23", "m23wm", "m23balance", "m23memory", "m23effect", "m23probe", "m23stress",
     ]
     assert dispatch["default"] == "legacy"
     assert dispatch["required"] is True
@@ -57,6 +57,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
             ".github/bagi-m23memory-once.json",
             ".github/bagi-m23effect-once.json",
             ".github/bagi-m23probe-once.json",
+            ".github/bagi-m23stress-once.json",
         ],
     }
     jobs = workflow["jobs"]
@@ -145,6 +146,15 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     m14 = steps["Run admitted M14 public native open-door goal replication"]
     assert "m14_public_open_door" in m14["run"]
     assert "--execute" in m14["run"]
+    m23stress = steps["Run admitted M23 frozen out-of-policy native-effect stress test"]
+    assert "--execute" in m23stress["run"]
+    assert "m23_rule_shift" in m23stress["run"]
+    assert "sha256sum -c -" in steps[
+        "Fetch verified frozen M23 source effect checkpoint artifact"
+    ]["run"]
+    assert "env.BAGI_RESEARCH_STUDY == 'm23stress'" in steps[
+        "Install BAGI M23 frozen source intervention policy-shift study"
+    ]["if"]
     m23probe = steps["Run admitted M23 physical source-probe data and matched effect fits"]
     assert "--execute" in m23probe["run"]
     assert "m23_probe_effects" in m23probe["run"]
