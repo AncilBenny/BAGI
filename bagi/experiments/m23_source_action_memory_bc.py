@@ -399,8 +399,8 @@ def decide(monitor: dict) -> dict:
         action_diffs[task], actor_action_diffs[task] = {}, {}
         diffs = []
         for seed in MODEL_SEEDS:
-            stateless = monitor[f"{task}:stateless_gru:{seed}"]["episodes"]
-            recurrent = monitor[f"{task}:recurrent_gru:{seed}"]["episodes"]
+            stateless = monitor[f"{task}:memory_no_action:{seed}"]["episodes"]
+            recurrent = monitor[f"{task}:memory_prev_action:{seed}"]["episodes"]
             if ([r["layout_seed"] for r in stateless] != layouts
                     or [r["layout_seed"] for r in recurrent] != layouts):
                 raise ValueError("Stage15 GRU learned source layout pairing failed")
