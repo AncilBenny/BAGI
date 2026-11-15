@@ -140,7 +140,7 @@ def run_source_goal(task: str, seed: int, mode: str, split: str) -> dict:
             "external_rewarded_terminations": result["rewarded_terminations"],
             "external_effective_pickup_events": result["effective_pickup_events"],
             "external_effective_door_open_events": result["effective_door_open_events"],
-            "external_effective_forward_movements": result["effective_forward_movements"],
+            "external_effective_forward_movements": result.get("effective_forward_movements"),
             "external_wrong_target_pickup_events": (
                 result["wrong_target_pickup_events"] if task == "fetch" else 0
             ),
