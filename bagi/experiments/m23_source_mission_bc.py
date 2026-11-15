@@ -23,10 +23,10 @@ from bagi.experiments.m10_native_audit import NativeDoorKeyAudit
 from bagi.experiments.m13_public_interaction_coverage import Controller
 from bagi.experiments.m14_public_open_door import TraversableOpenDoorController
 from bagi.experiments.m15_public_action_bc import (
-    BCPolicy,
     N_COLOR,
     N_OBJECT,
     N_STATE,
+    BCPolicy,
     features,
     save_numeric,
 )

@@ -28,7 +28,7 @@ def test_mission_ablation_masks_only_public_mission_coordinates():
     original = x.copy()
     blind = mask_public_mission(x)
     assert np.array_equal(x, original)
-    assert not blind[MISSION_START:MISION_START + 64].any()
+    assert not blind[MISSION_START:MISSION_START + 64].any()
     assert np.array_equal(blind[:MISSION_START], x[:MISSION_START])
     assert np.array_equal(blind[MISSION_START + 64:], x[MISSION_START + 64:])
     with pytest.raises(ValueError):
