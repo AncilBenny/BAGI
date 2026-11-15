@@ -140,8 +140,11 @@ def collect_shifted_source(root: Path) -> tuple[dict, dict]:
                 raise ValueError("Missing evaluator-native source effect witness")
             if not (rows["terminated"][-1] or rows["truncated"][-1]):
                 raise ValueError("Incomplete native episode; carrying memory unsafe")
-            rows["public_history_rule"] = public_history_effect_rule(rows).tolist()
-            episodes.append(encode_events(rows))
+            history_decisions = public_history_effect_rule(rows)
+            encoded = encode_events(rows)
+            executed = np.isin(np.asarray(rows["action"]), (3, 4, 5))
+            encoded["public_history_rule"] = history_decisions[executed]
+            episodes.append(encoded)
             native.append(witness)
         all_rows = {}
         for field in episodes[0]:
