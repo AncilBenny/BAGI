@@ -46,6 +46,7 @@ REQUEST_PATHS = {
     ".github/bagi-m23vision-once.json": ("m23vision", "BAGI-M23-VISION-2026-11-15"),
     ".github/bagi-m23correct-once.json": ("m23correct", "BAGI-M23-CORRECT-2026-11-15"),
     ".github/bagi-m23intervene-once.json": ("m23intervene", "BAGI-M23-INTERVENE-2026-11-15"),
+    ".github/bagi-m23recurrent-once.json": ("m23recurrent", "BAGI-M23-RECURRENT-2026-11-15"),
 }
 
 
@@ -57,7 +58,7 @@ def selected_study(event: str, study: str, ref: str) -> str:
         return "legacy"
     if event != "workflow_dispatch":
         raise ValueError("Unregistered research trigger")
-    if study not in ("legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m10p1", "m11", "m12", "m13", "m14", "m15", "m16", "m17", "m18", "m19", "m20", "m21", "m23", "m23wm", "m23balance", "m23memory", "m23effect", "m23probe", "m23stress", "m23action", "m23skill", "m23bc", "m23vision", "m23correct", "m23intervene"):
+    if study not in ("legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m10p1", "m11", "m12", "m13", "m14", "m15", "m16", "m17", "m18", "m19", "m20", "m21", "m23", "m23wm", "m23balance", "m23memory", "m23effect", "m23probe", "m23stress", "m23action", "m23skill", "m23bc", "m23vision", "m23correct", "m23intervene", "m23recurrent"):
         raise ValueError("Manual research dispatch requires an explicit registered study")
     if ref != RESEARCH_REF:
         raise ValueError("Manual research dispatch must target the protected research branch")
