@@ -55,8 +55,8 @@ Compare on exactly the same new public source MONITOR transitions:
 1. **Frozen probe-trained learned model** (eight numeric-only stage-6 fits).
 2. **Frozen success-only matched model** (eight numeric-only stage-6 fits).
 3. **Public front-cell precondition rule** from Stage 6.
-4. **Public observation-history rule**: maintain a one-bit *inferred*
-   carrying state from previously executed actions plus the publicly
+4. **Public observation-history rule**: maintain a *publicly inferred*
+   carried-object type (or none) from previously executed actions plus the
    visible front-object disappearance/appearance after actual pickup
    and drop. Do not peek at native carrying. It may predict a drop
    only when it has previously observed a successful pickup, and
