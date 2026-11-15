@@ -1,0 +1,6 @@
+{
+  "study": "m23vision",
+  "force_retrain": true,
+  "expected_parent_sha": "5c00c4a0ce4b2b34db891b067900c1f5d150c002",
+  "request_id": "BAGI-M23-VISION-2026-11-15"
+}
