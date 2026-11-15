@@ -21,7 +21,8 @@ from bagi.experiments.m13_public_interaction_coverage import Controller
 from bagi.experiments.m15_public_action_bc import class_weights, save_numeric
 from bagi.experiments.m23_source_feasibility import HORIZON
 from bagi.experiments.m23_source_mission_bc import make_native_audit, make_source_actor
-from bagi.experiments.m23_source_public_vision_bc import WIDTH as PUBLIC_WIDTH, public_visual_features
+from bagi.experiments.m23_source_public_vision_bc import WIDTH as PUBLIC_WIDTH
+from bagi.experiments.m23_source_public_vision_bc import public_visual_features
 from bagi.experiments.m23_study_contract import (
     ACTION_MEMORY_MONITOR_LAYOUTS,
     ACTION_MEMORY_TRAIN_LAYOUTS,
