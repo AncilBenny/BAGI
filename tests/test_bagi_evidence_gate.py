@@ -124,6 +124,18 @@ class GateTests(unittest.TestCase):
         api = object.__new__(Github)
         api.request = lambda endpoint, binary=False: make_zip('research_branch_commit.txt', SHA+'\n')
         self.assertEqual(api.marker(22), SHA)
+        # Real multi-root upload-artifact archives retain the artifacts/ prefix.
+        api.request = lambda endpoint, binary=False: make_zip(
+            'artifacts/research-loop/research_branch_commit.txt', SHA + '\n'
+        )
+        self.assertEqual(api.marker(22), SHA)
+        fp = io.BytesIO()
+        with zipfile.ZipFile(fp, 'w') as archive:
+            archive.writestr('research_branch_commit.txt', SHA + '\n')
+            archive.writestr('artifacts/research-loop/research_branch_commit.txt', SHA + '\n')
+        api.request = lambda endpoint, binary=False: fp.getvalue()
+        with self.assertRaisesRegex(GateError, 'unique'):
+            api.marker(22)
         api.request = lambda endpoint, binary=False: make_zip('wrong.txt', SHA)
         with self.assertRaises(GateError):
             api.marker(22)

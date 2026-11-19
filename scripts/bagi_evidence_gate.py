@@ -207,8 +207,11 @@ class Github:
         data = self.request(f"actions/artifacts/{artifact_id}/zip", binary=True)
         assert isinstance(data, bytes)
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            # Keep exact GitHub artifact layouts; never accept arbitrary paths.
             candidates = [n for n in archive.namelist() if n in (
-                "research_branch_commit.txt", "research-loop/research_branch_commit.txt"
+                "research_branch_commit.txt",
+                "research-loop/research_branch_commit.txt",
+                "artifacts/research-loop/research_branch_commit.txt",
             )]
             if len(candidates) != 1:
                 raise GateError("artifact lacks a unique source-commit marker")
