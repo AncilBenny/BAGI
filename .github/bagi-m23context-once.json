@@ -1,0 +1,6 @@
+{
+  "study": "m23context",
+  "force_retrain": true,
+  "expected_parent_sha": "cd92add1a17fa3094a101db7794e2042cf800f9a",
+  "request_id": "BAGI-M23-CONTEXT-2026-11-20"
+}
