@@ -22,6 +22,8 @@ from bagi.experiments.m13_public_interaction_coverage import Controller
 from bagi.experiments.m15_public_action_bc import class_weights, save_numeric
 from bagi.experiments.m23_executed_recovery_train import (
     ARMS as FIT_ARMS,
+)
+from bagi.experiments.m23_executed_recovery_train import (
     FOLLOWUP_UPDATES,
     TOKENS_PER_UPDATE,
     fit_followup,
