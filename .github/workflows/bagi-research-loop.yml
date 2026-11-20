@@ -56,6 +56,7 @@ on:
           - m23continuation
           - m23router
           - m23eventmemory
+          - m23postcorrect
   schedule:
     - cron: "17 * * * *"
   # Branch-only explicit one-shot studies; no duplicate workflow.
@@ -105,6 +106,7 @@ on:
       - .github/bagi-m23continuation-once.json
       - .github/bagi-m23router-once.json
       - .github/bagi-m23eventmemory-once.json
+      - .github/bagi-m23postcorrect-once.json
 
 permissions:
   contents: read
@@ -308,6 +310,12 @@ jobs:
 
       - name: Install BAGI M23 public source event-memory GRU
         if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm23eventmemory'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI M23 equal-native-action post-open recurrent correction
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm23postcorrect'
         run: |
           python -m pip install --upgrade pip
           pip install -e '.[dev]'
@@ -655,6 +663,11 @@ jobs:
         run: |
           python -m bagi.experiments.m23_source_public_event_memory_bc --output runs/m23_source_public_event_memory_bc/summary.json --execute
 
+      - name: Run admitted M23 matched source post-open on-policy recurrent correction
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm23postcorrect'
+        run: |
+          python -m bagi.experiments.m23_source_post_open_onpolicy_bc --output runs/m23_source_post_open_onpolicy_bc/summary.json --execute
+
       - name: Run admitted M23 frozen out-of-policy native-effect stress test
         if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm23stress'
         run: |
@@ -792,7 +805,8 @@ jobs:
              runs/m23_source_interaction_context_bc/summary.json \
              runs/m23_source_post_open_continuation_bc/summary.json \
              runs/m23_source_public_phase_router/summary.json \
-             runs/m23_source_public_event_memory_bc/summary.json; do
+             runs/m23_source_public_event_memory_bc/summary.json \
+             runs/m23_source_post_open_onpolicy_bc/summary.json; do
             if [ -f "$path" ]; then
               cp "$path" "artifacts/research-loop/$(basename "$(dirname "$path")")-$(basename "$path")"
             fi
@@ -881,6 +895,8 @@ jobs:
             runs/m23_source_public_phase_router/*.npz
             runs/m23_source_public_event_memory_bc/summary.json
             runs/m23_source_public_event_memory_bc/*.npz
+            runs/m23_source_post_open_onpolicy_bc/summary.json
+            runs/m23_source_post_open_onpolicy_bc/*.npz
           if-no-files-found: warn
           retention-days: 30
 
