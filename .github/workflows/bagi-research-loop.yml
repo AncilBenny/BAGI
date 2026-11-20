@@ -54,6 +54,7 @@ on:
           - m23actionmemory
           - m23context
           - m23continuation
+          - m23router
   schedule:
     - cron: "17 * * * *"
   # Branch-only explicit one-shot studies; no duplicate workflow.
@@ -101,6 +102,7 @@ on:
       - .github/bagi-m23actionmemory-once.json
       - .github/bagi-m23context-once.json
       - .github/bagi-m23continuation-once.json
+      - .github/bagi-m23router-once.json
 
 permissions:
   contents: read
@@ -292,6 +294,12 @@ jobs:
 
       - name: Install BAGI M23 source post-open continuation recurrent BC
         if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm23continuation'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Install BAGI M23 public learned phase router
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm23router'
         run: |
           python -m pip install --upgrade pip
           pip install -e '.[dev]'
@@ -629,6 +637,11 @@ jobs:
         run: |
           python -m bagi.experiments.m23_source_post_open_continuation_bc --output runs/m23_source_post_open_continuation_bc/summary.json --execute
 
+      - name: Run admitted M23 native public learned phase router
+        if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm23router'
+        run: |
+          python -m bagi.experiments.m23_source_public_phase_router --output runs/m23_source_public_phase_router/summary.json --execute
+
       - name: Run admitted M23 frozen out-of-policy native-effect stress test
         if: steps.evaluated.outputs.cache-hit != 'true' && env.BAGI_RESEARCH_STUDY == 'm23stress'
         run: |
@@ -764,7 +777,8 @@ jobs:
              runs/m23_source_recurrent_bc/summary.json \
              runs/m23_source_action_memory_bc/summary.json \
              runs/m23_source_interaction_context_bc/summary.json \
-             runs/m23_source_post_open_continuation_bc/summary.json; do
+             runs/m23_source_post_open_continuation_bc/summary.json \
+             runs/m23_source_public_phase_router/summary.json; do
             if [ -f "$path" ]; then
               cp "$path" "artifacts/research-loop/$(basename "$(dirname "$path")")-$(basename "$path")"
             fi
@@ -849,6 +863,8 @@ jobs:
             runs/m23_source_interaction_context_bc/*.npz
             runs/m23_source_post_open_continuation_bc/summary.json
             runs/m23_source_post_open_continuation_bc/*.npz
+            runs/m23_source_public_phase_router/summary.json
+            runs/m23_source_public_phase_router/*.npz
           if-no-files-found: warn
           retention-days: 30
 
