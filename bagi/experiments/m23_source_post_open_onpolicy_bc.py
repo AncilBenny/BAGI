@@ -309,6 +309,8 @@ def execute(output: str) -> dict:
     }) != 1:
         raise ValueError("Stage20 source frozen base architecture mismatch")
     acquired, acq_meta = collect_acquired(frozen)
+    if acq_meta["actual_new_acquisition_native_actions"] != 6 * ACQUIRE_BUDGET:
+        raise ValueError("Stage20 real shared native source acquisition budget mismatch")
     final_models = {}
     final_profiles = []
     for seed in MODEL_SEEDS:
