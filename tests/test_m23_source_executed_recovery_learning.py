@@ -23,6 +23,7 @@ from bagi.experiments.m23_source_executed_recovery_learning import (
     RECOVERY_TRAIN_LAYOUTS,
     TASKS,
     decide,
+    enough_executed_recovery_evidence,
     monitor_episode,
 )
 from bagi.experiments.m23_source_interaction_context_bc import (
@@ -66,7 +67,7 @@ def test_public_true_actions_and_suffix_mask_reject_advisory_or_stale_history():
     validate_recovery_row(teacher, recovery=False)
     validate_recovery_row(recovery, recovery=True)
     bad = copy.deepcopy(recovery)
-    bad["y"][0] = 2
+    bad["public_first_open_action_index"] = 1
     with pytest.raises(ValueError, match="executed toggle"):
         validate_recovery_row(bad, recovery=True)
     bad = copy.deepcopy(recovery)
@@ -206,6 +207,20 @@ def sample_acquired(teacher_labels=140, public_opens=10):
         }
         for seed in MODEL_SEEDS
     }}
+
+
+def test_no_monitor_without_enough_actual_executed_rescue_labels():
+    assert enough_executed_recovery_evidence(sample_acquired())
+    assert not enough_executed_recovery_evidence(
+        sample_acquired(teacher_labels=127)
+    )
+    assert not enough_executed_recovery_evidence(
+        sample_acquired(public_opens=7)
+    )
+    wrong = sample_acquired()
+    del wrong["per_seed_task"]["fetch:953"]
+    with pytest.raises(ValueError, match="missing actual TRAIN"):
+        enough_executed_recovery_evidence(wrong)
 
 
 def test_preregistered_true_physical_gate_and_uncertainty_recomputed():

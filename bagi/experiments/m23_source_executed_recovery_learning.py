@@ -300,6 +300,22 @@ def decide(monitor: dict, acquisition: dict) -> dict:
     }
 
 
+def enough_executed_recovery_evidence(acquisition: dict) -> bool:
+    """Gate MONITOR access on genuine native rescue exposure, before any fitting."""
+    counts = acquisition["per_seed_task"]
+    if set(counts) != {
+        f"{task}:{seed}" for task in TASKS for seed in MODEL_SEEDS
+    }:
+        raise ValueError("Stage23 missing actual TRAIN acquisition source/task strata")
+    return all(
+        counts[f"doorkey:{seed}"]["actually_executed_teacher_suffix_native_actions"]
+        >= MIN_RECOVERY_NATIVE_LABELS_PER_SEED
+        and counts[f"doorkey:{seed}"]["public_witnessed_effectful_door_open_episodes"]
+        >= MIN_PUBLIC_TAKEOVERS_PER_SEED
+        for seed in MODEL_SEEDS
+    )
+
+
 def execute(output: str) -> dict:
     if output != f"{OUT}/summary.json" or Path(output).exists():
         raise ValueError("Stage23 scientific output must be fresh and isolated")
@@ -327,6 +343,43 @@ def execute(output: str) -> dict:
     acquired, acquired_meta = collect_acquired(frozen)
     if acquired_meta["real_shared_native_acquisition_steps"] != 6 * ACQUIRE_BUDGET:
         raise ValueError("Stage23 exact fixed shared native TRAIN acquisition broken")
+    if not enough_executed_recovery_evidence(acquired_meta):
+        # The precommitted real-event gates forbid opening independent held-out
+        # MONITOR if the actual TRAIN acquisition could not support recovery.
+        report = {
+            "study": "m23_stage23_source_true_executed_post_open_recovery_learning",
+            "execution_source_commit": source_sha,
+            "registered_scientific_decision": {
+                "registered_decision": "INSUFFICIENT",
+                "reason": "genuine executed recovery TRAIN action/open threshold not met",
+                "independent_monitor_not_opened": True,
+            },
+            "actual_new_native_source_teacher_steps": teacher_meta[
+                "real_teacher_native_steps"
+            ],
+            "actual_new_native_shared_acquisition_steps": acquired_meta[
+                "real_shared_native_acquisition_steps"
+            ],
+            "actual_native_monitor_steps": 0,
+            "actual_total_real_native_source_steps": (
+                teacher_meta["real_teacher_native_steps"]
+                + acquired_meta["real_shared_native_acquisition_steps"]
+            ),
+            "real_source_teacher_train": teacher_meta,
+            "actual_shared_native_learner_teacher_acquisition": acquired_meta,
+            "frozen_source_numeric_checkpoints": frozen_profiles,
+            "real_optimizer_updates": sum(
+                p["actual_optimizer_step_calls"] for p in frozen_profiles
+            ),
+            "original_target_unlockpickup_native_steps": 0,
+            "original_target_final_episodes": 0,
+        }
+        path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps({
+            "source": source_sha, "decision": "INSUFFICIENT",
+            "monitor_native_steps": 0,
+        }), flush=True)
+        return report
     models = {}
     final_profiles = []
     for seed in MODEL_SEEDS:
