@@ -201,11 +201,15 @@ def sample_monitor(ctrl=3, treatment=20, distinct=True):
 
 def sample_acquired(teacher_labels=140, public_opens=10):
     return {"per_seed_task": {
-        f"doorkey:{seed}": {
-            "actually_executed_teacher_suffix_native_actions": teacher_labels,
-            "public_witnessed_effectful_door_open_episodes": public_opens,
+        f"{task}:{seed}": {
+            "actually_executed_teacher_suffix_native_actions": (
+                teacher_labels if task == "doorkey" else 0
+            ),
+            "public_witnessed_effectful_door_open_episodes": (
+                public_opens if task == "doorkey" else 0
+            ),
         }
-        for seed in MODEL_SEEDS
+        for task in TASKS for seed in MODEL_SEEDS
     }}
 
 
