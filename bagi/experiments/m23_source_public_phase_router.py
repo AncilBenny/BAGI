@@ -23,6 +23,8 @@ from bagi.experiments.m23_source_feasibility import HORIZON
 from bagi.experiments.m23_source_mission_bc import make_native_audit, make_source_actor
 from bagi.experiments.m23_source_post_open_continuation_bc import (
     ARMS as FIT_ARMS,
+)
+from bagi.experiments.m23_source_post_open_continuation_bc import (
     MODEL_SEEDS,
     PostOpenGRU,
     fit_model,
@@ -363,17 +365,16 @@ def decide(monitor: dict) -> dict:
             if any([r["layout_seed"] for r in group] != layouts
                    for group in (control, post, routed)):
                 raise ValueError("Stage18 native MONITOR layouts unpaired")
-            if task == "fetch":
-                if any(
-                    a["actual_native_executed_action_sha256"]
-                    != b["actual_native_executed_action_sha256"]
-                    or a["actual_native_steps"] != b["actual_native_steps"]
-                    or a["external_strict_full_physical_goal"]
-                    != b["external_strict_full_physical_goal"]
-                    or b["public_witnessed_door_open"]
-                    for a, b in zip(control, routed, strict=True)
-                ):
-                    raise ValueError("Stage18 Fetch router/control source integrity failed")
+            if task == "fetch" and any(
+                a["actual_native_executed_action_sha256"]
+                != b["actual_native_executed_action_sha256"]
+                or a["actual_native_steps"] != b["actual_native_steps"]
+                or a["external_strict_full_physical_goal"]
+                != b["external_strict_full_physical_goal"]
+                or b["public_witnessed_door_open"]
+                for a, b in zip(control, routed, strict=True)
+            ):
+                raise ValueError("Stage18 Fetch router/control source integrity failed")
             gains = np.asarray([
                 int(b["external_strict_full_physical_goal"])
                 - int(a["external_strict_full_physical_goal"])
