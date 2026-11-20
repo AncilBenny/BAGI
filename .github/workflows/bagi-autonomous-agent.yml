@@ -151,12 +151,29 @@ jobs:
           test "$(git rev-parse HEAD)" = "$RESEARCH_SHA"
           mkdir -p evidence/verified
           gh run download "$RUN_ID" -R "$GITHUB_REPOSITORY" -n "$ARTIFACT_NAME" -D evidence/verified
-          marker=evidence/verified/research_branch_commit.txt
-          if [ ! -f "$marker" ]; then
-            marker=evidence/verified/research-loop/research_branch_commit.txt
-          fi
-          test -f "$marker"
-          test "$(tr -d '\r\n' < "$marker")" = "$RESEARCH_SHA"
+          # Match only the exact layouts already accepted by the trusted gate.
+          # A multi-root upload-artifact ZIP retains the "artifacts/" prefix.
+          python3 - <<'PYTHON'
+          import os
+          from pathlib import Path
+
+          candidates = (
+              Path("evidence/verified/research_branch_commit.txt"),
+              Path("evidence/verified/research-loop/research_branch_commit.txt"),
+              Path("evidence/verified/artifacts/research-loop/research_branch_commit.txt"),
+          )
+          present = [path for path in candidates if path.is_file()]
+          if len(present) != 1:
+              raise SystemExit("BAGI HOLD: missing or ambiguous verified archive source marker")
+          if present[0].stat().st_size > 128:
+              raise SystemExit("BAGI HOLD: source marker exceeds safe size")
+          try:
+              observed = present[0].read_text(encoding="ascii").strip()
+          except UnicodeError as exc:
+              raise SystemExit("BAGI HOLD: non-ASCII source marker") from exc
+          if observed != os.environ["RESEARCH_SHA"]:
+              raise SystemExit("BAGI HOLD: downloaded artifact source differs from audited SHA")
+          PYTHON
           printf '%s\n' "$RUN_ID" > evidence/verified/workflow_run_id.txt
           printf 'Research branch HEAD: %s\n' "$RESEARCH_SHA" > evidence/branch-head.txt
 
