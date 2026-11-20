@@ -19,7 +19,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     assert dispatch["options"] == [
         "legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7",
         "m8", "m9", "m10", "m10p1", "m11", "m12", "m13", "m14", "m15", "m16", "m17",
-        "m18", "m19", "m20", "m21", "m23", "m23wm", "m23balance", "m23memory", "m23effect", "m23probe", "m23stress", "m23action", "m23skill", "m23bc", "m23vision", "m23correct", "m23intervene", "m23recurrent", "m23actionmemory", "m23context", "m23continuation", "m23router", "m23eventmemory", "m23postcorrect", "m23rescue", "m23recoverylearn",
+        "m18", "m19", "m20", "m21", "m23", "m23wm", "m23balance", "m23memory", "m23effect", "m23probe", "m23stress", "m23action", "m23skill", "m23bc", "m23vision", "m23correct", "m23intervene", "m23recurrent", "m23actionmemory", "m23context", "m23continuation", "m23router", "m23eventmemory", "m23postcorrect", "m23rescue", "m23recoverylearn", "m23specialist",
     ]
     assert dispatch["default"] == "legacy"
     assert dispatch["required"] is True
@@ -73,6 +73,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
             ".github/bagi-m23postcorrect-once.json",
             ".github/bagi-m23rescue-once.json",
             ".github/bagi-m23recoverylearn-once.json",
+            ".github/bagi-m23specialist-once.json",
         ],
     }
     jobs = workflow["jobs"]
@@ -161,6 +162,10 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     m14 = steps["Run admitted M14 public native open-door goal replication"]
     assert "m14_public_open_door" in m14["run"]
     assert "--execute" in m14["run"]
+    specialist = steps["Run admitted M23 learned public post-open recovery specialist"]
+    assert "env.BAGI_RESEARCH_STUDY == 'm23specialist'" in specialist["if"]
+    assert "m23_source_learned_recovery_specialist" in specialist["run"]
+    assert "Install BAGI M23 learned public recovery specialist" in steps
     recovery = steps["Run admitted M23 actually executed recovery learned teacher-free GRUs"]
     assert "env.BAGI_RESEARCH_STUDY == 'm23recoverylearn'" in recovery["if"]
     assert "m23_source_executed_recovery_learning" in recovery["run"]
