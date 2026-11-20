@@ -19,7 +19,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     assert dispatch["options"] == [
         "legacy", "m1", "m2", "m3", "m4", "m5", "m6", "m7",
         "m8", "m9", "m10", "m10p1", "m11", "m12", "m13", "m14", "m15", "m16", "m17",
-        "m18", "m19", "m20", "m21", "m23", "m23wm", "m23balance", "m23memory", "m23effect", "m23probe", "m23stress", "m23action", "m23skill", "m23bc", "m23vision", "m23correct", "m23intervene", "m23recurrent", "m23actionmemory", "m23context", "m23continuation", "m23router",
+        "m18", "m19", "m20", "m21", "m23", "m23wm", "m23balance", "m23memory", "m23effect", "m23probe", "m23stress", "m23action", "m23skill", "m23bc", "m23vision", "m23correct", "m23intervene", "m23recurrent", "m23actionmemory", "m23context", "m23continuation", "m23router", "m23eventmemory",
     ]
     assert dispatch["default"] == "legacy"
     assert dispatch["required"] is True
@@ -69,6 +69,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
             ".github/bagi-m23context-once.json",
             ".github/bagi-m23continuation-once.json",
             ".github/bagi-m23router-once.json",
+            ".github/bagi-m23eventmemory-once.json",
         ],
     }
     jobs = workflow["jobs"]
@@ -157,6 +158,10 @@ def test_m1_installs_pinned_upstream_rl_only_when_selected_and_no_legacy_fit():
     m14 = steps["Run admitted M14 public native open-door goal replication"]
     assert "m14_public_open_door" in m14["run"]
     assert "--execute" in m14["run"]
+    event_memory = steps["Run admitted M23 native public witnessed event-memory GRU"]
+    assert "env.BAGI_RESEARCH_STUDY == 'm23eventmemory'" in event_memory["if"]
+    assert "m23_source_public_event_memory_bc" in event_memory["run"]
+    assert "Install BAGI M23 public source event-memory GRU" in steps
     router = steps["Run admitted M23 native public learned phase router"]
     assert "env.BAGI_RESEARCH_STUDY == 'm23router'" in router["if"]
     assert "m23_source_public_phase_router" in router["run"]
