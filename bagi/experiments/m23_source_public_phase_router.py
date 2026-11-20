@@ -23,8 +23,6 @@ from bagi.experiments.m23_source_feasibility import HORIZON
 from bagi.experiments.m23_source_mission_bc import make_native_audit, make_source_actor
 from bagi.experiments.m23_source_post_open_continuation_bc import (
     ARMS as FIT_ARMS,
-)
-from bagi.experiments.m23_source_post_open_continuation_bc import (
     MODEL_SEEDS,
     PostOpenGRU,
     fit_model,
