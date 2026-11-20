@@ -217,6 +217,6 @@ def test_preregistered_physics_action_nonvacuity_and_interval_gate():
 
 def test_native_monitor_layout_pairing_fail_closed():
     result = fake_monitor()
-    result["fetch:interaction_context:941"]["episodes"][0]["layout_seed"] = 1
+    result["fetch:public_open_memory:941"]["episodes"][0]["layout_seed"] = 1
     with pytest.raises(ValueError, match="layout pairing failed"):
         decide(result)

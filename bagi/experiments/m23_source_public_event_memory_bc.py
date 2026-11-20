@@ -235,7 +235,7 @@ def fit_model(
                 or not 1 <= len(y) <= HORIZON or not np.isfinite(x).all()
                 or set(np.unique(y)) - set(range(7))):
             raise ValueError("Stage19 public episode/native label alignment invalid")
-        if not np.array_equal(x[0, PUBLIC_WIDTH:], np.zeros(7, dtype=np.float32)):
+        if not np.array_equal(x[0, PUBLIC_WIDTH:], np.zeros(8, dtype=np.float32)):
             raise ValueError("Stage19 initial episode previous-action slot not zero")
         if len(y) > 1 and not np.array_equal(
             x[1:, PUBLIC_WIDTH:PUBLIC_WIDTH + 7],
