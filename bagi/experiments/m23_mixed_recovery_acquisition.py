@@ -252,7 +252,7 @@ def collect_acquired(
         for task in TASKS:
             pool = MIXED_RECOVERY_ACQUIRE_LAYOUTS[task]
             if len(pool) != 48:
-                raise ValueError("Stage25 acquisition source layout pool must be24")
+                raise ValueError("Stage25 acquisition source layout pool must be48")
             remaining = ACQUIRE_BUDGET
             reset_index = 0
             task_rows = []
