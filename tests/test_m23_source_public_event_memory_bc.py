@@ -163,7 +163,7 @@ def test_six_fit_contract_equal_capacity_updates_and_nonleaking_advice():
     with pytest.raises(ValueError, match="previous action"):
         fit_model(damaged, MODEL_SEEDS[0], "public_open_memory", weights)
     misaligned = native_episode_examples()
-    misaligned[0]["x"][0, -1] = 1
+    misaligned[0]["x"][1, -1] = 0
     with pytest.raises(ValueError, match="public event phase"):
         fit_model(misaligned, MODEL_SEEDS[0], "public_open_memory", weights)
     invalid = native_episode_examples()
