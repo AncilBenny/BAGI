@@ -12,9 +12,9 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 
-from minigrid.core.constants import OBJECT_TO_IDX
 import numpy as np
 import torch
+from minigrid.core.constants import OBJECT_TO_IDX
 from torch import nn
 
 from bagi.experiments.m1_goal_learning import admitted_source_commit
