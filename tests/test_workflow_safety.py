@@ -1,4 +1,8 @@
 """No custom quotas; publication and branch-integrity checks remain intact."""
+import os
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -56,6 +60,44 @@ class ScheduledSafetyTests(unittest.TestCase):
         for job in ('propose', 'validate', 'commit'):
             self.assertNotIn('always()', data['jobs'][job]['if'])
 
+
+    def test_agent_rechecks_real_multiroot_artifact_marker_and_rejects_ambiguity(self):
+        data = yaml.safe_load(
+            (ROOT / '.github/workflows/bagi-autonomous-agent.yml').read_text())
+        steps = data['jobs']['propose']['steps']
+        script = next(step['run'] for step in steps
+                      if step.get('name') == 'Download only the previously verified same-commit artifact')
+        self.assertIn('gh run download "$RUN_ID"', script)
+        self.assertIn('test "$(git rev-parse HEAD)" = "$RESEARCH_SHA"', script)
+        snippet = script.split("python3 - <<'PYTHON'\n", 1)[1].split('\nPYTHON', 1)[0]
+        compile(snippet, 'agent-extracted-marker', 'exec')
+        sha = 'a' * 40
+        layouts = (
+            'research_branch_commit.txt',
+            'research-loop/research_branch_commit.txt',
+            'artifacts/research-loop/research_branch_commit.txt',
+        )
+        def check(paths):
+            with tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary) / 'evidence' / 'verified'
+                root.mkdir(parents=True)
+                for rel, content in paths:
+                    path = root / rel
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(content, encoding='utf-8')
+                return subprocess.run(
+                    [sys.executable, '-c', snippet], cwd=temporary,
+                    env={**os.environ, 'RESEARCH_SHA': sha},
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    check=False,
+                ).returncode
+        for layout in layouts:
+            with self.subTest(layout=layout):
+                self.assertEqual(check([(layout, sha + '\n')]), 0)
+        self.assertNotEqual(check([]), 0)
+        self.assertNotEqual(check([(layouts[2], 'b' * 40)]), 0)
+        self.assertNotEqual(check([(layouts[2], sha), (layouts[0], sha)]), 0)
+        self.assertNotEqual(check([(layouts[2], sha + 'X' * 150)]), 0)
 
     def test_research_remains_pinned_and_rechecked_without_quota_files(self):
         research = yaml.safe_load(
