@@ -54,7 +54,7 @@ def test_stage20_fresh_teacher_acquisition_and_monitor_remain_disjoint():
     assert len(POST_CORRECT_MONITOR_LAYOUTS["fetch"]) == 40
     with pytest.raises(ValueError, match="prospectively restricted"):
         teacher_episode("doorkey", 932001)
-    with pytest.raises(ValueError, match="registered"):
+    with pytest.raises(ValueError, match="registration invalid"):
         learner_advice_episode(
             "doorkey", 453001, 941, None, 1, 0
         )
