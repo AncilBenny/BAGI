@@ -85,8 +85,7 @@ class ScheduledSafetyTests(unittest.TestCase):
                 return subprocess.run(
                     [sys.executable, '-c', snippet], cwd=temporary,
                     env={**os.environ, 'RESEARCH_SHA': sha},
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                    check=False,
+                    capture_output=True, check=False,
                 ).returncode
         for layout in layouts:
             with self.subTest(layout=layout):
