@@ -24,6 +24,12 @@ from bagi.experiments.m23_executed_recovery_train import (
     FOLLOWUP_UPDATES,
     TOKENS_PER_UPDATE,
 )
+from bagi.experiments.m23_mixed_recovery_acquisition import (
+    ACQUIRE_BUDGET,
+    TASKS,
+    collect_acquired,
+    collect_teacher,
+)
 from bagi.experiments.m23_mixed_recovery_train import (
     FIT_ARMS,
     fit_stage25_followup,
@@ -38,12 +44,6 @@ from bagi.experiments.m23_source_interaction_context_bc import (
 from bagi.experiments.m23_source_mission_bc import make_native_audit, make_source_actor
 from bagi.experiments.m23_source_post_open_continuation_bc import (
     public_door_open_transition,
-)
-from bagi.experiments.m23_mixed_recovery_acquisition import (
-    ACQUIRE_BUDGET,
-    TASKS,
-    collect_acquired,
-    collect_teacher,
 )
 from bagi.experiments.m23_study_contract import (
     MIXED_RECOVERY_ACQUIRE_LAYOUTS,
@@ -486,7 +486,7 @@ def execute(output: str) -> dict:
         raise ValueError("Stage25 source acquisition real steps not equal73728")
     if not enough_diverse_recovery_evidence(acquired_meta):
         report = {
-            "study": "m23_stage25_public_learned_post_open_recovery_specialist",
+            "study": "m23_stage25_diverse_mixed_recovery_rehearsal",
             "execution_source_commit": source_sha,
             "registered_scientific_decision": {
                 "registered_decision": "INSUFFICIENT",
@@ -554,7 +554,7 @@ def execute(output: str) -> dict:
         + monitor_steps
     )
     result = {
-        "study": "m23_stage25_public_learned_post_open_recovery_specialist",
+        "study": "m23_stage25_diverse_mixed_recovery_rehearsal",
         "execution_source_commit": source_sha,
         "source_train_layouts": {
             task: list(ids) for task, ids in MIXED_RECOVERY_TRAIN_LAYOUTS.items()

@@ -11,9 +11,9 @@ from bagi.experiments.m23_mixed_recovery_acquisition import (
 from bagi.experiments.m23_mixed_recovery_train import FIT_ARMS, fit_stage25_followup
 from bagi.experiments.m23_source_diverse_mixed_recovery import (
     ARMS,
-    MODEL_SEEDS,
     MIXED_RECOVERY_MONITOR_LAYOUTS,
     MIXED_RECOVERY_TRAIN_LAYOUTS,
+    MODEL_SEEDS,
     TASKS,
     decide,
     enough_diverse_recovery_evidence,
@@ -27,8 +27,8 @@ from bagi.experiments.m23_source_interaction_context_bc import (
 )
 from bagi.experiments.m23_study_contract import (
     FINAL_LAYOUTS,
-    RECOVERY_MONITOR_LAYOUTS,
     MIXED_RECOVERY_ACQUIRE_LAYOUTS,
+    RECOVERY_MONITOR_LAYOUTS,
     validate_split_contract,
 )
 
