@@ -1,4 +1,4 @@
-# BAGI — Building an Adaptive General Intelligence
+# BAGI — Building a Intelligence
 
 BAGI is an experimental research project exploring **sample-efficient, continually learning agents**.
 
