@@ -1,0 +1,89 @@
+{
+  "study": "G2-E5-P10a action-only Laplace negative control",
+  "date_utc": "2026-10-27",
+  "source_artifact_id": 12588790887,
+  "source_zip_sha256": "aaf8eb011763bf47e1d196771e257eb13c4eb35294bbeed2b71757ade525f073",
+  "scope": "E1 TRAIN-only; 6 numeric/string fields per domain; no original TEST/EVAL reads",
+  "method": "Independent hash-ranked P10a action-matched swaps, 2 held folds; Laplace (positives+1)/(count+2); each source group once",
+  "selection": [
+    {
+      "domain": "xland",
+      "held_fold": 0,
+      "train_rows": 1448,
+      "added_tails": 84,
+      "held_rows": 1712,
+      "removal_sha256": "c6c7626f7d84cb318b770be61cd1373efdd07a3e2eb5f51e492e929a81599c53"
+    },
+    {
+      "domain": "xland",
+      "held_fold": 1,
+      "train_rows": 1616,
+      "added_tails": 96,
+      "held_rows": 1532,
+      "removal_sha256": "70fd03d25a9044b5c234736e9ea15e448b669be62b4e41e1afe506e7b2652d25"
+    },
+    {
+      "domain": "workshop",
+      "held_fold": 0,
+      "train_rows": 95,
+      "added_tails": 5,
+      "held_rows": 100,
+      "removal_sha256": "899cb6da844f5d09e64cb7e22da1bdd2ad639675701f0b6ba6e96437a9bfee00"
+    },
+    {
+      "domain": "workshop",
+      "held_fold": 1,
+      "train_rows": 95,
+      "added_tails": 5,
+      "held_rows": 100,
+      "removal_sha256": "54e310d26420b86e68eb5dd1a5c797a8aa419b7ae0b8cf4d3a46a3ab6e1d6481"
+    }
+  ],
+  "group_equal_held_brier": {
+    "xland": {
+      "groups": 15,
+      "shifted": {
+        "all": 0.05697029576435915,
+        "non_tail": 0.04905969639172246,
+        "tail": 0.17452603091099347
+      },
+      "tail_swap": {
+        "all": 0.05639188396604324,
+        "non_tail": 0.0497063818944159,
+        "tail": 0.1553288970744887
+      },
+      "relative_change": {
+        "all": -0.010152866341230471,
+        "non_tail": 0.013181604254741242,
+        "tail": -0.10999581974275874
+      }
+    },
+    "workshop": {
+      "groups": 10,
+      "shifted": {
+        "all": 0.1863210889703314,
+        "non_tail": 0.18776626674393943,
+        "tail": 0.15886271127177876
+      },
+      "tail_swap": {
+        "all": 0.18538486280333602,
+        "non_tail": 0.18736296559165044,
+        "tail": 0.14780090982536193
+      },
+      "relative_change": {
+        "all": -0.005024799780686373,
+        "non_tail": -0.002147889284282223,
+        "tail": -0.06963120141826451
+      }
+    }
+  },
+  "interpretation": "Laplace action-only already achieves 11.00% XLand held-tail improvement from label coverage; the P10a 10% threshold alone is not learned observation-conditioned effect prediction. No neural fit or P10a PASS.",
+  "resources": {
+    "new_native_actions": 0,
+    "new_resets": 0,
+    "model_fits": 0,
+    "optimizer_updates": 0,
+    "teacher_queries": 0,
+    "original_test_eval_array_reads": 0
+  }
+}

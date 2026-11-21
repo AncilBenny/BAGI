@@ -1,0 +1,28 @@
+# G2-E5-P4 — Upstream RND/SB3 integration contract audit (2026-10-26)
+
+**Status: STOP for P4 native training.** This is a source/provenance and control-contract check; not an RND import, wheel inspection, model training, real simulator experiment, proof RND fails, or evidence of general intelligence. The frozen P4 preregistration and its 65,536 TRAIN / 20,800 maximum TEST real-action cap remain unchanged.
+
+## Research question and verified source chain
+
+The preregistered hypothesis asks whether upstream Random Network Distillation can produce independent native Workshop goals with public-only observations under matched PPO budgets. The last software-gate commit `b6fa74ef2fada9691e96cfd8e8ebfda192a38b9d` has **push CI `40272272482` and PR CI `40272276710` SUCCESS**, including lint and tests. **No P4 native run or P4 output artifact** was created by either CI run; the existing `bagi/experiments/g2_e5_p4_wheel_preflight.py` still returns `STOP_NO_NATIVE_TRAINING`.
+
+The upstream official RLeXplore repository **does not supply a separately pip-installable lightweight intrinsic-reward package in its root instructions**. Its README directs users to install `rllte-core` and import `rllte.xplore.reward`. Source: [RLeXplore README](https://github.com/RLE-Foundation/RLeXplore/blob/main/README.md), Git blob `4f8847064910c63481d30d9a607dbdd519a18156`.
+
+The same repo's official [RLeXplore with Stable-Baselines3 notebook](https://github.com/RLE-Foundation/RLeXplore/blob/main/2%20rlexplore_with_sb3.ipynb), source blob `d8eaffe75019e6aa9842f6f49fcfd9890409bfba` (branch source HEAD `49a953f253ccc852f676aadb7d75f8a16ea5618d` when inspected), demonstrates **E3B, not RND**, with `Pendulum-v1`, `n_envs=4`, `device='cuda'` and 25,000 steps. Its PPO callback:
+- calls `irs.compute(samples=..., sync=True)` **at rollout end** and adds raw intrinsic reward directly to `rollout_buffer.advantages` and `rollout_buffer.returns`. This is not equivalent to injecting a reward *before* correct returns and GAE are computed under the frozen P4 reward contract. It cannot be silently represented as a validated one-step native reward composition.
+- uses `irs` from the notebook's outer scope inside the callback rather than consistently `self.irs`, and reconstructs `next_observations` from shifted rollout buffer observations plus the final `new_obs`. The latter is **potentially** wrong at episode-boundary/autoreset transitions and requires explicit terminal-observation verification.
+- does not enforce P4's one intrinsic predictor update for **each executed TRAIN action**. In the audited [upstream RND source](https://github.com/RLE-Foundation/rllte/blob/b5d55c826a449b235f773992e74e11b0ae2c7801/rllte/xplore/reward/rnd.py), `compute(sync=True)` updates its predictor using batched samples; number of updates depends on minibatch sizing, not intrinsically one per native transition.
+
+## Dependency and action-count blockers remain independent
+
+- Source-pinned [RLLTE `pyproject.toml` on the May 24, 2024 release-era source](https://github.com/RLE-Foundation/rllte/blob/3615d8b974bcb49f2b9d0dc967db4f7dfedb24ad/pyproject.toml) and [upstream July 2025 source](https://github.com/RLE-Foundation/rllte/blob/b5d55c826a449b235f773992e74e11b0ae2c7801/pyproject.toml) both declare `matplotlib==3.6.0`, inconsistent with BAGI's `>=3.9`. The **exact** official `rllte-core==1.0.1` wheel `Requires-Dist` is still **not independently verified**; neither historical source snapshot proves all wheel metadata.
+- Source-pinned upstream `BaseReward` default `obs_norm_type='rms'` performs 2,560 environment steps on initialization, outside P4's frozen action budget unless disabled or fully counted. See [upstream code](https://github.com/RLE-Foundation/rllte/blob/b5d55c826a449b235f773992e74e11b0ae2c7801/rllte/common/prototype/base_reward.py). Setting `obs_norm_type='none'` looks necessary but is not itself a complete compatible solution.
+- PyPI lists release `1.0.1` (2024-05-25) with wheel SHA256 `3a0ec99c27eae05def49fee79cf868bca298fbf2f7db9c3b90f9be3fd467d6b3`: https://pypi.org/project/rllte-core/1.0.1/. The wheel bytes could **not** be retrieved in this runtime, so its distribution dependencies and runtime remain unverified, not assumed.
+
+## Decision and next falsifiable action
+
+**Do NOT rerun failed lint CI, install a dependency override, copy the upstream E3B callback as RND, run P4 native training, add workflows, handwrite an RND replacement, or change source/TEST seeds.** The already-fixed CI is green. RND is still a conceivable established option, but no source-verified, dependency-resolvable, CPU-only drop-in satisfying the frozen reward/update/action budget is demonstrated.
+
+The next *single preflight-only* gate is a **hash-verified official 1.0.1 wheel metadata read**, ordinary complete dependency resolution, then a counted synthetic CPU RND import/compute/update + SB3 integration in which a fake environment fails on **any** unexpected reset/step and the bonus is integrated before PPO return/GAE computation. If any part fails or requires substantive unreviewed adaptation, close P4 as an integration STOP and investigate an independently preregistered, supported approach to learn sparse native Workshop goals rather than more benchmark-specific BLUE heuristics.
+
+**Accounting:** 0 new native Workshop/XLand actions or resets, TRAIN/TEST reads, heldout labels, teacher calls, policy/predictor updates, wheel installs, secrets changes, workflow edits, deployments or billing. Source/protocol audit only. No learned-policy, memory, navigation, transferable skill or cross-domain claims.

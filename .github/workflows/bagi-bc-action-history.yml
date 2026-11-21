@@ -1,0 +1,47 @@
+name: BAGI Existing BC with Action History
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_bc_action_history.py"
+      - "tests/test_xland_bc_action_history.py"
+      - "configs/xland_bc_action_history.yaml"
+      - ".github/workflows/bagi-bc-action-history.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  historical-bc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install upstream imitation and CPU torch without CUDA
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir "xminigrid==0.9.3" "imitation==1.0.1" "pyyaml>=6" "pytest>=8" "ruff>=0.6"
+      - name: Lint and test history information boundary
+        run: |
+          ruff check bagi/experiments/xland_bc_action_history.py tests/test_xland_bc_action_history.py
+          python -m pytest -q tests/test_xland_bc_action_history.py
+      - name: Train existing class-balanced BC with only previous actions
+        run: python -m bagi.experiments.xland_bc_action_history --config configs/xland_bc_action_history.yaml
+      - name: Save actual closed-loop skill measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-existing-bc-action-history
+          path: runs/xland_bc_action_history/summary.json
+          if-no-files-found: warn
+          retention-days: 30

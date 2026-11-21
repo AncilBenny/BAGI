@@ -1,0 +1,46 @@
+name: BAGI DAgger Teacher Feasibility
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_dagger_teacher_feasibility.py"
+      - "tests/test_xland_dagger_teacher_feasibility.py"
+      - "configs/xland_dagger_teacher_feasibility.yaml"
+      - ".github/workflows/bagi-dagger-teacher-feasibility.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  teacher-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install tested upstream XLand and diagnostics
+        run: |
+          python -m pip install --no-cache-dir "xminigrid==0.9.3" "pyyaml>=6" "pytest>=8" "ruff>=0.6"
+      - name: Lint and guard training-only oracle limits
+        run: |
+          ruff check bagi/experiments/xland_dagger_teacher_feasibility.py tests/test_xland_dagger_teacher_feasibility.py
+          python -m pytest -q tests/test_xland_dagger_teacher_feasibility.py
+      - name: Validate first-action corrective oracle in XLand
+        run: python -m bagi.experiments.xland_dagger_teacher_feasibility --config configs/xland_dagger_teacher_feasibility.yaml
+      - name: Save measured recovery results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-dagger-teacher-feasibility
+          path: runs/xland_dagger_teacher_feasibility/summary.json
+          if-no-files-found: warn
+          retention-days: 30

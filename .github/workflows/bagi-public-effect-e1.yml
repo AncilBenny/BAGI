@@ -1,0 +1,67 @@
+name: "BAGI G2-E1: Native Public Action-Effect Prediction Gate"
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/public_effect_e1_native_runner.py"
+      - ".github/workflows/bagi-public-effect-e1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  public-effect-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+      OMP_NUM_THREADS: "1"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Restore existing checksum-verified TRAIN-only numeric sources
+        run: |
+          mkdir -p runs/e1_source runs/e1_original_teacher runs/e1_diverse_teacher
+          gh run download 39637067506 --repo AncilBenny/BAGI --name bagi-dagger-action-provenance --dir runs/e1_source
+          gh run download 40101923830 --repo AncilBenny/BAGI --name bagi-reuse33-complete-demo-bc --dir runs/e1_original_teacher
+          gh run download 40110945017 --repo AncilBenny/BAGI --name bagi-reuse36-diverse-physical-training --dir runs/e1_diverse_teacher
+          test -f runs/e1_source/action_provenance_seed17.npz
+          test -f runs/e1_source/action_provenance_seed29.npz
+          test -f runs/e1_original_teacher/train_source_complete_demos.npz
+          test -f runs/e1_diverse_teacher/diverse_train_physical.npz
+      - name: Install pinned native CPU XLand and upstream imitation environment
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir -r requirements/xland-reuse31.txt
+          python -m pip check
+      - name: Validate public-only collection and prediction contracts
+        run: |
+          ruff check bagi/agents/public_effect_prediction.py bagi/agents/public_effect_collection.py bagi/experiments/public_effect_workshop_native.py bagi/experiments/public_effect_xland_native.py bagi/experiments/public_effect_e1_native_runner.py tests/test_public_effect_prediction.py tests/test_public_effect_collection.py tests/test_public_effect_workshop_native.py tests/test_public_effect_xland_native.py tests/test_public_effect_e1_native_runner.py
+          python -m pytest -q tests/test_public_effect_prediction.py tests/test_public_effect_collection.py tests/test_public_effect_workshop_native.py tests/test_public_effect_xland_native.py tests/test_public_effect_e1_native_runner.py
+      - name: Collect native transitions and fit/evaluate two-domain effect predictors
+        run: |
+          python -m bagi.experiments.public_effect_e1_native_runner \
+            --source-dir runs/e1_source \
+            --old-teacher-dir runs/e1_original_teacher \
+            --diverse-dir runs/e1_diverse_teacher \
+            --output-dir runs/g2_e1_public_effect
+      - name: Archive safe native summary and numeric audit data even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-g2-e1-public-effect-native
+          path: |
+            runs/g2_e1_public_effect/summary.json
+            runs/g2_e1_public_effect/public_effect_numeric.npz
+          retention-days: 30
+          if-no-files-found: warn
+

@@ -1,0 +1,7 @@
+# REUSE-6: primitives encountered separately; held-out requires chain of BOTH.
+# All use ORIGINAL XLand rule classes and unmodified simulator, no downloaded pickle.
+environment: XLand-MiniGrid-R1-9x9
+evaluation:
+  seeds: [5100, 5101, 5102]
+  max_steps: 40
+  output_dir: runs/xland_structural_composition

@@ -1,0 +1,50 @@
+name: "BAGI G2-E4-P4: Raw vs Scaled Public PPO"
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/e4_p4_raw_vs_scaled_ppo.py"
+      - ".github/workflows/bagi-input-scale-e4-p4.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bagi-e4-p4-one-scaling-native-trial
+  cancel-in-progress: false
+
+jobs:
+  public-input-scale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install existing CPU Torch, official MiniGrid and SB3
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir -e '.[dev,rl]'
+          python -m pip check
+      - name: Fail closed on source lint and synthetic step/observation contracts
+        run: |
+          ruff check bagi/experiments/e4_p4_raw_vs_scaled_ppo.py tests/test_e4_p4_raw_vs_scaled_ppo.py
+          python -m pytest -q tests/test_e4_p4_raw_vs_scaled_ppo.py
+      - name: Execute ONE frozen paired raw vs /10 training and evaluation
+        run: |
+          python -m bagi.experiments.e4_p4_raw_vs_scaled_ppo --output-dir runs/g2_e4_p4_input_scale
+      - name: Preserve numeric-only TRAIN and TEST evidence including partial result on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-g2-e4-p4-input-scaling
+          path: runs/g2_e4_p4_input_scale/
+          if-no-files-found: warn
+          retention-days: 30

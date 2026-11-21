@@ -1,0 +1,56 @@
+name: BAGI Frozen Causal Phase Audit
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_phase_diagnostics.py"
+      - "tests/test_xland_phase_diagnostics.py"
+      - "configs/xland_phase_diagnostics.yaml"
+      - ".github/workflows/bagi-phase-diagnostics.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  phase-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download reviewed original numeric demonstration pool
+        uses: actions/download-artifact@v4
+        with:
+          name: bagi-dagger-matched-sampler-control
+          run-id: 39619756922
+          repository: AncilBenny/BAGI
+          github-token: ${{ github.token }}
+          path: runs/reuse16_phase_data
+      - name: Install pinned upstream simulator and BC
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir "xminigrid==0.9.3" "imitation==1.0.1" "pyyaml>=6" "pytest>=8" "ruff>=0.6"
+      - name: Lint and test phase semantics
+        run: |
+          ruff check bagi/experiments/xland_phase_diagnostics.py tests/test_xland_phase_diagnostics.py
+          python -m pytest -q tests/test_xland_phase_diagnostics.py
+      - name: Replay same learned models and count actual simulator milestones
+        run: python -m bagi.experiments.xland_phase_diagnostics --config configs/xland_phase_diagnostics.yaml
+      - name: Publish causal-phase evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-frozen-causal-phases
+          path: runs/xland_phase_diagnostics/summary.json
+          if-no-files-found: warn
+          retention-days: 30

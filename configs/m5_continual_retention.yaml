@@ -1,0 +1,17 @@
+# BAGI-M5 predeclared continual task retention within MiniGrid; no other heldout seeds.
+registered_study: m5
+tasks: [MiniGrid-MemoryS7-v0, MiniGrid-DoorKey-8x8-v0]
+arms: [blocked, interleaved, memory_only, doorkey_only]
+model_seeds: [71, 83]
+steps_per_task: 65536
+rollout_steps: 128
+batch_size: 64
+epochs_per_rollout: 2
+evaluation_horizon: 256
+memory_monitor_seeds: [104001, 104002, 104003, 104004, 104005, 104006]
+doorkey_monitor_seeds: [105001, 105002, 105003, 105004, 105005, 105006]
+memory_heldout_seeds: [102001, 102002, 102003, 102004, 102005, 102006, 102007, 102008, 102009, 102010, 102011, 102012]
+doorkey_heldout_seeds: [103001, 103002, 103003, 103004, 103005, 103006, 103007, 103008, 103009, 103010, 103011, 103012]
+mission_encoding_width: 64
+action_history: 4
+output_dir: runs/m5_continual_retention

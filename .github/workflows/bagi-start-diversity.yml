@@ -1,0 +1,43 @@
+name: BAGI Start Diversity
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/worlds/workshop.py"
+      - "bagi/experiments/start_diversity.py"
+      - "tests/test_start_diversity.py"
+      - "configs/start_diversity.yaml"
+      - ".github/workflows/bagi-start-diversity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bagi-start-diversity
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install minimal dependencies
+        run: pip install "numpy>=1.26" "gymnasium>=1.0" "pyyaml>=6.0" "pytest>=8.0"
+      - name: Check backward compatibility and seeded-start invariants
+        run: python -m pytest -q tests/test_start_diversity.py tests/test_workshop.py
+      - name: Compare fixed and varied starts at identical collection budgets
+        run: python -m bagi.experiments.start_diversity --config configs/start_diversity.yaml
+      - name: Upload start-diversity research
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-gate-a5-start-diversity
+          path: runs/start_diversity/summary.json
+          if-no-files-found: warn
+          retention-days: 30

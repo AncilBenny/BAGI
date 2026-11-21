@@ -1,0 +1,15 @@
+# REUSE-17: frozen numeric labels from successful REUSE-16 run only.
+# No teacher, DAgger or privileged state collected during replication.
+environment: XLand-MiniGrid-R1-9x9
+bc_reference_config: configs/xland_bc_class_balance.yaml
+original_source_run_id: 39619756922
+source_artifact_dir: runs/reuse16_frozen_source
+training_tasks: [hold, near, putdown]
+conditions: [ordinary, class_balanced]
+model_seeds: [17, 29]
+anchor_evaluation_seeds: [9100, 9101, 9102]
+new_evaluation_seeds: [9200, 9201, 9202, 9203, 9204, 9205]
+episode_cap: 40
+replay_bc_epochs: 12
+batch_size: 32
+output_dir: runs/xland_dagger_replication

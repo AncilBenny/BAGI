@@ -1,0 +1,6 @@
+{
+  "study": "m23recurrent",
+  "force_retrain": true,
+  "expected_parent_sha": "b5bf91c3d409d9063c026cf15da3249778d85841",
+  "request_id": "BAGI-M23-RECURRENT-2026-11-15"
+}

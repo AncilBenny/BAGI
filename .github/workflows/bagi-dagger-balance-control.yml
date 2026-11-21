@@ -1,0 +1,47 @@
+name: BAGI DAgger Matched Sampler Control
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_dagger_balance_control.py"
+      - "tests/test_xland_dagger_balance_control.py"
+      - "configs/xland_dagger_balance_control.yaml"
+      - ".github/workflows/bagi-dagger-balance-control.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  matched-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install upstream DAgger and CPU PyTorch
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir "xminigrid==0.9.3" "imitation==1.0.1" "pyyaml>=6" "pytest>=8" "ruff>=0.6"
+      - name: Lint and guard data-pool comparability
+        run: |
+          ruff check bagi/experiments/xland_dagger_balance_control.py tests/test_xland_dagger_balance_control.py
+          python -m pytest -q tests/test_xland_dagger_balance_control.py
+      - name: Compare two BC conditions on each identical DAgger pool
+        run: python -m bagi.experiments.xland_dagger_balance_control --config configs/xland_dagger_balance_control.yaml
+      - name: Publish evidence and safe numeric label pools
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-dagger-matched-sampler-control
+          path: runs/xland_dagger_balance_control/
+          if-no-files-found: warn
+          retention-days: 30

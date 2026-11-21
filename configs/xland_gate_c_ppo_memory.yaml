@@ -1,0 +1,16 @@
+# REUSE-32 Gate C. One small preregistered matched native-interaction smoke.
+# No tuning after looking at outcomes. Source tasks only, no chain oracle.
+environment: XLand-MiniGrid-R1-9x9
+policy_input_width: 115
+training_tasks: [hold, near, putdown]
+model_seeds: [17, 29]
+training:
+  seed_base: 9400
+  native_steps_per_policy: 1024
+  rollout_steps: 128
+  batch_size: 64
+  epochs_per_rollout: 2
+evaluation:
+  layout_seeds: [9900, 9901, 9902, 9903, 9904]
+  episode_cap: 40
+output_dir: runs/xland_gate_c_ppo_memory

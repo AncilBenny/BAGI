@@ -1,0 +1,9 @@
+# Gate B1: diagnostic-only history disambiguation on fixed Workshop layout.
+environment:
+  size: 9
+  max_steps: 100
+  view_size: 5
+evaluation:
+  max_states: 512
+  history_lengths: [0, 1, 2, 4, 8, 16]
+  output_dir: runs/history_ambiguity

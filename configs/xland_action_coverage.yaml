@@ -1,0 +1,7 @@
+# REUSE-8: add an upstream rewarded-putdown task to the training skill set.
+# This is an oracle-only curriculum gate; learned PPO retraining requires a fresh design.
+environment: XLand-MiniGrid-R1-9x9
+evaluation:
+  seeds: [5100, 5101, 5102]
+  max_steps: 40
+  output_dir: runs/xland_action_coverage

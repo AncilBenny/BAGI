@@ -1,0 +1,55 @@
+name: BAGI Frozen DAgger BC Replication
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/xland_dagger_replication.py"
+      - "tests/test_xland_dagger_replication.py"
+      - "configs/xland_dagger_replication.yaml"
+      - ".github/workflows/bagi-dagger-replication.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  frozen-replication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Retrieve completed REUSE-16 numeric pool artifact
+        run: |
+          mkdir -p runs/reuse16_frozen_source
+          gh run download 39619756922 --repo AncilBenny/BAGI --name bagi-dagger-matched-sampler-control --dir runs/reuse16_frozen_source
+          test -f runs/reuse16_frozen_source/expert_pool_seed17.npz
+          test -f runs/reuse16_frozen_source/expert_pool_seed29.npz
+      - name: Install CPU-only upstream BC and XLand
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir "xminigrid==0.9.3" "imitation==1.0.1" "pyyaml>=6" "pytest>=8" "ruff>=0.6"
+      - name: Lint and verify frozen-source safety tests
+        run: |
+          ruff check bagi/experiments/xland_dagger_replication.py tests/test_xland_dagger_replication.py
+          python -m pytest -q tests/test_xland_dagger_replication.py
+      - name: Reproduce previous results and run new independent seeds
+        run: python -m bagi.experiments.xland_dagger_replication --config configs/xland_dagger_replication.yaml
+      - name: Preserve independent evaluation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-dagger-frozen-replication
+          path: runs/xland_dagger_replication/summary.json
+          if-no-files-found: warn
+          retention-days: 30
