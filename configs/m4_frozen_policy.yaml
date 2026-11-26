@@ -1,0 +1,13 @@
+# BAGI-M4 frozen numeric M3 policy evaluation; no training.
+registered_study: m4
+train_task: MiniGrid-MemoryS7-v0
+transfer_task: MiniGrid-MemoryS13Random-v0
+arms: [reactive, action4, frame4, recurrent]
+model_seeds: [37, 53]
+evaluation_seeds: [98001, 98002, 98003, 98004, 98005, 98006, 98007, 98008, 98009, 98010, 98011, 98012]
+transfer_seeds: [99001, 99002, 99003, 99004, 99005, 99006, 99007, 99008, 99009, 99010, 99011, 99012]
+sampled_repeats: 5
+max_eval_steps: 120
+m3_artifact_id: 13823291153
+m3_source_commit: 99f7f194787c1f02014b692aed221957639b77e6
+output_dir: runs/m4_frozen_policy

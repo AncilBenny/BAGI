@@ -1,0 +1,13 @@
+registered_study: m10p1
+task: MiniGrid-DoorKey-8x8-v0
+arms: [raw_history, raw_direction, onehot_direction]
+model_seeds: [211, 223]
+train_steps_per_fit: 131072
+rollout_steps: 128
+batch_size: 64
+epochs_per_rollout: 2
+evaluation_horizon: 256
+monitor_seeds: [119101, 119102, 119103, 119104, 119105, 119106]
+heldout_seeds: [120001, 120002, 120003, 120004, 120005, 120006, 120007, 120008, 120009, 120010, 120011, 120012]
+sampled_repeats: 3
+output_dir: runs/m10_public_representation

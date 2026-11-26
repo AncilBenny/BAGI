@@ -34,8 +34,10 @@ new exploratory work. Choose useful objectives and report limitations candidly.
 
 Scheduled research still checks CI and pins the evaluated source. Serialized
 workflow groups prevent overlapping copies of the same workflow. Daily budget
-jobs and custom timeout settings have been removed. The hourly research loop and
-existing agent/task schedules may continue without waiting for a daily reset.
+jobs and custom timeout settings have been removed. The hourly research loop and existing agent/task schedules may continue without
+waiting for a daily reset. During convergence scheduled ticks verify provenance
+and validate the runtime; explicitly selected studies still run real training.
+Historical diagnostic workflows with missing frozen inputs remain manual-only.
 
 Proposal jobs prepare code; separate jobs validate and publish their patches.
 There is no six-file or 250 KB proposal restriction. The patch guard keeps runner

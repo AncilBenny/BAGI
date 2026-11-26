@@ -1,54 +1,69 @@
-# BAGI — Building a Intelligence
+# BAGI — Building an Adaptive General Intelligence
 
-BAGI is an experimental research project exploring **sample-efficient, continually learning agents**.
+BAGI is an experimental project to build **one persistent, sample-efficient,
+continually learning agent**. It is not a claim of AGI.
 
-The goal is to build a small learning organism that can:
+## Run the current agent foundation
 
-1. observe a partially observable world,
-2. remember useful information,
-3. learn a predictive world model,
-4. act and observe consequences,
-5. plan using learned dynamics,
-6. explore to acquire useful information,
-7. transfer learned structure to new situations,
-8. improve while minimizing real environment interactions.
-
-## Research question
-
-> How much useful capability can an agent acquire per unit of experience?
-
-We will measure environment interactions, transfer, generalization, forgetting, and planning gain—not only final reward.
-
-## Phase 0 — The Workshop
-
-The first environment is a lightweight 2D laboratory with partial observability and reusable causal rules: doors, switches, keys, movable blocks, hazards, and energy sources.
-
-The first milestone is intentionally simple: **build the laboratory before building the organism.**
-
-## Run
-
-This repository is designed to work locally or in GitHub Codespaces.
+In a Codespace or a Python 3.11+ environment:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
-python -m bagi.demo
+pip install -e '.[dev]'
+python -m bagi
+ruff check .
+pytest -q
 ```
 
-## Roadmap
+The entry point runs the existing synthetic public-evidence and skill-recovery
+contract through the common runtime. It is not a trained general agent and does
+not demonstrate native environment transfer. The runtime now supports versioned
+JSON skill-outcome checkpoints and frozen outcome-counter evaluation. The existing
+DQN can now act through the same runtime and save a CPU-only local bundle containing
+policy and target weights, optimizer, replay, RNG and runtime outcome counts.
+Native sequential transfer and world-model persistence are not established.
 
-- M0: 2D Workshop environment
-- M1: model-free baseline
-- M2: predictive world model
-- M3: recurrent memory / partial observability
-- M4: planning through imagined trajectories
-- M5: curiosity / uncertainty-driven exploration
-- M6: transfer to unseen layouts
-- M7: compositional tasks
-- M8: continual learning and forgetting tests
-- M9: multi-agent learning
+## Native training, resume and evaluation
 
-## Status
+The same runtime can now execute Workshop, learn from its actual native actions,
+save its neural and replay state, resume, and evaluate without updating.
+These commands are a diagnostic workflow, not a registered scientific study:
 
-Early experimental research platform. Expect architecture and APIs to change rapidly.
+```bash
+python -m bagi workshop train --output runs/start --episodes 10 --first-seed 310001
+python -m bagi workshop train --output runs/resume --episodes 10 --first-seed 310011 --checkpoint runs/start/learner.pt
+python -m bagi workshop evaluate --output runs/eval --episodes 5 --first-seed 320001 --layout mirror_x --checkpoint runs/resume/learner.pt
+```
+
+Each output directory must be new. Resume uses the saved learner configuration.
+The JSON summary records source revision, checkpoint digests, seed range,
+native actions, actual optimizer updates, physical success and reward separately.
+Register fresh, independent layouts and matched controls before scientific use;
+these example seeds are not reserved research splits. Workshop has limited layout
+variation and mirrored layouts alone do not establish cross-environment transfer.
+
+## One system, one roadmap
+
+- [Active roadmap](docs/ACTIVE_ROADMAP.md): current acceptance criteria and next work.
+- [Architecture](docs/GENERAL_AGENT_ARCHITECTURE.md): public-only reusable brain.
+- [Research protocol](docs/RESEARCH_PROTOCOL.md), [safety policy](docs/RESEARCH_SAFETY_POLICY.md)
+  and [reuse inventory](docs/REUSE_INVENTORY.md): evidence and execution rules.
+- [Append-only research history](docs/autonomous-research-log.md): previous results,
+  including failed gates. They are not deleted or reclassified.
+
+The existing experiments, models, environments, and workflows remain available
+for reproducibility. Workshop and XLand are diagnostic environments, not the
+definition of BAGI. Legacy commands such as `make demo`, `make collect`,
+`make baseline` and `make world-model` are retained; see the Makefile.
+New research should solve a specific missing capability of the shared runtime,
+not accumulate isolated benchmark specialists.
+
+## What success means
+
+A single compatible learning state is carried across tasks and process restarts.
+Native held-out task completion, transfer, forgetting, interaction efficiency,
+optimizer updates and uncertainty are measured against appropriate controls.
+Reward alone and synthetic contract tests do not establish physical competence.
+
+Operational milestones require Ruff, pytest, exact current push and PR CI,
+reviewed integration, and verification of main. Work in progress is tracked in
+[convergence issue #4](https://github.com/AncilBenny/BAGI/issues/4).

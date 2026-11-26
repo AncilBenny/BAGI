@@ -1,0 +1,11 @@
+# Gate A5: opt-in seed-varying start-chamber intervention, default unchanged.
+environment:
+  size: 9
+  max_steps: 100
+  view_size: 5
+evaluation:
+  real_interaction_budget: 5765
+  guided_episodes: 50
+  guided_actions: [1, 1, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2]
+  collection_seeds: [512, 1024, 1536]
+  output_dir: runs/start_diversity

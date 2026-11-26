@@ -1,0 +1,64 @@
+name: "BAGI G2-E4-P2: Frozen Stochastic Policy Selection"
+
+on:
+  push:
+    branches: ["setup/initial-platform"]
+    paths:
+      - "bagi/experiments/e4_p2_frozen_runner.py"
+      - ".github/workflows/bagi-frozen-policy-selection-e4-p2.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: bagi-e4-p2-one-frozen-native-trial
+  cancel-in-progress: false
+
+jobs:
+  frozen-policy-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install existing CPU Torch and pinned upstream RL libraries
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir -e '.[dev,rl]'
+          python -m pip check
+      - name: Synthetic preflight before ANY heldout simulator action
+        run: |
+          ruff check bagi/experiments/e4_p2_frozen_contract.py bagi/experiments/e4_p2_frozen_runner.py tests/test_e4_p2_frozen_contract.py tests/test_e4_p2_frozen_runner.py
+          python -m pytest -q tests/test_e4_p2_frozen_contract.py tests/test_e4_p2_frozen_runner.py
+      - name: Download ONLY pinned previous numeric research artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p runs
+          curl --fail --location --silent --show-error --retry 2 --max-time 120 \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/AncilBenny/BAGI/actions/artifacts/12606845219/zip" \
+            --output runs/g2_e4_p1_pinned_source.zip
+          echo "b3cecce2f9cb15092490f893ba8b0df16a9424a6d1b010747b07094cdccfa712  runs/g2_e4_p1_pinned_source.zip" | sha256sum --check --status
+      - name: Run ONE preregistered P2 frozen policy comparison, no retraining
+        run: |
+          python -m bagi.experiments.e4_p2_frozen_runner \
+            --source-archive runs/g2_e4_p1_pinned_source.zip \
+            --output-dir runs/g2_e4_p2_frozen_policy_selection
+      - name: Archive numeric-only native TEST actions and complete/partial summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-g2-e4-p2-frozen-policy-selection
+          path: runs/g2_e4_p2_frozen_policy_selection/
+          if-no-files-found: warn
+          retention-days: 30

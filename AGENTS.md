@@ -57,3 +57,16 @@ changes or bypassing milestone PR validation.
   outputs. Keep credentials and generated checkpoints out of source commits.
 - The existing runner can be extended with tested training commands as part of
   ordinary development. No separate training-permission request is necessary.
+
+
+## Active development direction
+
+- The primary deliverable is one runnable, persistent learning agent. Follow
+  docs/ACTIVE_ROADMAP.md before selecting an experiment. Existing study code and
+  artifacts are historical evidence and reusable components, not parallel products.
+- Do not promote a benchmark score, a new study number or a proposal to a system
+  milestone. Tie experiments to named runtime capability gaps and integrate useful
+  results behind the shared public observation/action contract.
+- During convergence, preserve cron cadences but make the scheduled study runner
+  provenance-gated runtime validation rather than legacy fits; explicit source-bound training remains
+  authorized. Coordinate both workers through the shared concurrency group.

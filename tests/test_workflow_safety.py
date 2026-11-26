@@ -20,17 +20,24 @@ class ScheduledSafetyTests(unittest.TestCase):
             with self.subTest(workflow=filename):
                 data = yaml.safe_load((ROOT / '.github/workflows' / filename).read_text())
                 triggers = data.get('on', data.get(True))
-                self.assertEqual(set(triggers), {'schedule', 'workflow_dispatch'})
+                expected_triggers = {'schedule', 'workflow_dispatch'}
+                if filename == 'bagi-research-loop.yml':
+                    expected_triggers.add('push')
+                self.assertEqual(set(triggers), expected_triggers)
                 self.assertEqual(triggers['schedule'], [{'cron': cron}])
                 self.assertEqual(data['jobs'][blocked]['needs'], 'audit')
-                self.assertEqual(data['jobs'][blocked]['if'],
-                                 "needs.audit.result == 'success'")
+                condition = "needs.audit.result == 'success'"
+                if filename == 'bagi-research-loop.yml':
+                    condition += " && github.event_name != 'schedule'"
+                self.assertEqual(data['jobs'][blocked]['if'], condition)
+                self.assertEqual(data['concurrency']['group'], 'bagi-coordinated-development')
+                self.assertFalse(data['concurrency']['cancel-in-progress'])
                 self.assertNotIn('budget', data['jobs'])
                 for job in data['jobs'].values():
                     self.assertNotIn('timeout-minutes', job)
                 audit = data['jobs']['audit']
                 self.assertEqual(audit['permissions'], {'contents': 'read', 'actions': 'read'})
-                expected_steps = 3 if filename == 'bagi-research-loop.yml' else 2
+                expected_steps = 4 if filename == 'bagi-research-loop.yml' else 2
                 self.assertEqual(len(audit['steps']), expected_steps)
                 self.assertEqual(audit['steps'][0]['uses'], 'actions/checkout@v4')
                 self.assertFalse(audit['steps'][0]['with']['persist-credentials'])
@@ -43,10 +50,30 @@ class ScheduledSafetyTests(unittest.TestCase):
                                      '${{ inputs.study }}')
                 code = audit['steps'][-1]['run']
                 self.assertIn('ci_snapshot(api, sha)', code)
+                self.assertIn('file=sys.stderr', code)
                 self.assertIn('this does not establish scientific progress', code)
                 for forbidden in ('subprocess', 'pip install', 'make ', 'copilot ', 'git push'):
                     self.assertNotIn(forbidden, code)
                 compile(code.split("<<'PYTHON'\n", 1)[1].rsplit('PYTHON', 1)[0], filename, 'exec')
+
+    def test_convergence_runtime_evidence_and_historical_native_workflow(self):
+        runner = yaml.safe_load(
+            (ROOT / '.github/workflows/bagi-research-loop.yml').read_text())
+        contract = runner['jobs']['runtime_contract']
+        self.assertEqual(contract['needs'], 'audit')
+        self.assertEqual(contract['if'],
+                         "needs.audit.result == 'success' && github.event_name == 'schedule'")
+        self.assertEqual(contract['permissions'], {'contents': 'read', 'actions': 'read'})
+        self.assertEqual(contract['steps'][0]['with']['ref'],
+                         '${{ needs.audit.outputs.research_sha }}')
+        self.assertIn('ci_snapshot(api, sha)', contract['steps'][1]['run'])
+        self.assertIn('scientific_result', contract['steps'][3]['run'])
+        self.assertIn('bagi-runtime-contract-', contract['steps'][4]['with']['name'])
+        legacy = yaml.safe_load(
+            (ROOT / '.github/workflows/bagi-general-brain-native-g1.yml').read_text())
+        self.assertEqual(set(legacy.get('on', legacy.get(True))), {'workflow_dispatch'})
+        self.assertIn('Historical G1 input unavailable', legacy['jobs']['two-real-worlds']
+                      ['steps'][2]['run'])
 
     def test_autonomous_writes_still_require_evidence_and_validation(self):
         data = yaml.safe_load(

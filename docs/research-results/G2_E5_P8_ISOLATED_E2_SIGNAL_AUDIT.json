@@ -1,0 +1,68 @@
+{
+  "study": "G2-E5-P8",
+  "status": "read_only_isolated_e2_train_signal_preflight",
+  "source": "BAGI_G2_E2_ACTOR0_TRAIN_ONLY_20261026.zip",
+  "isolated_zip_sha256": "8d3f167ce977f62d3397ff37c553d8948b94bc03ac6d88df8a5a6e5fe86aac83",
+  "source_mixed_zip_reopened": false,
+  "original_eval_arrays_read": 0,
+  "public_next_chain": {
+    "episodes": 104,
+    "within_episode_pairs": 3992,
+    "mismatches": 0
+  },
+  "public_change_definition": "any of 25 next public tile values differs from current public tile",
+  "per_policy_seed": {
+    "17": {
+      "rows": 2048,
+      "changed": 1259,
+      "by_action": {
+        "0": {
+          "rows": 530,
+          "changed": 247
+        },
+        "1": {
+          "rows": 378,
+          "changed": 354
+        },
+        "2": {
+          "rows": 597,
+          "changed": 258
+        },
+        "3": {
+          "rows": 543,
+          "changed": 400
+        }
+      }
+    },
+    "29": {
+      "rows": 2048,
+      "changed": 1195,
+      "by_action": {
+        "0": {
+          "rows": 462,
+          "changed": 226
+        },
+        "1": {
+          "rows": 482,
+          "changed": 349
+        },
+        "2": {
+          "rows": 673,
+          "changed": 237
+        },
+        "3": {
+          "rows": 431,
+          "changed": 383
+        }
+      }
+    }
+  },
+  "total_rows": 4096,
+  "total_changed": 2454,
+  "new_native_actions": 0,
+  "new_native_resets": 0,
+  "teacher_queries": 0,
+  "model_fits": 0,
+  "policy_updates": 0,
+  "interpretation": "Exploratory observational TRAIN-only rates, not a causal action effect, hidden-state proof, independent goal evaluation, or cross-domain transfer."
+}

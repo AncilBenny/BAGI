@@ -1,0 +1,70 @@
+name: BAGI G1 General Brain Workshop and XLand Native Adapters
+
+# Historical reproduction; do not trigger expired-artifact studies on core edits.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  two-real-worlds:
+    runs-on: ubuntu-latest
+    env:
+      JAX_PLATFORM_NAME: cpu
+      XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
+      OMP_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Restore frozen safe numeric original and physical TRAIN data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p runs/g1_source runs/g1_original_teacher runs/g1_diverse_teacher
+          restore() {
+            local run="$1" name="$2" dest="$3" count
+            count=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run}/artifacts" \
+              --jq "[.artifacts[] | select(.name == \"${name}\" and .expired == false)] | length")
+            if [[ "$count" != "1" ]]; then
+              echo "::error::Historical G1 input unavailable or ambiguous: run $run, artifact $name. No native execution admitted."
+              exit 1
+            fi
+            gh run download "$run" --repo "$GITHUB_REPOSITORY" --name "$name" --dir "$dest"
+          }
+          restore 39637067506 bagi-dagger-action-provenance runs/g1_source
+          restore 40101923830 bagi-reuse33-complete-demo-bc runs/g1_original_teacher
+          restore 40110945017 bagi-reuse36-diverse-physical-training runs/g1_diverse_teacher
+          test -f runs/g1_source/action_provenance_seed17.npz
+          test -f runs/g1_source/action_provenance_seed29.npz
+          test -f runs/g1_original_teacher/train_source_complete_demos.npz
+          test -f runs/g1_diverse_teacher/diverse_train_physical.npz
+      - name: Install pinned native XLand and imitation.BC CPU runtime
+        run: |
+          python -m pip install --no-cache-dir "torch==2.5.1+cpu" --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --no-cache-dir -r requirements/xland-reuse31.txt
+          python -m pip check
+      - name: Check native Workshop and XLand public-only control contracts
+        run: |
+          ruff check bagi/agents/general_brain.py bagi/agents/public_evidence.py bagi/experiments/general_brain_native_g1.py tests/test_general_brain.py tests/test_general_brain_native_g1.py
+          python -m pytest -q tests/test_general_brain.py tests/test_general_brain_native_g1.py
+      - name: Execute SAME General Brain in two native environments
+        run: |
+          python -m bagi.experiments.general_brain_native_g1 \
+            --source-dir runs/g1_source \
+            --old-teacher-dir runs/g1_original_teacher \
+            --diverse-dir runs/g1_diverse_teacher \
+            --output-dir runs/g1_native
+      - name: Archive native Workshop and XLand outcomes even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-g1-native-general-brain
+          path: runs/g1_native/summary.json
+          retention-days: 30
+          if-no-files-found: warn

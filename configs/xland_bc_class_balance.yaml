@@ -1,0 +1,12 @@
+# REUSE-10: one unchanged 256-label three-skill dataset, weighted vs unweighted
+# Existing BC implementation and equivalent optimization exposure count.
+environment: XLand-MiniGrid-R1-9x9
+demonstration_labels_per_curriculum: 256
+demonstration_seed_base: 5100
+max_collection_attempts: 200
+episode_cap: 40
+batch_size: 32
+epochs: 12
+policy_training_seeds: [17, 29]
+evaluation_seeds: [9100, 9101, 9102]
+output_dir: runs/xland_bc_class_balance

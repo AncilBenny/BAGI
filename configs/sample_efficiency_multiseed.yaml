@@ -1,0 +1,3 @@
+base_config: configs/sample_efficiency.yaml
+training_seeds: [42, 43, 44]
+output_dir: runs/sample_efficiency_multiseed

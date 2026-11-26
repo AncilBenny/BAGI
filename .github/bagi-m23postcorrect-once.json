@@ -1,0 +1,6 @@
+{
+  "study": "m23postcorrect",
+  "force_retrain": true,
+  "expected_parent_sha": "cf54771adbacf4874ce49f3dd110f150d97300d8",
+  "request_id": "BAGI-M23-POSTCORRECT-2026-11-20"
+}

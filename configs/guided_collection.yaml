@@ -1,0 +1,9 @@
+seed: 42
+environment:
+  size: 9
+  max_steps: 100
+  view_size: 5
+collection:
+  guided_episodes: 50
+  random_episodes: 50
+  output_dir: runs/workshop_guided

@@ -1,0 +1,13 @@
+registered_study: m7
+task: MiniGrid-DoorKey-8x8-v0
+arms: [reset128, continue_episode]
+model_seeds: [97, 109]
+m6_source_commit: 3842c2f7ac4b78a592faac8730e4466e145dbd7b
+m6_config_sha256: 36b302a4a214fa6b547c646e9b8f9ec2733625dce7c0f35e2a57ed69b8140088
+m6_artifact_id: 13838577607
+m6_artifact_sha256: 10f425ac3fc2420a4ba970180c3947eeffab28414cad9353ebdc2558042a661b
+reference_seeds: [108001, 108002, 108003, 108004, 108005, 108006]
+heldout_seeds: [109001, 109002, 109003, 109004, 109005, 109006, 109007, 109008, 109009, 109010, 109011, 109012]
+sampled_repeats: 5
+evaluation_horizon: 256
+output_dir: runs/m7_frozen_doorkey_sampling
