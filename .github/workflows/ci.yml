@@ -26,6 +26,29 @@ jobs:
         run: ruff check .
       - name: Tests
         run: pytest -q
+      - name: One-off Gate A native feasibility pilot
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-pilot]')
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          python -m bagi.experiments.cumulative_transfer --output "$RUNNER_TEMP/gate-a-pilot" > "$RUNNER_TEMP/gate-a-pilot-console.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p = Path(os.environ["RUNNER_TEMP"]) / "gate-a-pilot" / "summary.json"
+          s = json.loads(p.read_text())
+          assert s["source"]["commit"] == os.environ["GITHUB_SHA"]
+          assert s["source"]["tracked_worktree_dirty"] is False
+          assert s["scientific_pass"] is False
+          print({k: s[k] for k in ("actual_exposure_actions", "actual_training_actions",
+                                  "actual_evaluation_actions", "actual_optimizer_updates",
+                                  "actual_replay_presentations", "seconds")})
+          PY
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-pilot]')
+        with:
+          name: bagi-gate-a-feasibility-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gate-a-pilot
+          if-no-files-found: error
       - name: Record tested PR merge provenance
         if: github.event_name == 'pull_request'
         run: |

@@ -48,7 +48,7 @@ def make_env(domain):
 
 
 def encode(domain, obs, action=None, reward=0.0, done=False):
-    """Separate modality slots; public interface ID, previous action and reward."""
+    """Separate modality slots; public interface ID, previous executed action."""
     x = np.zeros(WIDTH, dtype=np.float32)
     if domain == TASKS[0]:
         x[:147] = np.asarray(obs["image"], dtype=np.float32).reshape(147) / 10
@@ -118,6 +118,7 @@ def run_episode(learner, domain, seed, *, learn, limit=HORIZON):
             ))
         return {
             "seed": seed, "domain": domain, "actions": len(actions),
+            "executed_actions": actions,
             "action_sha256": hashlib.sha256(bytes(actions)).hexdigest(),
             "reward": sum(rewards), "physical_success": physical,
             "native_end": terminals[-1], "learn": learn,
@@ -221,6 +222,19 @@ def run_pilot(output: Path, *, model_seeds=(41, 43, 47), block=256, blocks=16, e
                    "block": block, "blocks": blocks, "eval_count": eval_count},
         "actual_exposure_actions": sum(row["actions"] for row in traces),
         "actual_training_actions": sum(row["actions"] for row in traces if row["learn"]),
+        "actual_evaluation_actions": sum(
+            r["A"]["actions"] if r["arm"] == "shared_A" else
+            r["A_after"]["actions"] + sum(p["B"]["actions"] for p in r["B_curve"])
+            for r in results
+        ),
+        "actual_optimizer_updates": sum(
+            r["updates"] if r["arm"] == "shared_A" else r["B_optimizer_updates"]
+            for r in results
+        ),
+        "actual_replay_presentations": sum(
+            r["replay_presentations"] if r["arm"] == "shared_A" else
+            r["B_replay_presentations"] for r in results
+        ),
         "seconds": time.monotonic() - start, "results": results,
         "limitations": "Exploratory seeds; MiniGrid layouts can recur; no confirmatory inference.",
     }

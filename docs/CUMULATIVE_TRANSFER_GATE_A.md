@@ -51,7 +51,12 @@ episode cut by a block boundary is not a physical goal; targets may bootstrap
 at that artificial cut. The pilot is intentionally not powered for a
 scientific decision. No competence or positive-transfer claim from CI smoke.
 
-Command after admission:
+The isolated branch's explicit [gate-a-pilot] commit triggers one exploratory
+pilot in existing push CI only after Ruff and pytest succeed, exact checkout
+SHA verified, read-only permissions. This does not start a new schedule or
+admit confirmatory evaluation; remove the one-off step before integration.
+
+Command for explicit subsequent reproduction:
 ```sh
 python -m bagi.experiments.cumulative_transfer --output runs/gate-a-pilot
 ```
