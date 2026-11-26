@@ -2832,3 +2832,6 @@
 
 - Based on `4477ce22d73e673c9c570d15fe989f6db49f94df`. Adds a CLI to train, resume and evaluate the existing DQN through the same public-action runtime in native Workshop. Logs actual native action traces, reward separately from independently audited physical termination, optimizer counts, seeds, source and checkpoint hashes. Does not feed simulator info into the policy. Outputs isolated, existing results untouched.
 - Added native integration tests for actual train/resume/frozen action accounting and non-overwrite. These are deliberately not scientific transfer evidence; no new native study or outcome is claimed before execution. Candidate requires full Ruff/pytest and review.
+
+
+- Follow-up validation #45886424001: Ruff passed; pytest 906 passed, 10 skipped, 47 subtests passed, one failure in the frozen G2-E6-P0B DQN blob check. Preserve the exact original DQN blob `4c5fac098e53e9c81884d36e14b894679b40513d` rather than changing historical registration. Runtime-specific RNG/replay/update counting is isolated in a subclass; inherited optimizer algorithm remains unchanged. New candidate CI required.

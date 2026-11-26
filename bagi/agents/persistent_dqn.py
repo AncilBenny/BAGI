@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import os
+import random
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -14,8 +15,45 @@ from typing import Any
 import numpy as np
 import torch
 
-from bagi.agents.dqn import DQNAgent, Transition
+from bagi.agents.dqn import DQNAgent, ReplayBuffer, Transition
 from bagi.runtime import AgentRuntime, StepFeedback
+
+
+class RuntimeReplay(ReplayBuffer):
+    """Local sampling RNG while retaining the original replay implementation."""
+
+    def __init__(self, rng: random.Random) -> None:
+        super().__init__()
+        self.rng = rng
+
+    def sample(self, batch_size: int) -> list[Transition]:
+        return self.rng.sample(self._data, batch_size)
+
+    def transitions(self) -> tuple[Transition, ...]:
+        return tuple(self._data)
+
+
+class RuntimeDQN(DQNAgent):
+    """Reuse the frozen DQN optimization code without modifying its source."""
+
+    def __init__(self, observation_shape, actions, learning_rate, gamma, *, seed):
+        super().__init__(observation_shape, actions, learning_rate, gamma)
+        self.rng = random.Random(seed)
+        self.buffer = RuntimeReplay(self.rng)
+        self.optimizer_updates = 0
+
+    def select_action(self, observation: np.ndarray, epsilon: float) -> int:
+        if self.rng.random() < epsilon:
+            return self.rng.randrange(self.actions)
+        with torch.no_grad():
+            values = self.online(torch.as_tensor(observation).unsqueeze(0))
+            return int(values.argmax(dim=1).item())
+
+    def learn(self, batch_size: int = 64) -> float | None:
+        loss = super().learn(batch_size)
+        if loss is not None:
+            self.optimizer_updates += 1
+        return loss
 
 
 class PersistentDQN:
@@ -57,7 +95,7 @@ class PersistentDQN:
         # Keep initialization independent of unrelated training processes.
         with torch.random.fork_rng(devices=[]):
             torch.manual_seed(seed)
-            self.agent = DQNAgent(
+            self.agent = RuntimeDQN(
                 observation_shape, actions, learning_rate, gamma, seed=seed
             )
         self.training_actions = 0
