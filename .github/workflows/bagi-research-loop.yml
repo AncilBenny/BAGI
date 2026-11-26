@@ -224,7 +224,7 @@ jobs:
         run: |
           pip install -e '.[dev]'
           ruff check .
-          pytest -q tests/test_agent_runtime.py tests/test_general_brain.py tests/test_persistent_dqn.py
+          pytest -q tests/test_agent_runtime.py tests/test_general_brain.py tests/test_persistent_dqn.py tests/test_workshop_runtime.py
           mkdir -p artifacts/runtime-contract
           python -m bagi > artifacts/runtime-contract/synthetic_smoke.json
           git rev-parse HEAD > artifacts/runtime-contract/research_branch_commit.txt

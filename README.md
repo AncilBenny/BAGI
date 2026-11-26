@@ -22,6 +22,25 @@ DQN can now act through the same runtime and save a CPU-only local bundle contai
 policy and target weights, optimizer, replay, RNG and runtime outcome counts.
 Native sequential transfer and world-model persistence are not established.
 
+## Native training, resume and evaluation
+
+The same runtime can now execute Workshop, learn from its actual native actions,
+save its neural and replay state, resume, and evaluate without updating.
+These commands are a diagnostic workflow, not a registered scientific study:
+
+```bash
+python -m bagi workshop train --output runs/start --episodes 10 --first-seed 310001
+python -m bagi workshop train --output runs/resume --episodes 10 --first-seed 310011 --checkpoint runs/start/learner.pt
+python -m bagi workshop evaluate --output runs/eval --episodes 5 --first-seed 320001 --layout mirror_x --checkpoint runs/resume/learner.pt
+```
+
+Each output directory must be new. Resume uses the saved learner configuration.
+The JSON summary records source revision, checkpoint digests, seed range,
+native actions, actual optimizer updates, physical success and reward separately.
+Register fresh, independent layouts and matched controls before scientific use;
+these example seeds are not reserved research splits. Workshop has limited layout
+variation and mirrored layouts alone do not establish cross-environment transfer.
+
 ## One system, one roadmap
 
 - [Active roadmap](docs/ACTIVE_ROADMAP.md): current acceptance criteria and next work.

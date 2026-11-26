@@ -2826,3 +2826,9 @@
 - Candidate connects the existing DQN learner to the common runtime's public executed-action hook and saves model, target, Adam, replay, RNG and outcome state in a local CPU bundle. New tests exercise real optimizer updates on synthetic arrays and frozen evaluation. They are engineering checks, not a preregistered native study. Full CI and review still required.
 
 - Candidate push CI #45886174115 failed Ruff C408 at the DQN configuration dictionary; pytest did not run. This follow-up uses a dictionary literal; previous failure retained as engineering evidence.
+
+
+## 2026-11-27 — native runtime start-path candidate (engineering)
+
+- Based on `4477ce22d73e673c9c570d15fe989f6db49f94df`. Adds a CLI to train, resume and evaluate the existing DQN through the same public-action runtime in native Workshop. Logs actual native action traces, reward separately from independently audited physical termination, optimizer counts, seeds, source and checkpoint hashes. Does not feed simulator info into the policy. Outputs isolated, existing results untouched.
+- Added native integration tests for actual train/resume/frozen action accounting and non-overwrite. These are deliberately not scientific transfer evidence; no new native study or outcome is claimed before execution. Candidate requires full Ruff/pytest and review.

@@ -9,6 +9,7 @@ See issue #4 and preserve all historical preregistrations, results and artifacts
 | --- | --- |
 | `bagi/agents/general_brain.py` | Reusable goal/skill planning and verified effects |
 | `bagi/runtime.py` | Common episode lifecycle and versioned outcome checkpoint |
+| `bagi/workshop_runtime.py`, `python -m bagi workshop` | Runnable native train/resume/frozen diagnostic through the common runtime |
 | `bagi/models/world_model.py`, `bagi/planning/` | Candidates for runtime integration; validate interfaces before use |
 | `bagi/agents/dqn.py`, `bagi/agents/persistent_dqn.py` | Existing DQN update algorithm exposed as a persistent runtime skill; other RL/BC adapters remain candidates |
 | `bagi/experiments/`, Workshop, MiniGrid, XLand | Historical studies and diagnostics; retain reproducibility |
@@ -24,7 +25,9 @@ See issue #4 and preserve all historical preregistrations, results and artifacts
    model/target/optimizer/replay/RNG and outcome-counter checkpointing. Verify
    resume, explicit adapter compatibility and evaluation isolation in CI. Integrate
    recurrent and world-model state only as needed by a native curriculum.
-3. **Native sequential curriculum.** Reuse existing maintained implementations
+3. **Native sequential curriculum.** A native Workshop diagnostic now exercises
+   the shared runtime and persists action traces; it is not a multi-task study.
+   Reuse existing maintained implementations
    and adapters; choose two genuinely different task families. Compare carried
    state versus reset/fresh and frozen controls at matched real interactions and
    seeds. Register splits, physical goals and decision criteria before acquiring

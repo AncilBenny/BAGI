@@ -1,8 +1,8 @@
 """One public-observation episode lifecycle for the existing GeneralBrain.
 
-Version 1 checkpoints contain option outcome counts, not policy weights, world
-models or transient environment state. Adapters must provide a compatibility ID
-that changes when skill semantics, policy weights or observation contracts change.
+Version 1 JSON checkpoints contain option outcome counts, not policy weights,
+world models or transient environment state. Full learner bundles are separate.
+Adapters must provide a compatibility ID for skill and observation semantics.
 """
 from __future__ import annotations
 
