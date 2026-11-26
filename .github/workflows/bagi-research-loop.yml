@@ -120,7 +120,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: bagi-research-loop
+  group: bagi-coordinated-development
   cancel-in-progress: false
 
 jobs:
@@ -173,6 +173,7 @@ jobs:
               if ci_snapshot(api, sha) != snapshot:
                   raise GateError("CI or PR provenance changed during audit")
           except (GateError, KeyError, TypeError, ValueError) as exc:
+              print(f"CI audit HOLD: {exc}", file=sys.stderr)
               with open(summary, "a", encoding="utf-8") as output:
                   output.write(f"CI audit HOLD: {exc}\n")
                   output.write("Research waits for verified CI; no work was admitted.\n")
@@ -187,7 +188,8 @@ jobs:
 
   research:
     needs: audit
-    if: needs.audit.result == 'success'
+    # Scheduled ticks audit provenance; training is selected explicitly during convergence.
+    if: needs.audit.result == 'success' && github.event_name != 'schedule'
     runs-on: ubuntu-latest
     env:
       BAGI_RESEARCH_STUDY: ${{ needs.audit.outputs.study }}

@@ -12,7 +12,7 @@ WORKFLOW = (
 
 def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
-    assert workflow["concurrency"]["group"] == "bagi-research-loop"
+    assert workflow["concurrency"]["group"] == "bagi-coordinated-development"
     # PyYAML may parse the YAML 1.1 key "on" as the boolean True.
     triggers = workflow.get("on", workflow.get(True))
     dispatch = triggers["workflow_dispatch"]["inputs"]["study"]
@@ -81,7 +81,9 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
     assert list(jobs) == ["audit", "research"]
     assert jobs["research"]["needs"] == "audit"
     assert "timeout-minutes" not in jobs["research"]
-    assert jobs["research"]["if"] == "needs.audit.result == 'success'"
+    assert jobs["research"]["if"] == (
+        "needs.audit.result == 'success' && github.event_name != 'schedule'"
+    )
     assert triggers["workflow_dispatch"]["inputs"]["force_retrain"]["type"] == "boolean"
     assert jobs["research"]["env"]["BAGI_RESEARCH_STUDY"] == (
         "${{ needs.audit.outputs.study }}"

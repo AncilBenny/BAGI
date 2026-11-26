@@ -14,10 +14,10 @@ from pathlib import Path
 from bagi.agents.general_brain import (
     GeneralBrain,
     Goal,
-    NoPlanError,
     PublicFactSensor,
     Skill,
 )
+from bagi.runtime import AgentRuntime, StepFeedback
 
 
 @dataclass
@@ -52,22 +52,18 @@ def option(
 
 
 def episode(brain: GeneralBrain, task: ObservableTask, goal: Goal) -> dict:
-    brain.reset(goal, task.facts)
-    executed = []
-    while not brain.complete and not brain.exhausted:
-        try:
-            decision = brain.decide()
-        except NoPlanError:
-            break
-        after = task.step(decision.action)
-        brain.observe(decision.action, after)
-        executed.append(decision.skill_id)
+    runtime = AgentRuntime(brain, "synthetic-contract-v1")
+
+    def step(action):
+        return StepFeedback(action, task.step(action))
+
+    result = runtime.run_episode(goal, task.facts, step)
     return {
         "goal": goal.goal_id,
-        "goal_verified": brain.complete,
+        "goal_verified": result.goal_verified,
         "real_mock_actions": task.real_actions,
-        "skill_sequence": executed,
-        "confirmed_public_facts": sorted(brain.facts),
+        "skill_sequence": list(result.skills),
+        "confirmed_public_facts": sorted(result.public_facts),
     }
 
 

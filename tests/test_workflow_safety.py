@@ -26,8 +26,12 @@ class ScheduledSafetyTests(unittest.TestCase):
                 self.assertEqual(set(triggers), expected_triggers)
                 self.assertEqual(triggers['schedule'], [{'cron': cron}])
                 self.assertEqual(data['jobs'][blocked]['needs'], 'audit')
-                self.assertEqual(data['jobs'][blocked]['if'],
-                                 "needs.audit.result == 'success'")
+                condition = "needs.audit.result == 'success'"
+                if filename == 'bagi-research-loop.yml':
+                    condition += " && github.event_name != 'schedule'"
+                self.assertEqual(data['jobs'][blocked]['if'], condition)
+                self.assertEqual(data['concurrency']['group'], 'bagi-coordinated-development')
+                self.assertFalse(data['concurrency']['cancel-in-progress'])
                 self.assertNotIn('budget', data['jobs'])
                 for job in data['jobs'].values():
                     self.assertNotIn('timeout-minutes', job)
@@ -46,6 +50,7 @@ class ScheduledSafetyTests(unittest.TestCase):
                                      '${{ inputs.study }}')
                 code = audit['steps'][-1]['run']
                 self.assertIn('ci_snapshot(api, sha)', code)
+                self.assertIn('file=sys.stderr', code)
                 self.assertIn('this does not establish scientific progress', code)
                 for forbidden in ('subprocess', 'pip install', 'make ', 'copilot ', 'git push'):
                     self.assertNotIn(forbidden, code)

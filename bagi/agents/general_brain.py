@@ -240,6 +240,8 @@ class GeneralBrain:
         executed_action: Action,
         new_public_observation: Any,
         public_reward: float = 0.0,
+        *,
+        learn: bool = True,
     ) -> ObservationResult:
         if self._pending is None or self._active is None:
             raise RuntimeError("No issued action awaiting a real observation")
@@ -261,7 +263,8 @@ class GeneralBrain:
         finished = succeeded or self._active_steps >= skill.max_actions
         skill_result = succeeded if finished else None
         if finished:
-            self.experience[skill.skill_id].record(succeeded)
+            if learn:
+                self.experience[skill.skill_id].record(succeeded)
             if not succeeded:
                 self._attempts[skill.skill_id] = (
                     self._attempts.get(skill.skill_id, 0) + 1
