@@ -5,7 +5,12 @@ import torch
 
 from bagi.agents.recurrent_replay import Episode, RecurrentReplay
 from bagi.experiments.cumulative_transfer import (
-    ACTIONS, TASKS, WIDTH, evaluate, run_episode, run_pilot,
+    ACTIONS,
+    TASKS,
+    WIDTH,
+    evaluate,
+    run_episode,
+    run_pilot,
 )
 
 

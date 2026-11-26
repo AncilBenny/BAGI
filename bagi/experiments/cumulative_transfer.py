@@ -11,6 +11,7 @@ import hashlib
 import json
 import time
 from importlib.metadata import version
+from itertools import pairwise
 from pathlib import Path
 
 import gymnasium as gym
@@ -205,7 +206,7 @@ def run_pilot(output: Path, *, model_seeds=(41, 43, 47), block=256, blocks=16, e
                 traces.extend(dict(row, model_seed=seed, arm=arm) for row in rows)
             after = evaluate(learner, TASKS[0], eval_a)
             values = [point["B"]["success"] for point in curve]
-            auc = sum((a + b) / 2 for a, b in zip(values, values[1:])) / blocks
+            auc = sum((a + b) / 2 for a, b in pairwise(values)) / blocks
             results.append({
                 "seed": seed, "arm": arm, "B_curve": curve, "B_success_auc": auc,
                 "A_before_shared": a_before["success"], "A_after": after,
