@@ -44,11 +44,16 @@ class PersistentDQN:
             or not math.isfinite(learning_rate) or learning_rate <= 0
         ):
             raise ValueError("Invalid DQN configuration")
-        self.config = dict(
-            observation_shape=tuple(observation_shape), actions=actions, seed=seed,
-            epsilon=epsilon, batch_size=batch_size, target_sync_steps=target_sync_steps,
-            learning_rate=learning_rate, gamma=gamma,
-        )
+        self.config = {
+            "observation_shape": tuple(observation_shape),
+            "actions": actions,
+            "seed": seed,
+            "epsilon": epsilon,
+            "batch_size": batch_size,
+            "target_sync_steps": target_sync_steps,
+            "learning_rate": learning_rate,
+            "gamma": gamma,
+        }
         # Keep initialization independent of unrelated training processes.
         with torch.random.fork_rng(devices=[]):
             torch.manual_seed(seed)
