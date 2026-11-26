@@ -186,9 +186,60 @@ jobs:
               output.write("research_sha=" + sha + "\n")
           PYTHON
 
+  runtime_contract:
+    needs: audit
+    if: needs.audit.result == 'success' && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.audit.outputs.research_sha }}
+          persist-credentials: false
+      - name: Recheck exact source and CI before engineering validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ needs.audit.outputs.research_sha }}
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          import subprocess
+          import sys
+          sys.path.insert(0, "scripts")
+          from bagi_evidence_gate import BRANCH, GateError, Github, ci_snapshot
+          api = Github(os.environ["GITHUB_REPOSITORY"], os.environ["GH_TOKEN"])
+          sha = os.environ["EXPECTED_SHA"]
+          if (subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip() != sha
+                  or api.request("branches/" + BRANCH.replace("/", "%2F"))["commit"]["sha"] != sha):
+              raise GateError("runtime contract source changed")
+          ci_snapshot(api, sha)
+          PYTHON
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install and run runtime contracts
+        run: |
+          pip install -e '.[dev]'
+          ruff check .
+          pytest -q tests/test_agent_runtime.py tests/test_general_brain.py tests/test_persistent_dqn.py
+          mkdir -p artifacts/runtime-contract
+          python -m bagi > artifacts/runtime-contract/synthetic_smoke.json
+          git rev-parse HEAD > artifacts/runtime-contract/research_branch_commit.txt
+          printf '%s\n' '{"evidence_kind":"engineering_contract","scientific_result":false}' > artifacts/runtime-contract/evidence_type.json
+      - name: Publish engineering evidence only after successful checks
+        uses: actions/upload-artifact@v4
+        with:
+          name: bagi-runtime-contract-${{ github.run_number }}
+          path: artifacts/runtime-contract/
+          if-no-files-found: error
+          retention-days: 30
+
   research:
     needs: audit
-    # Scheduled ticks audit provenance; training is selected explicitly during convergence.
+    # Scheduled ticks validate the runtime; training is selected explicitly during convergence.
     if: needs.audit.result == 'success' && github.event_name != 'schedule'
     runs-on: ubuntu-latest
     env:

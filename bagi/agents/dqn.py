@@ -48,8 +48,11 @@ class ReplayBuffer:
     def add(self, transition: Transition) -> None:
         self._data.append(transition)
 
-    def sample(self, batch_size: int) -> list[Transition]:
-        return random.sample(self._data, batch_size)
+    def sample(self, batch_size: int, rng=random) -> list[Transition]:
+        return rng.sample(self._data, batch_size)
+
+    def transitions(self) -> tuple[Transition, ...]:
+        return tuple(self._data)
 
 
 class DQNAgent:
@@ -60,10 +63,14 @@ class DQNAgent:
         learning_rate: float = 3e-4,
         gamma: float = 0.99,
         device: str = "cpu",
+        *,
+        seed: int | None = None,
     ):
         self.device = torch.device(device)
         self.actions = actions
         self.gamma = gamma
+        self.rng = random if seed is None else random.Random(seed)
+        self.optimizer_updates = 0
         self.online = QNetwork(observation_shape, actions).to(self.device)
         self.target = QNetwork(observation_shape, actions).to(self.device)
         self.target.load_state_dict(self.online.state_dict())
@@ -71,8 +78,8 @@ class DQNAgent:
         self.buffer = ReplayBuffer()
 
     def select_action(self, observation: np.ndarray, epsilon: float) -> int:
-        if random.random() < epsilon:
-            return random.randrange(self.actions)
+        if self.rng.random() < epsilon:
+            return self.rng.randrange(self.actions)
         obs = torch.as_tensor(observation, device=self.device).unsqueeze(0)
         with torch.no_grad():
             return int(self.online(obs).argmax(dim=1).item())
@@ -80,7 +87,7 @@ class DQNAgent:
     def learn(self, batch_size: int = 64) -> float | None:
         if len(self.buffer) < batch_size:
             return None
-        batch = self.buffer.sample(batch_size)
+        batch = self.buffer.sample(batch_size, self.rng)
         observations = torch.as_tensor(
             np.stack([t.observation for t in batch]), device=self.device
         )
@@ -101,6 +108,7 @@ class DQNAgent:
         loss.backward()
         nn.utils.clip_grad_norm_(self.online.parameters(), 10.0)
         self.optimizer.step()
+        self.optimizer_updates += 1
         return float(loss.item())
 
     def sync_target(self) -> None:

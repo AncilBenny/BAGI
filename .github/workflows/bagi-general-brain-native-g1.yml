@@ -1,14 +1,7 @@
 name: BAGI G1 General Brain Workshop and XLand Native Adapters
 
+# Historical reproduction; do not trigger expired-artifact studies on core edits.
 on:
-  push:
-    branches: ["setup/initial-platform"]
-    paths:
-      - "bagi/agents/general_brain.py"
-      - "bagi/agents/public_evidence.py"
-      - "bagi/experiments/general_brain_native_g1.py"
-      - "tests/test_general_brain_native_g1.py"
-      - ".github/workflows/bagi-general-brain-native-g1.yml"
   workflow_dispatch:
 
 permissions:
@@ -18,12 +11,10 @@ permissions:
 jobs:
   two-real-worlds:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     env:
       JAX_PLATFORM_NAME: cpu
       XLA_FLAGS: "--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=1"
       OMP_NUM_THREADS: "1"
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,11 +23,23 @@ jobs:
         with:
           python-version: "3.11"
       - name: Restore frozen safe numeric original and physical TRAIN data
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p runs/g1_source runs/g1_original_teacher runs/g1_diverse_teacher
-          gh run download 39637067506 --repo AncilBenny/BAGI --name bagi-dagger-action-provenance --dir runs/g1_source
-          gh run download 40101923830 --repo AncilBenny/BAGI --name bagi-reuse33-complete-demo-bc --dir runs/g1_original_teacher
-          gh run download 40110945017 --repo AncilBenny/BAGI --name bagi-reuse36-diverse-physical-training --dir runs/g1_diverse_teacher
+          restore() {
+            local run="$1" name="$2" dest="$3" count
+            count=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run}/artifacts" \
+              --jq "[.artifacts[] | select(.name == \"${name}\" and .expired == false)] | length")
+            if [[ "$count" != "1" ]]; then
+              echo "::error::Historical G1 input unavailable or ambiguous: run $run, artifact $name. No native execution admitted."
+              exit 1
+            fi
+            gh run download "$run" --repo "$GITHUB_REPOSITORY" --name "$name" --dir "$dest"
+          }
+          restore 39637067506 bagi-dagger-action-provenance runs/g1_source
+          restore 40101923830 bagi-reuse33-complete-demo-bc runs/g1_original_teacher
+          restore 40110945017 bagi-reuse36-diverse-physical-training runs/g1_diverse_teacher
           test -f runs/g1_source/action_provenance_seed17.npz
           test -f runs/g1_source/action_provenance_seed29.npz
           test -f runs/g1_original_teacher/train_source_complete_demos.npz

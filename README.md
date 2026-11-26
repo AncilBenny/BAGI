@@ -17,8 +17,10 @@ pytest -q
 The entry point runs the existing synthetic public-evidence and skill-recovery
 contract through the common runtime. It is not a trained general agent and does
 not demonstrate native environment transfer. The runtime now supports versioned
-JSON skill-outcome checkpoints and frozen outcome-counter evaluation; it does not
-yet persist neural policy weights or world-model state.
+JSON skill-outcome checkpoints and frozen outcome-counter evaluation. The existing
+DQN can now act through the same runtime and save a CPU-only local bundle containing
+policy and target weights, optimizer, replay, RNG and runtime outcome counts.
+Native sequential transfer and world-model persistence are not established.
 
 ## One system, one roadmap
 

@@ -101,6 +101,34 @@ class GateTests(unittest.TestCase):
         self.assertIsNone(first_valid_artifact(items, SHA, lambda _: OLD))
         self.assertEqual(first_valid_artifact(items, SHA, lambda _: SHA)['id'], 1)
 
+    def test_runtime_contract_must_be_exact_and_explicit(self):
+        items = [{'name': 'bagi-runtime-contract-1', 'id': 1, 'expired': False}]
+        self.assertIsNone(first_valid_artifact(items, SHA, lambda _: SHA))
+        self.assertIsNone(first_valid_artifact(
+            items, SHA, lambda _: OLD, lambda *_: True, allow_runtime_contract=True
+        ))
+        self.assertEqual(first_valid_artifact(
+            items, SHA, lambda _: SHA, allow_runtime_contract=True
+        )['id'], 1)
+
+    def test_scheduled_engineering_evidence_is_not_science(self):
+        api = FakeAPI()
+        original = api.request
+
+        def request(endpoint, **kwargs):
+            if endpoint == 'actions/runs?per_page=100':
+                data = original(endpoint, **kwargs)
+                data['workflow_runs'][0]['event'] = 'schedule'
+                return data
+            if endpoint == 'actions/runs/123/artifacts':
+                return {'artifacts': [
+                    {'id': 45, 'name': 'bagi-runtime-contract-1', 'expired': False}
+                ]}
+            return original(endpoint, **kwargs)
+
+        api.request = request
+        self.assertEqual(inspect(api)['evidence_kind'], 'engineering_contract')
+
     def test_holds_when_ci_failed(self):
         with self.assertRaisesRegex(GateError, 'CI is not successful'):
             inspect(FakeAPI(ci='failure'))

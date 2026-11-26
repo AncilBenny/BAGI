@@ -78,7 +78,7 @@ def test_m1_and_legacy_share_ci_and_one_serialized_runner_without_daily_quota():
         ],
     }
     jobs = workflow["jobs"]
-    assert list(jobs) == ["audit", "research"]
+    assert list(jobs) == ["audit", "runtime_contract", "research"]
     assert jobs["research"]["needs"] == "audit"
     assert "timeout-minutes" not in jobs["research"]
     assert jobs["research"]["if"] == (

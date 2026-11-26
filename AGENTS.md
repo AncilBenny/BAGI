@@ -68,5 +68,5 @@ changes or bypassing milestone PR validation.
   milestone. Tie experiments to named runtime capability gaps and integrate useful
   results behind the shared public observation/action contract.
 - During convergence, preserve cron cadences but make the scheduled study runner
-  provenance-audit-only; explicitly dispatched, source-bound training remains
+  provenance-gated runtime validation rather than legacy fits; explicit source-bound training remains
   authorized. Coordinate both workers through the shared concurrency group.

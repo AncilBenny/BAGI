@@ -6,6 +6,7 @@ that changes when skill semantics, policy weights or observation contracts chang
 """
 from __future__ import annotations
 
+import copy
 import json
 import os
 import tempfile
@@ -51,13 +52,16 @@ class AgentRuntime:
         step: Callable[[Action], StepFeedback],
         *,
         learn: bool = True,
+        on_transition: Callable[[Any, StepFeedback], None] | None = None,
     ) -> EpisodeResult:
         """Execute only through the public adapter; never substitute teacher labels.
 
-        learn=False freezes outcome counters only. Evaluation must also use
-        independently frozen skill policies and a separate adapter/data split.
+        The optional learner sees only public before/after and actual action.
+        learn=False disables that hook and freezes outcome counters. Evaluation
+        must also freeze policy behavior and use separate adapter/data splits.
         """
         self.brain.reset(goal, initial_observation)
+        observation = initial_observation
         actions: list[Action] = []
         skills: list[str] = []
         reason = "exhausted"
@@ -67,12 +71,16 @@ class AgentRuntime:
             except NoPlanError:
                 reason = "no_plan"
                 break
+            before = copy.deepcopy(observation) if learn and on_transition else None
             feedback = step(decision.action)
             if not isinstance(feedback, StepFeedback):
                 raise TypeError("Adapter must return StepFeedback")
             self.brain.observe(
                 feedback.executed_action, feedback.observation, feedback.reward, learn=learn
             )
+            if learn and on_transition is not None:
+                on_transition(before, feedback)
+            observation = feedback.observation
             actions.append(feedback.executed_action)
             skills.append(decision.skill_id)
             if feedback.terminated or feedback.truncated:
@@ -114,7 +122,10 @@ class AgentRuntime:
 
     def load(self, path: Path) -> None:
         """Validate the entire checkpoint before changing any learned counts."""
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        self.restore_snapshot(json.loads(Path(path).read_text(encoding="utf-8")))
+
+    def restore_snapshot(self, data: Any) -> None:
+        """Restore validated outcome counts from a compatible local bundle."""
         if (
             not isinstance(data, dict)
             or type(data.get("schema")) is not int

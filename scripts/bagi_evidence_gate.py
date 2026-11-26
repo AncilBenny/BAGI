@@ -118,18 +118,21 @@ def ci_snapshot(api: Github, sha: str) -> dict:
 
 
 def first_valid_artifact(artifacts: list[dict], sha: str, zip_reader,
-                         compatible_source=None) -> dict | None:
+                         compatible_source=None, *, allow_runtime_contract=False) -> dict | None:
     """Require the artifact's *internal* commit marker to match current HEAD."""
     for artifact in artifacts:
         if artifact.get("expired") or not isinstance(artifact.get("id"), int):
             continue
         if not artifact.get("name", "").startswith(("bagi-research-", "bagi-")):
             continue
+        engineering = artifact["name"].startswith("bagi-runtime-contract-")
+        if engineering and not allow_runtime_contract:
+            continue
         try:
             marker = zip_reader(artifact["id"])
         except (GateError, OSError, ValueError, zipfile.BadZipFile):
             continue
-        if marker == sha or (compatible_source is not None
+        if marker == sha or (not engineering and compatible_source is not None
                              and compatible_source(marker, sha)):
             return artifact
     return None
@@ -291,16 +294,23 @@ def inspect(api: Github) -> dict:
         artifact = first_valid_artifact(
             items, sha, api.marker,
             partial(record_compatible_source, api=api, provenance=provenance),
+            allow_runtime_contract=(run.get("name") == "BAGI Research Loop"
+                                    and run.get("event") == "schedule"),
         )
         if artifact is not None:
             # Recheck source HEAD in case another writer moved the branch.
             again = api.request("branches/" + urllib.parse.quote(BRANCH, safe=""))["commit"]["sha"]
             if again != sha or ci_snapshot(api, sha) != snapshot:
                 raise GateError("research branch changed during preflight")
+            if artifact["name"].startswith("bagi-runtime-contract-"):
+                kind = "engineering_contract"
+            elif provenance["executed_source_sha"] == sha:
+                kind = "exact_execution"
+            else:
+                kind = "verified_report_only_descendant"
             return {"research_sha": sha,
                     "executed_source_sha": provenance["executed_source_sha"],
-                    "evidence_kind": ("exact_execution" if provenance["executed_source_sha"] == sha
-                                      else "verified_report_only_descendant"),
+                    "evidence_kind": kind,
                     "evidence_run_id": run["id"],
                     "evidence_artifact_id": artifact["id"],
                     "evidence_artifact_name": artifact["name"],

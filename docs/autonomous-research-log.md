@@ -2817,3 +2817,10 @@
 - Source research HEAD `0a151f574552e416ee203333ca68ebf8e1b1008b`, main `447f20aa4fe1ae8f52e6dd777d517856c514fca1`, GitHub synthetic merge `327bf5f06bcfa7c282ca87b936404641754eb68d`. Stage25 result and Stage26 preregistration retained unchanged.
 - Issue #4 defines one persistent runtime as the deliverable. Candidate reuses GeneralBrain, adds a public step lifecycle and versioned outcome-count checkpoint, and routes the existing synthetic smoke through it. Tests cover resume, frozen counts, termination, and action provenance. No trained policy persistence or native transfer is established.
 - Candidate retains existing schedule cadences, shares the concurrency group, makes scheduled study ticks audit-only and redirects the proposal prompt to the active roadmap. Admission still fails closed and now reports errors to stderr. No native actions or optimizer updates were executed to prepare this change. Candidate CI and reviewed main integration remain required; no cached artifact is a new result.
+
+
+## 2026-11-27 — convergence follow-up candidate (engineering)
+
+- Source `4b1234011d739d660ce8691e8f51c0ccc11b9d72`; exact working branch push CI #45885614399 and PR CI #45885622276 succeeded, PR provenance artifact ID15149925013. Historical G1 run #45885614473 failed before native execution (`no valid artifacts found to download`); all three frozen input run artifact inventories returned zero. Keep G1 manual-only and fail explicitly on missing inputs; no replacement frozen evidence claimed.
+- Candidate repairs the audit-only dead end: source-pinned scheduled runtime checks publish an explicitly typed engineering artifact; the gate requires exact source and scheduled runner identity for this kind. No new native evidence is implied. Existing explicit training paths remain.
+- Candidate connects the existing DQN learner to the common runtime's public executed-action hook and saves model, target, Adam, replay, RNG and outcome state in a local CPU bundle. New tests exercise real optimizer updates on synthetic arrays and frozen evaluation. They are engineering checks, not a preregistered native study. Full CI and review still required.
