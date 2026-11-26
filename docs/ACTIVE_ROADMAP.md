@@ -25,7 +25,11 @@ See issue #4 and preserve all historical preregistrations, results and artifacts
    model/target/optimizer/replay/RNG and outcome-counter checkpointing. Verify
    resume, explicit adapter compatibility and evaluation isolation in CI. Integrate
    recurrent and world-model state only as needed by a native curriculum.
-3. **Native sequential curriculum.** A native Workshop diagnostic now exercises
+3. **Native sequential curriculum — Cumulative Transfer Gate A.** See
+   [Gate A pilot](CUMULATIVE_TRANSFER_GATE_A.md). The next implementation is
+   recurrent episode replay across MiniGrid navigation and CartPole control;
+   no scientific conclusion before competent single-family controls and
+   independent confirmation. A native Workshop diagnostic now exercises
    the shared runtime and persists action traces; it is not a multi-task study.
    Reuse existing maintained implementations
    and adapters; choose two genuinely different task families. Compare carried
