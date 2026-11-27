@@ -139,13 +139,14 @@ def save_boundary(control, path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def load_boundary(path, digest):
+def load_boundary(path, digest, *, expected_source=None):
     path = Path(path)
     if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
         raise ValueError("Checkpoint digest mismatch")
     d = torch.load(path, map_location="cpu", weights_only=True)
+    expected = source_revision() if expected_source is None else expected_source
     if (d["interface"] != INTERFACE or d["versions"] != {p: version(p) for p in PACKAGES}
-            or d["source"] != source_revision()):
+            or d["source"] != expected or expected["tracked_worktree_dirty"] is not False):
         raise ValueError("Incompatible checkpoint provenance")
     counts = ("native_steps", "reset_cursor", "updates", "presentations",
               "model_updates", "episode_num")
