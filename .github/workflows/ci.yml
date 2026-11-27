@@ -24,7 +24,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e '.[dev]'
       - name: Install pinned maintained RL controls
-        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && (contains(github.event.head_commit.message, '[gate-a-competence]') || contains(github.event.head_commit.message, '[gate-a-navigation]') || contains(github.event.head_commit.message, '[gate-a-policy-audit]') || contains(github.event.head_commit.message, '[gate-a-observation-probe]') || contains(github.event.head_commit.message, '[gate-a-categorical]') || contains(github.event.head_commit.message, '[gate-a-shared-interface]') || contains(github.event.head_commit.message, '[gate-a-sequential-pilot]') || contains(github.event.head_commit.message, '[gate-a-plasticity]'))
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && (contains(github.event.head_commit.message, '[gate-a-competence]') || contains(github.event.head_commit.message, '[gate-a-navigation]') || contains(github.event.head_commit.message, '[gate-a-policy-audit]') || contains(github.event.head_commit.message, '[gate-a-observation-probe]') || contains(github.event.head_commit.message, '[gate-a-categorical]') || contains(github.event.head_commit.message, '[gate-a-shared-interface]') || contains(github.event.head_commit.message, '[gate-a-sequential-pilot]') || contains(github.event.head_commit.message, '[gate-a-plasticity]') || contains(github.event.head_commit.message, '[gate-a-critic]'))
         run: pip install -e '.[rl]'
       - name: Lint
         run: ruff check .
@@ -274,6 +274,54 @@ jobs:
         with:
           name: bagi-gate-a-plasticity-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/gate-a-plasticity
+          if-no-files-found: error
+      - uses: actions/download-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-critic]')
+        with:
+          name: bagi-gate-a-shared-interface-45947152776-1
+          run-id: 45947152776
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/gate-a-critic-A
+      - uses: actions/download-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-critic]')
+        with:
+          name: bagi-gate-a-sequential-pilot-45953275096-1
+          run-id: 45953275096
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/gate-a-critic-controls
+      - uses: actions/download-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-critic]')
+        with:
+          name: bagi-gate-a-plasticity-45968732146-1
+          run-id: 45968732146
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/gate-a-critic-adam
+      - name: Gate A critic adaptation
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-critic]')
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from bagi.experiments.gate_a_critic import run
+          root = Path(os.environ["RUNNER_TEMP"])
+          s = run(root / "gate-a-critic-A", root / "gate-a-critic-controls",
+                  root / "gate-a-critic-adam", root / "gate-a-critic")
+          assert s["source"]["commit"] == os.environ["GITHUB_SHA"]
+          assert s["source"]["tracked_worktree_dirty"] is False
+          assert s["scientific_pass"] is False
+          assert s["actual_training_actions"] == 98304
+          assert s["actual_optimizer_updates"] == 6144
+          assert s["actual_sample_presentations"] == 393216
+          assert s["value_probe_resets"] == 360
+          print({k: s[k] for k in ("actual_training_actions", "actual_evaluation_actions",
+                                  "actual_optimizer_updates", "actual_sample_presentations", "seconds")})
+          PY
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-critic]')
+        with:
+          name: bagi-gate-a-critic-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gate-a-critic
           if-no-files-found: error
       - name: Record tested PR merge provenance
         if: github.event_name == 'pull_request'
