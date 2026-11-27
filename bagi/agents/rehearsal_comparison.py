@@ -1,7 +1,6 @@
 """Explicit paired trace comparison and unique-action fork accounting."""
 from __future__ import annotations
 
-
 KEYS = ("A_greedy", "A_live", "B_greedy", "B_live")
 
 
