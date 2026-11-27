@@ -27,9 +27,9 @@ def test_graft_exact_component_scope(mode):
     before, source = snapshot(p), snapshot(donor)
     result = actor_graft(before, source, mode)
     for k, v in result.items():
-        if k.startswith("lstm_actor.") and mode in ("A_lstm", "A_path", "A_actor"):
-            assert torch.equal(v, source[k])
-        elif k.startswith("mlp_extractor.policy_net.") and mode in ("A_mlp", "A_path", "A_actor"):
+        if (k.startswith("lstm_actor.") and mode in ("A_lstm", "A_path", "A_actor")
+                or k.startswith("mlp_extractor.policy_net.")
+                and mode in ("A_mlp", "A_path", "A_actor")):
             assert torch.equal(v, source[k])
         elif k.startswith("action_net.") and mode in ("A_head", "A_path", "A_actor"):
             n = 9 if mode == "A_actor" else 7
@@ -60,7 +60,6 @@ def test_invalid_graft_does_not_mutate_recipient():
     p, donor = Policy(), Policy()
     before, source = snapshot(p), snapshot(donor)
     source["action_net.bias"][0] = float("nan")
-    with pytest.raises(ValueError, match="Incompatible"):
-        with temporary_actor(p, source, "A_head"):
-            pytest.fail("Invalid graft entered probe")
+    with pytest.raises(ValueError, match="Incompatible"), temporary_actor(p, source, "A_head"):
+        pytest.fail("Invalid graft entered probe")
     assert all(torch.equal(v, p.state_dict()[k]) for k, v in before.items())
