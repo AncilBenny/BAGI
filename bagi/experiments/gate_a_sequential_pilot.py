@@ -7,6 +7,7 @@ import json
 import time
 from contextlib import contextmanager
 from importlib.metadata import version
+from itertools import pairwise
 from pathlib import Path
 from statistics import mean, stdev
 
@@ -145,10 +146,10 @@ def frozen_exposure(control, base, cursor, budget):
 def auc(points, key):
     steps = [p["B_actions"] for p in points]
     values = [p[key]["success"] for p in points]
-    if steps[0] != 0 or any(a >= b for a, b in zip(steps, steps[1:])):
+    if steps[0] != 0 or any(a >= b for a, b in pairwise(steps)):
         raise ValueError("Invalid curve checkpoints")
-    return sum((b - a) * (u + v) / 2 for a, b, u, v in zip(
-        steps[:-1], steps[1:], values[:-1], values[1:], strict=True
+    return sum((b - a) * (u + v) / 2 for (a, b), (u, v) in zip(
+        pairwise(steps), pairwise(values), strict=True
     )) / steps[-1]
 
 
