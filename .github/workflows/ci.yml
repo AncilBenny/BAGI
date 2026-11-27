@@ -24,7 +24,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e '.[dev]'
       - name: Install pinned maintained RL controls
-        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && (contains(github.event.head_commit.message, '[gate-a-competence]') || contains(github.event.head_commit.message, '[gate-a-navigation]') || contains(github.event.head_commit.message, '[gate-a-policy-audit]') || contains(github.event.head_commit.message, '[gate-a-observation-probe]') || contains(github.event.head_commit.message, '[gate-a-categorical]') || contains(github.event.head_commit.message, '[gate-a-shared-interface]') || contains(github.event.head_commit.message, '[gate-a-sequential-pilot]') || contains(github.event.head_commit.message, '[gate-a-plasticity]') || contains(github.event.head_commit.message, '[gate-a-critic]') || contains(github.event.head_commit.message, '[gate-a-actor-probe]') || contains(github.event.head_commit.message, '[gate-a-rehearsal]') || contains(github.event.head_commit.message, '[gate-a-active-contract]'))
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && (contains(github.event.head_commit.message, '[gate-a-competence]') || contains(github.event.head_commit.message, '[gate-a-navigation]') || contains(github.event.head_commit.message, '[gate-a-policy-audit]') || contains(github.event.head_commit.message, '[gate-a-observation-probe]') || contains(github.event.head_commit.message, '[gate-a-categorical]') || contains(github.event.head_commit.message, '[gate-a-shared-interface]') || contains(github.event.head_commit.message, '[gate-a-sequential-pilot]') || contains(github.event.head_commit.message, '[gate-a-plasticity]') || contains(github.event.head_commit.message, '[gate-a-critic]') || contains(github.event.head_commit.message, '[gate-a-actor-probe]') || contains(github.event.head_commit.message, '[gate-a-rehearsal]') || contains(github.event.head_commit.message, '[gate-a-active-contract]') || contains(github.event.head_commit.message, '[gate-a-active-study]'))
         run: pip install -e '.[rl]'
       - name: Lint
         run: ruff check .
@@ -427,6 +427,56 @@ jobs:
         with:
           name: bagi-gate-a-rehearsal-INCOMPLETE-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/gate-a-rehearsal
+          if-no-files-found: warn
+      - uses: actions/download-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-active-study]')
+        with:
+          name: bagi-gate-a-shared-interface-45947152776-1
+          run-id: 45947152776
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/gate-a-active-A
+      - uses: actions/download-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-active-study]')
+        with:
+          name: bagi-gate-a-sequential-pilot-45953275096-1
+          run-id: 45953275096
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/gate-a-active-controls
+      - name: Gate A registered active-objective four-arm pilot
+        id: gate_a_active_study
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-active-study]')
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from bagi.experiments.gate_a_active_objective import run
+          root = Path(os.environ["RUNNER_TEMP"])
+          s = run(root / "gate-a-active-A", root / "gate-a-active-controls",
+                  root / "gate-a-active-study")
+          assert s["source"]["commit"] == os.environ["GITHUB_SHA"]
+          assert s["source"]["tracked_worktree_dirty"] is False
+          assert s["scientific_pass"] is False
+          assert s["actual_training_actions"] == 393216
+          assert s["actual_optimizer_updates"] == 24576
+          assert s["actual_sample_presentations"] == 1572864
+          assert s["actual_evaluation_episodes"] == 9600
+          print({k: s[k] for k in ("actual_training_actions", "actual_optimizer_updates",
+                                  "actual_sample_presentations", "actual_evaluation_episodes",
+                                  "actual_evaluation_actions", "seconds")})
+          print(s["comparison"]["qualifying_adam_conditions"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-active-study]')
+        with:
+          name: bagi-gate-a-active-study-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gate-a-active-study
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: failure() && steps.gate_a_active_study.outcome == 'failure'
+        with:
+          name: bagi-gate-a-active-study-INCOMPLETE-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gate-a-active-study
           if-no-files-found: warn
       - name: Record tested PR merge provenance
         if: github.event_name == 'pull_request'
