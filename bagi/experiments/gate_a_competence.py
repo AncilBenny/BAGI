@@ -129,12 +129,13 @@ class NativePPOEnv(gym.Wrapper):
 
 
 class PPOControl:
-    def __init__(self, domain, seed, seed_base):
+    def __init__(self, domain, seed, seed_base, *, observation_wrapper=None):
         from sb3_contrib import RecurrentPPO
 
         self.env = NativePPOEnv(domain, seed_base)
+        self.model_env = observation_wrapper(self.env) if observation_wrapper else self.env
         self.model = RecurrentPPO(
-            "MlpLstmPolicy", self.env, seed=seed, device="cpu", n_steps=BLOCK,
+            "MlpLstmPolicy", self.model_env, seed=seed, device="cpu", n_steps=BLOCK,
             batch_size=64, n_epochs=4, target_kl=None,
             policy_kwargs={"lstm_hidden_size": 64, "net_arch": {"pi": [32], "vf": [32]}},
             verbose=0,
