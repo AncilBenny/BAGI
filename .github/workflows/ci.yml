@@ -393,6 +393,7 @@ jobs:
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/gate-a-rehearsal-adam
       - name: Gate A native live rehearsal
+        id: gate_a_rehearsal
         if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-rehearsal]')
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
@@ -406,11 +407,12 @@ jobs:
           assert s["source"]["commit"] == os.environ["GITHUB_SHA"]
           assert s["source"]["tracked_worktree_dirty"] is False
           assert s["scientific_pass"] is False
-          assert s["actual_training_actions"] == 147456
+          assert s["actual_training_actions"] == 221184
           assert s["actual_A_training_actions"] == 24576
-          assert s["actual_B_training_actions"] == 122880
-          assert s["actual_optimizer_updates"] == 9216
-          assert s["actual_sample_presentations"] == 589824
+          assert s["actual_B_training_actions"] == 196608
+          assert s["actual_optimizer_updates"] == 13824
+          assert s["actual_sample_presentations"] == 884736
+          assert s["actual_evaluation_episodes"] == 7200
           print({k: s[k] for k in ("actual_training_actions", "actual_evaluation_actions",
                                   "actual_optimizer_updates", "actual_sample_presentations", "seconds")})
           PY
@@ -420,6 +422,12 @@ jobs:
           name: bagi-gate-a-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/gate-a-rehearsal
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: failure() && steps.gate_a_rehearsal.outcome == 'failure'
+        with:
+          name: bagi-gate-a-rehearsal-INCOMPLETE-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gate-a-rehearsal
+          if-no-files-found: warn
       - name: Record tested PR merge provenance
         if: github.event_name == 'pull_request'
         run: |
