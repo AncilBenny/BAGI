@@ -99,9 +99,9 @@ def run(output, *, seeds=SEEDS, arms=ARMS, budget=32768, interval=8192,
                 expected_updates = 0
                 for steps in range(0, budget + 1, interval):
                     point = {"train_actions": steps, **agent.evaluate(1, monitor)}
-                    if steps == 0 and verify_baseline:
-                        if trace_digest(point) != BASELINE[seed]:
-                            raise RuntimeError("Historical initial frozen trace mismatch")
+                    if (steps == 0 and verify_baseline
+                            and trace_digest(point) != BASELINE[seed]):
+                        raise RuntimeError("Historical initial frozen trace mismatch")
                     curve.append(point)
                     probes.write(json.dumps(dict(point, seed=seed, arm=arm)) + "\n")
                     probes.flush()
