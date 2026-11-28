@@ -24,6 +24,7 @@ from bagi.agents.torchrl_recurrent import (
     INTERFACE,
     LEGAL,
     WIDTH,
+    PersistentFeedForwardDQN,
     PersistentRecurrentDQN,
 )
 from bagi.experiments.cumulative_transfer import GOAL, TASKS, EndSensor
@@ -33,6 +34,7 @@ from bagi.runtime import AgentRuntime, StepFeedback
 from bagi.workshop_runtime import source_revision
 
 ARMS = ("torchrl", "internal_gru")
+SUPPORTED_ARMS = (*ARMS, "feedforward")
 SEEDS = (151, 157, 163)
 CAPACITY = 256
 
@@ -45,12 +47,13 @@ class NativeReplayRuntime:
     """A single reusable public-action runtime; physical success stays evaluator-only."""
 
     def __init__(self, arm, seed):
-        if arm not in ARMS:
+        if arm not in SUPPORTED_ARMS:
             raise ValueError("Unknown control")
         self.arm = arm
         self.learner = (
             PersistentRecurrentDQN(seed, capacity=CAPACITY)
-            if arm == "torchrl" else RecurrentReplay(WIDTH, ACTIONS, seed=seed)
+            if arm == "torchrl" else PersistentFeedForwardDQN(seed, capacity=CAPACITY)
+            if arm == "feedforward" else RecurrentReplay(WIDTH, ACTIONS, seed=seed)
         )
         self.domain, self.epsilon = 0, 0.0
         skill = Skill("control", frozenset(), GOAL.required, self.choose, max_actions=HORIZON)
@@ -59,7 +62,7 @@ class NativeReplayRuntime:
         )
 
     def choose(self, observation, facts):
-        arg = self.domain if self.arm == "torchrl" else LEGAL[self.domain]
+        arg = self.domain if self.arm != "internal_gru" else LEGAL[self.domain]
         return self.learner.act(observation, arg, epsilon=self.epsilon)
 
     def episode(self, domain, seed, *, learn, limit=HORIZON):
@@ -100,7 +103,7 @@ class NativeReplayRuntime:
                 raise RuntimeError("Native trace mismatch")
             self.learner.begin_episode()
             if learn:
-                if self.arm == "torchrl":
+                if self.arm != "internal_gru":
                     self.learner.remember(
                         domain, np.stack(observations), actions, rewards, terms, truncs,
                     )
@@ -161,10 +164,10 @@ class NativeReplayRuntime:
     def checkpoint(self, path, *, restore):
         path.mkdir(exist_ok=False)
         self.runtime.save(path / "runtime.json")
-        if self.arm == "torchrl":
+        if self.arm != "internal_gru":
             self.learner.save(path / "learner")
             if restore:
-                self.learner = PersistentRecurrentDQN.load(path / "learner")
+                self.learner = type(self.learner).load(path / "learner")
         else:
             save_checkpoint(self.learner, path / "learner.pt", interface=INTERFACE)
             if restore:
@@ -187,9 +190,10 @@ class NativeReplayRuntime:
 
 
 def run(output, *, seeds=SEEDS, budget=32768, interval=8192, block=256,
-        updates_per_block=8, eval_count=40, arms=ARMS):
+        updates_per_block=8, eval_count=40, arms=ARMS, domains=(0, 1)):
     if (not seeds or len(set(seeds)) != len(seeds) or not arms
-            or len(set(arms)) != len(arms) or not set(arms) <= set(ARMS)
+            or len(set(arms)) != len(arms) or not set(arms) <= set(SUPPORTED_ARMS)
+            or not domains or len(set(domains)) != len(domains) or not set(domains) <= {0, 1}
             or min(budget, interval, block, updates_per_block, eval_count) < 1
             or budget % interval or interval % block or budget % (2 * interval)
             or budget >= 100000 or eval_count >= 100000):
@@ -206,7 +210,7 @@ def run(output, *, seeds=SEEDS, budget=32768, interval=8192, block=256,
                      ("torch", "torchrl", "tensordict", "gymnasium", "minigrid", "numpy")},
         "config": {"seeds": seeds, "budget": budget, "interval": interval, "block": block,
                    "updates_per_block": updates_per_block, "eval_count": eval_count,
-                   "arms": arms, "tasks": TASKS, "capacity_per_domain": CAPACITY,
+                   "arms": arms, "domains": domains, "tasks": TASKS, "capacity_per_domain": CAPACITY,
                    "epsilon": 0.2, "episodes_per_update": 4, "horizon": HORIZON},
         "kind": "gate_a_replay_competence", "scientific_pass": False,
     }
@@ -215,7 +219,7 @@ def run(output, *, seeds=SEEDS, budget=32768, interval=8192, block=256,
     results = []
     with ((output / "training.jsonl").open("x") as trace,
           (output / "evaluation.jsonl").open("x") as probes):
-        for domain in (0, 1):
+        for domain in domains:
             for index, seed in enumerate(seeds):
                 base = 85_000_000 + domain * 10_000_000 + index * 1_000_000
                 monitor = range(base + 500_000, base + 500_000 + eval_count)
@@ -265,7 +269,7 @@ def run(output, *, seeds=SEEDS, budget=32768, interval=8192, block=256,
                         "training_actions", "optimizer_updates", "replay_presentations",
                     )}), flush=True)
     comparison = []
-    for domain in (0, 1):
+    for domain in domains:
         for arm in arms:
             group = [r for r in results if r["domain"] == domain and r["arm"] == arm]
             comparison.append({

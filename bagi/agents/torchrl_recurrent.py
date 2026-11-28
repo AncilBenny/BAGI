@@ -71,6 +71,9 @@ def transition_batch(row, domain):
 class PersistentRecurrentDQN:
     """One policy/optimizer/target, separately retained whole episodes per domain."""
 
+    network_type = EpisodeValues
+    checkpoint_format = FORMAT
+
     def __init__(self, seed, *, capacity=256, hidden=64):
         if type(seed) is not int or type(capacity) is not int or capacity < 1:
             raise ValueError("Invalid replay configuration")
@@ -80,7 +83,7 @@ class PersistentRecurrentDQN:
         self.rng = random.Random(seed)
         with torch.random.fork_rng(devices=[]):
             torch.manual_seed(seed)
-            self.net = EpisodeValues(hidden)
+            self.net = self.network_type(hidden)
         self.policy = TensorDictSequential(
             TensorDictModule(
                 self.net, ["observation", "first", "shifted", "legal"], ["action_value"],
@@ -198,7 +201,7 @@ class PersistentRecurrentDQN:
                 sub.mkdir()
                 self.replay[i].dumps(sub)
         torch.save(
-            {"format": FORMAT, "interface": INTERFACE,
+            {"format": self.checkpoint_format, "interface": INTERFACE,
              "versions": {p: version(p) for p in PACKAGES},
              "seed": self.seed, "capacity": self.capacity, "hidden": self.hidden_size,
              "loss": self.loss.state_dict(), "optimizer": self.optimizer.state_dict(),
@@ -212,7 +215,7 @@ class PersistentRecurrentDQN:
     def load(cls, path):
         path = Path(path)
         d = torch.load(path / "state.pt", map_location="cpu", weights_only=True)
-        if (d["format"] != FORMAT or d["interface"] != INTERFACE
+        if (d["format"] != cls.checkpoint_format or d["interface"] != INTERFACE
                 or d["versions"] != {p: version(p) for p in PACKAGES}):
             raise ValueError("Incompatible recurrent checkpoint")
         result = cls(d["seed"], capacity=d["capacity"], hidden=d["hidden"])
@@ -230,3 +233,22 @@ class PersistentRecurrentDQN:
         if result.episodes < sum(map(len, result.replay)):
             raise ValueError("Replay exceeds lifetime episode count")
         return result
+
+
+class FeedForwardValues(nn.Module):
+    """Independent public observations; same upstream masked Double DQN loss."""
+
+    def __init__(self, hidden):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(WIDTH, hidden), nn.ReLU(),
+                                 nn.Linear(hidden, ACTIONS))
+
+    def forward(self, observation, first, shifted, legal):
+        return self.net(observation).masked_fill(~legal, torch.finfo(observation.dtype).min)
+
+
+class PersistentFeedForwardDQN(PersistentRecurrentDQN):
+    """Matched episode replay and optimizer, without recurrent representation."""
+
+    network_type = FeedForwardValues
+    checkpoint_format = "bagi-torchrl-feedforward-episode-replay-v1"
