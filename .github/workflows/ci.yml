@@ -39,7 +39,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-replay-contract]')
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          pytest -q tests/test_gate_a_torchrl_contract.py tests/test_gate_a_torchrl_persistence.py tests/test_gate_a_replay_competence.py
+          pytest -q tests/test_gate_a_torchrl_contract.py tests/test_gate_a_torchrl_persistence.py tests/test_gate_a_replay_competence.py tests/test_gate_a_cartpole_acquisition.py
       - name: Registered recurrent replay native competence
         if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-replay-contract]') && contains(github.event.head_commit.message, '[gate-a-replay-competence]')
         run: |
@@ -64,6 +64,31 @@ jobs:
         with:
           name: bagi-gate-a-replay-competence-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/gate-a-replay-competence
+          if-no-files-found: error
+      - name: Registered CartPole replay acquisition probe
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-replay-contract]') && contains(github.event.head_commit.message, '[gate-a-acquisition]')
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          python -m bagi.experiments.gate_a_cartpole_acquisition --output "$RUNNER_TEMP/gate-a-acquisition"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          s = json.loads((Path(os.environ["RUNNER_TEMP"]) / "gate-a-acquisition" / "summary.json").read_text())
+          assert s["source"]["commit"] == os.environ["GITHUB_SHA"]
+          assert s["source"]["tracked_worktree_dirty"] is False
+          assert s["scientific_pass"] is False
+          assert s["actual_training_actions"] == 294912
+          assert s["actual_optimizer_updates"] == 52224
+          assert s["actual_evaluation_episodes"] == 1800
+          print({k: s[k] for k in ("actual_training_actions", "actual_optimizer_updates",
+                                   "actual_replay_presentations", "actual_evaluation_actions",
+                                   "seconds", "qualifying_arms")})
+          PY
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-replay-contract]') && contains(github.event.head_commit.message, '[gate-a-acquisition]')
+        with:
+          name: bagi-gate-a-acquisition-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gate-a-acquisition
           if-no-files-found: error
       - name: One-off Gate A native feasibility pilot
         if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-pilot]')
