@@ -39,7 +39,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-replay-contract]')
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          pytest -q tests/test_gate_a_torchrl_contract.py
+          pytest -q tests/test_gate_a_torchrl_contract.py tests/test_gate_a_torchrl_persistence.py
       - name: One-off Gate A native feasibility pilot
         if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-pilot]')
         run: |
