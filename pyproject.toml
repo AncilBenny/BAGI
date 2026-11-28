@@ -21,6 +21,7 @@ dependencies = [
 dev = ["pytest>=8.0", "ruff>=0.6"]
 # Optional; default CI and the lightweight environment do not install these.
 rl = ["stable-baselines3==2.9.0", "sb3-contrib==2.9.0"]
+recurrent-replay = ["torchrl==0.15.0", "tensordict==0.15.6"]
 
 [tool.setuptools.packages.find]
 include = ["bagi*"]

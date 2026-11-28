@@ -26,10 +26,20 @@ jobs:
       - name: Install pinned maintained RL controls
         if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && (contains(github.event.head_commit.message, '[gate-a-competence]') || contains(github.event.head_commit.message, '[gate-a-navigation]') || contains(github.event.head_commit.message, '[gate-a-policy-audit]') || contains(github.event.head_commit.message, '[gate-a-observation-probe]') || contains(github.event.head_commit.message, '[gate-a-categorical]') || contains(github.event.head_commit.message, '[gate-a-shared-interface]') || contains(github.event.head_commit.message, '[gate-a-sequential-pilot]') || contains(github.event.head_commit.message, '[gate-a-plasticity]') || contains(github.event.head_commit.message, '[gate-a-critic]') || contains(github.event.head_commit.message, '[gate-a-actor-probe]') || contains(github.event.head_commit.message, '[gate-a-rehearsal]') || contains(github.event.head_commit.message, '[gate-a-active-contract]') || contains(github.event.head_commit.message, '[gate-a-active-study]'))
         run: pip install -e '.[rl]'
+      - name: Install pinned recurrent replay compatibility controls
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-replay-contract]')
+        run: |
+          pip install -e '.[recurrent-replay]'
+          python -c 'import torchrl, tensordict; from importlib.metadata import version; print({p: version(p) for p in ("torch", "torchrl", "tensordict")})'
       - name: Lint
         run: ruff check .
       - name: Tests
         run: pytest -q
+      - name: Require recurrent replay compatibility tests
+        if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-replay-contract]')
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          pytest -q tests/test_gate_a_torchrl_contract.py
       - name: One-off Gate A native feasibility pilot
         if: github.event_name == 'push' && github.ref == 'refs/heads/setup/cumulative-transfer-a' && contains(github.event.head_commit.message, '[gate-a-pilot]')
         run: |
