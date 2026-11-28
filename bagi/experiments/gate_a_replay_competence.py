@@ -8,6 +8,7 @@ import shutil
 import time
 from collections import deque
 from importlib.metadata import version
+from itertools import pairwise
 from pathlib import Path
 from statistics import mean, stdev
 
@@ -244,7 +245,7 @@ def run(output, *, seeds=SEEDS, budget=32768, interval=8192, block=256,
                     if actual[:2] != (budget, budget // block * updates_per_block):
                         raise RuntimeError("Incorrect lifetime counters")
                     values = [point["success"] for point in curve]
-                    auc = sum((a + b) / 2 for a, b in zip(values[:-1], values[1:])) / (
+                    auc = sum((a + b) / 2 for a, b in pairwise(values)) / (
                         len(values) - 1
                     )
                     final = agent.checkpoint(output / f"final-{domain}-{seed}-{arm}", restore=False)

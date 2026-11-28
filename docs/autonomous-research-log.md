@@ -23,3 +23,7 @@
 
 - 42bc45cb0f936ddee5f47fbb0b3e98f63ac4bfee / CI 46140020920 passed Ruff, 966 passed/25 skipped/47 subtests, dedicated 9/9; Torch 2.15.0/TorchRL 0.15.0/TensorDict 0.15.6. Includes explicit recurrent target oracle and exact wrapped-buffer checkpoint continuation, short native replay smoke. No native competence claim.
 - Register and implement native single-family competence via existing AgentRuntime, matched TorchRL and internal GRU controls; see docs/GATE_A_REPLAY_COMPETENCE.md. New exploratory streams, no held-out data. Actual counts and digests to be audited only after run; local optional dependencies unavailable. No PR #1 change, independent review absent. Existing schedule preserved.
+
+## 2026-11-28 — competence runner lint repair
+
+- 3272e547c5210d10f41838334b8557253b7a9c36 / CI 46140372278 / job 140964739550: dependencies installed, Ruff RUF007 at AUC calculation; pytest and native study skipped. No experiment actions or artifacts. Replace adjacent-slice zip with itertools.pairwise (identical ordered adjacent pairs); preserve registered settings, study marker and provenance checks. Independent CI required; no schedule or integration changes.
