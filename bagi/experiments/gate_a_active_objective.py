@@ -13,7 +13,12 @@ from bagi.agents.rehearsal_schedule import next_reset_seed
 from bagi.experiments.cumulative_transfer import TASKS
 from bagi.experiments.gate_a_plasticity import BASELINE_SOURCE, BASELINE_SUMMARY, read_summary
 from bagi.experiments.gate_a_sequential_pilot import DIGESTS, SOURCE, SUMMARY_SHA, auc, evaluate
-from bagi.experiments.gate_a_shared_interface import INTERFACE, check_boundary, load_boundary, save_boundary
+from bagi.experiments.gate_a_shared_interface import (
+    INTERFACE,
+    check_boundary,
+    load_boundary,
+    save_boundary,
+)
 from bagi.workshop_runtime import source_revision
 
 ARMS = ("joint_carry", "joint_reset", "active_carry", "active_reset")
